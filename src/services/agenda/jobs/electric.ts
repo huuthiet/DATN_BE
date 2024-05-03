@@ -133,10 +133,12 @@ export default (agenda) => {
   (async function() {
     await agenda.start();
     // mỗi tiếng chạy 1 lần
-    await agenda.every("0 * * * *", "backupDataPerHour");
+    // await agenda.every("0 * * * *", "backupDataPerHour");
+    
     // await agenda.schedule('in 2 minutes', 'SaveHistoryEnergy');
     // cuối mỗi tháng, lúc 0h00 của ngày đầu tiên tháng tiếp theo
-    await agenda.every("0 0 1 * *", "SaveHistoryEnergy");
+    // await agenda.every("0 0 1 * *", "SaveHistoryEnergy");
+
     // await agenda.every('* * * * *', 'SaveHistoryEnergy');
   })();
 };
