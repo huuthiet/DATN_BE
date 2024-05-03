@@ -1,0 +1,25 @@
+{
+   "compilerOptions": {
+      "lib": [
+         "es7"
+      ],
+      "target": "es2016",
+      "module": "commonjs",
+      "moduleResolution": "node",
+      "outDir": "./build",
+      "emitDecoratorMetadata": true,
+      "experimentalDecorators": true,
+      "sourceMap": true,
+      "baseUrl": "src",
+      "rootDir": "src",
+      "paths": {
+         "*": [
+            "*"
+         ]
+      }
+   },
+   "include": [
+      "src/**/*",
+      "src/locales/*.json"
+   ]
+}
