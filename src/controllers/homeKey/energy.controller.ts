@@ -9,9 +9,11 @@ import "jspdf-autotable";
 import { PDFDocument, rgb } from 'pdf-lib';
 import * as PdfPrinter from "pdfmake";
 import moment = require("moment");
-import { json } from "body-parser";
+import { json, raw } from "body-parser";
 var nodemailer = require("nodemailer");
 import * as lodash from "lodash";
+import { start } from "repl";
+import room from "services/agenda/jobs/room";
 
 const width = 595;
 const height = 400;
@@ -3697,6 +3699,8 @@ export default class EnergyController {
       next(e);
     }
   }
+  
+  
 
   static async testFunction(
     req: Request,
@@ -3704,7 +3708,45 @@ export default class EnergyController {
     next: NextFunction
   ): Promise<any> {
     try {
-      
+      // let date = moment('2024-05-25', 'YYYY-MM'); // Lấy ngày đầu tiên của tháng (ví dụ: tháng 5 năm 2024)
+      // console.log({date});
+      // let lastDayOfMonth = date.endOf('month').format('YYYY-MM-DD');
+      // let lastDayOfMonthX = date.endOf('month').format('YYYY-MM-DD HH:mm:ss');
+      // let lastDayOfMonthY = date.startOf('month').format('YYYY-MM-DD HH:mm:ss');
+      // let lastDayOfMonthZ = date.endOf('month').format("YYYY-MM-DDTHH:mm:ssZ");
+      // console.log({lastDayOfMonth});
+      // console.log({lastDayOfMonthX});
+      // console.log({lastDayOfMonthY});
+      // console.log({lastDayOfMonthZ});
+      // console.log(moment(lastDayOfMonthY));
+
+      const a = [{
+          "ts": "2024-04-03T00:00:00",
+          "value": 152.779998779297
+        },
+        {
+          "ts": "2024-04-02T00:00:00",
+          "value": 152.220001220703
+        },
+        {
+          "ts": "2024-04-07T00:00:00",
+          "value": 152.050003051758
+        },
+        {
+          "ts": "2024-04-09T00:00:00",
+          "value": 151.729995727539
+        },]
+
+      const b = await fillNullForDataElectricEmptyDayToDay(
+        a,
+        moment("2024-03-28T00:00:00"),
+        moment("2024-04-09T23:59:59")
+      );
+
+      console.log({b});
+
+      // const a = moment().subtract(1, "days").set({ hour: 23, minute: 59, second: 59 });
+      // console.log({a});
       // console.log(moment());
       // console.log(moment().date());
       // console.log(moment().hour());
@@ -3836,78 +3878,1114 @@ export default class EnergyController {
       // console.log(moment().add(1, "days"))
       // console.log(moment().add(1, "days").startOf("days"))
 
-      const {
-        room: roomModel,
-        floor: floorModel,
-        motelRoom: motelRoomModel,
-        job: jobModel,
-        user: userModel,
-        order: orderModel,
-      } = global.mongoModel;
+      // const {
+      //   room: roomModel,
+      //   floor: floorModel,
+      //   motelRoom: motelRoomModel,
+      //   job: jobModel,
+      //   user: userModel,
+      //   order: orderModel,
+      // } = global.mongoModel;
 
-      let floorData = await floorModel
-                .findOne({_id: "663336dc2c01a43510a32ea2"})
-                .populate("rooms")
-                .lean()
-                .exec();
-              const roomGroup = lodash.groupBy(floorData.rooms, (room) => {
-                return room.status;
-              });
-              if (roomGroup["available"]){
-                console.log("available: ", roomGroup["available"].length);
-              }
+      // // const newRoom = await roomModel.create()
+
+      // // room: 663336db2c01a43510a32e9f
+      // const dataUpdate = await roomModel.findOneAndUpdate(
+      //   {_id: "663336db2c01a43510a32e9f"},
+      //   {
+      //     $addToSet: { 
+      //       // listIdElectricMetter:  { "timestamp": new Date("2024-05-02T13:00:00"), "value": "id_metter_test_1" },
+      //       listIdElectricMetter: { "timestamp": "2024-05-04T12:00:00", "value": "55497245-4cc8-415c-9794-118715dc08f9" }
+      //     },
+      //     // "idTest": [
+      //     //   { "timestamp": "2024-05-01T12:00:00", "value": "55497245-4cc8-415c-9794-118715dc08f9" },
+      //     //   { "timestamp": "2024-05-02T13:00:00", "value": "id_metter_test_1" },
+      //       // { "timestamp": "2024-05-03T14:00:00", "value": "id_metter_test_2" },
+      //       // { "timestamp": "2024-05-04T14:00:00", "value": "id_metter_test_3" },
+      //       // { "timestamp": "2024-05-05T14:00:00", "value": "id_metter_test_4" },
+      //       // { "timestamp": "2024-05-06T14:00:00", "value": "id_metter_test_5" },
+      //     // ]
+      //   },
+      //   {new: true}
+      // );
+
+      // console.log({dataUpdate});
+      // const data = await roomModel.findOne({_id: "663336db2c01a43510a32e9f"});
+      // console.log({data});
+      // // console.log(data.listIdElectricMetter);
+      // const listId: DataIdMetterType[] = data.listIdElectricMetter;
+
+      // const start = moment('2024-05-08T10:00:00');
+      // const end = moment('2024-05-09T11:00:00');
+
+      // console.log({listId});
+
+      // const result = await checkRangeTimeForIdMetter(listId, start, end);
+      // console.log({result});
+
+      // console.log(moment());
+      // console.log(typeof(moment().format()));
+
+
+      
+    
+      
+      // let floorData = await floorModel
+      //           .findOne({_id: "663336dc2c01a43510a32ea2"})
+      //           .populate("rooms")
+      //           .lean()
+      //           .exec();
+      //         const roomGroup = lodash.groupBy(floorData.rooms, (room) => {
+      //           return room.status;
+      //         });
+      //         if (roomGroup["available"]){
+      //           console.log("available: ", roomGroup["available"].length);
+      //         }
               
-              if (roomGroup["soonExpireContract"]){
-                console.log("soonExpireContract: ", roomGroup["soonExpireContract"].length);
-              }
-              if (roomGroup["rented"]){
-                console.log("rented: ", roomGroup["rented"].length);
-              }
-              if (roomGroup["deposited"]){
-                console.log("deposited: ", roomGroup["deposited"].length);
-              }
+      //         if (roomGroup["soonExpireContract"]){
+      //           console.log("soonExpireContract: ", roomGroup["soonExpireContract"].length);
+      //         }
+      //         if (roomGroup["rented"]){
+      //           console.log("rented: ", roomGroup["rented"].length);
+      //         }
+      //         if (roomGroup["deposited"]){
+      //           console.log("deposited: ", roomGroup["deposited"].length);
+      //         }
 
   
-              console.log("--------------------");
-      let floorData2 = await floorModel
-                .findOne({_id: "663336dc2c01a43510a32ea7"})
-                .populate("rooms")
-                .lean()
-                .exec();
-              const roomGroup2 = lodash.groupBy(floorData2.rooms, (room) => {
-                return room.status;
-              });
-              if (roomGroup2["available"]){
-                console.log("available: ", roomGroup2["available"].length);
-              }
+      //         console.log("--------------------");
+      // let floorData2 = await floorModel
+      //           .findOne({_id: "663336dc2c01a43510a32ea7"})
+      //           .populate("rooms")
+      //           .lean()
+      //           .exec();
+      //         const roomGroup2 = lodash.groupBy(floorData2.rooms, (room) => {
+      //           return room.status;
+      //         });
+      //         if (roomGroup2["available"]){
+      //           console.log("available: ", roomGroup2["available"].length);
+      //         }
               
-              if (roomGroup2["soonExpireContract"]){
-                console.log("soonExpireContract: ", roomGroup2["soonExpireContract"].length);
-              }
-              if (roomGroup2["rented"]){
-                console.log("rented: ", roomGroup2["rented"].length);
-              }
-              if (roomGroup2["deposited"]){
-                console.log("deposited: ", roomGroup2["deposited"].length);
-              }
+      //         if (roomGroup2["soonExpireContract"]){
+      //           console.log("soonExpireContract: ", roomGroup2["soonExpireContract"].length);
+      //         }
+      //         if (roomGroup2["rented"]){
+      //           console.log("rented: ", roomGroup2["rented"].length);
+      //         }
+      //         if (roomGroup2["deposited"]){
+      //           console.log("deposited: ", roomGroup2["deposited"].length);
+      //         }
 
-              let motelRoomData = await motelRoomModel
-              .findOne({ floors: floorData._id })
-              .populate("floors")
-              .lean()
-              .exec();
+      //         let motelRoomData = await motelRoomModel
+      //         .findOne({ floors: floorData._id })
+      //         .populate("floors")
+      //         .lean()
+      //         .exec();
   
-              console.log("--------------------");
-              console.log("available: ", lodash.sumBy(motelRoomData.floors, "availableRoom"))
-              console.log("rentedRoom: ", lodash.sumBy(motelRoomData.floors, "rentedRoom"))
-              console.log("depositedRoom: ", lodash.sumBy(motelRoomData.floors, "depositedRoom"))
-              console.log("soonExpireContractRoom: ", lodash.sumBy(motelRoomData.floors, "soonExpireContractRoom"))
+      //         console.log("--------------------");
+      //         console.log("available: ", lodash.sumBy(motelRoomData.floors, "availableRoom"))
+      //         console.log("rentedRoom: ", lodash.sumBy(motelRoomData.floors, "rentedRoom"))
+      //         console.log("depositedRoom: ", lodash.sumBy(motelRoomData.floors, "depositedRoom"))
+      //         console.log("soonExpireContractRoom: ", lodash.sumBy(motelRoomData.floors, "soonExpireContractRoom"))
+
+      // "https://api.tbedev.cloud/api/telemetry/metrics/values?device_id=55497245-4cc8-415c-9794-118715dc08f9&key=Total%20kWh&start=2024-04-01T00%3A00%3A00&end=2024-04-30T23%3A59%3A59&interval_type=DAY&interval=1&agg_type=MAX&limit=30"
+
+      // "Current",
+      // "Frequency",
+      //  "Power",
+      // "Total kWh",
+      // "Voltage"          
+      // SECOND, MINUTE, HOUR, DAY, WEEK, MONTH
+        //SUM, AVG, MIN, MAX, COUNT  
+
+      
+      // const rs = await EnergyController.getElectricPerHour(
+      //   '2024-05-03', 
+      //   '2024-05-03',
+      //   '55497245-4cc8-415c-9794-118715dc08f9',
+      //   'Total kWh',
+      // );
+      // console.log({rs});
+
+      // console.log(moment().format());\
+      // const a = moment();
+      // console.log({a});
+      // const b = moment(a);
+      // console.log({b});
+
+      // let rawDataElectricInDay = [
+      //   {
+      //     "ts": "2024-04-03T23:00:00",
+      //     "value": 152.779998779297
+      //   },
+      //   {
+      //     "ts": "2024-04-03T21:00:00",
+      //     "value": 152.220001220703
+      //   },
+      //   {
+      //     "ts": "2024-04-03T20:00:00",
+      //     "value": 152.050003051758
+      //   },
+      //   {
+      //     "ts": "2024-04-03T18:00:00",
+      //     "value": 151.729995727539
+      //   },
+      //   {
+      //     "ts": "2024-04-03T17:00:00",
+      //     "value": 151.619995117188
+      //   },
+      //   {
+      //     "ts": "2024-04-03T16:00:00",
+      //     "value": 151.509994506836
+      //   },
+      //   {
+      //     "ts": "2024-04-03T14:00:00",
+      //     "value": 151.429992675781
+      //   },
+      //   {
+      //     "ts": "2024-04-03T13:00:00",
+      //     "value": 151.399993896484
+      //   },]
+
+      //   rawDataElectricInDay = rawDataElectricInDay.reverse();
+
+      //   const kWhDataWithTime = [];
+
+      //   let lastValue = 150;
+
+      // for (let i = 0; i < rawDataElectricInDay.length; i++) {
+      //   let result = rawDataElectricInDay[i].value - lastValue;
+      //   kWhDataWithTime.push({"ts": rawDataElectricInDay[i].ts, "value": result});
+      //   lastValue = rawDataElectricInDay[i].value;
+      // }
+
+      // let arr1 = [];
+      // let arr2 = [4, 5, 6];
+      // let arr3 = [7, 8, 9];
+
+      // let mergedArray = arr1.concat(arr2, arr3);
+      // console.log({mergedArray}); // Kết quả: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+      // const a = [
+      //   {
+      //     "ts": "2024-04-03T23:00:00",
+      //     "value": 152.779998779297
+      //   },
+      //   {
+      //     "ts": "2024-04-03T22:00:00",
+      //     "value": 152.529998779297
+      //   },
+      //   {
+      //     "ts": "2024-04-03T21:00:00",
+      //     "value": 152.220001220703
+      //   },
+        
+      //   {
+      //     "ts": "2024-04-03T19:00:00",
+      //     "value": 151.839996337891
+      //   },
+      //   {
+      //     "ts": "2024-04-03T18:00:00",
+      //     "value": 151.729995727539
+      //   },
+        
+      //   {
+      //     "ts": "2024-04-03T16:00:00",
+      //     "value": 151.509994506836
+      //   },
+      //   {
+      //     "ts": "2024-04-03T14:00:00",
+      //     "value": 151.429992675781
+      //   },
+      //   {
+      //     "ts": "2024-04-03T15:00:00",
+      //     "value": 151.459991455078
+      //   },
+        
+      //   {
+      //     "ts": "2024-04-03T13:00:00",
+      //     "value": 151.399993896484
+      //   },]
+
+      //   // a.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+
+      //   const result = await fillNullForDataElectricEmptyInOneDay(a);
+
+      // let result = 5 + null;
+      // console.log(result); // Kết quả: 5 + 0 = 5
+
+      // let array = [
+      //   {
+      //     "ts": "2024-04-03T20:00:00",
+      //     "value": 6
+      //   },
+      //   {
+      //     "ts": "2024-04-03T21:00:00",
+      //     "value": null
+      //   },
+      //   {
+      //     "ts": "2024-04-03T23:00:00",
+      //     "value": 5
+      //   },
+      //   {
+      //     "ts": "2024-04-03T22:00:00",
+      //     "value": null
+      //   },
+      //   // Các mục khác
+      // ];
+      
+      // let sum = array.reduce((accumulator, currentValue) => {
+      //   if (currentValue.value !== null) {
+      //     return accumulator + currentValue.value;
+      //   } else {
+      //     return accumulator;
+      //   }
+      // }, 0);
+
+      // console.log({sum});
+
+      // let tsArray = array.map(item => item.ts);
+      // let valueArray = array.map(item => item.value);
+      // console.log({tsArray});
+      // console.log({valueArray});
+
+
+        
+
+      
               
       const resData = "Success";
       return HttpResponse.returnSuccessResponse(res, resData);
     } catch (error) {
       console.log({error});
       next(error);
+    }
+  }
+
+  static async getTotalKWhPerHourInOneDay (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) : Promise<any> {
+    const day : string = req.params.day;
+    const idRoom : string = req.params.idRoom;
+
+    try {
+      const { room: roomModel } = global.mongoModel;
+
+      const roomData = await roomModel.findOne({_id: idRoom}).lean().exec();
+      if (!roomData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Không tìm được phòng"
+        );
+      }
+
+      if (!roomData.idElectricMetter) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng chưa có id đồng hồ"
+        );
+      } 
+
+      // const id = roomData.idElectricMetter;
+      // 6446d888-a4fb-47df-90dc-c078d30fbf70
+      const id: string = '55497245-4cc8-415c-9794-118715dc08f9';
+      let rawDataElectricInDay = await EnergyController.getElectricPerHour(
+        day, //start
+        day, //end
+        id,
+        'Total kWh', //key
+      );
+
+      rawDataElectricInDay = rawDataElectricInDay.reverse();
+
+      const dayBefore = moment(day).subtract(1, "days");
+      console.log({dayBefore});
+      let dayBeforeOneMonth  = moment(dayBefore).subtract(1, "months");
+
+      // start: string, 
+        // end: string, 
+        // id: string, 
+        // key: string, 
+        // intervalType: string,
+        // interval: number,
+        // aggType: string,
+
+      const dataCountOneMonthBefore = await EnergyController.getElectric(
+        dayBeforeOneMonth.format("YYYY-MM-DD"),
+        dayBefore.format("YYYY-MM-DD"),
+        id,
+        'Total kWh',
+        'MONTH',
+        1,
+        'COUNT',
+      );
+
+      //dataCountOneMonthBefore có thể chứa count của nhiều tháng 
+      //(mặc dù kt 1 tháng nhưng không phải khi nào cũng bắt đầu từ đầu tháng)
+      //ví dụ:    [
+                  //   {
+                  //     "ts": "2024-05-01T00:00:00",
+                  //     "value": 590
+                  //   },
+                  //   {
+                  //     "ts": "2024-04-01T00:00:00",
+                  //     "value": 2046
+                  //   }
+                  // ]
+      //cần lặp qua để kiểm tra xem các tháng có dữ liệu hay không: 
+      // count != dataCountOneMonthBefore.length => trong vòng 1 tháng trước đó có dữ liệu
+      let count = 0;
+      let positionHaveData = -1;
+      for (let i = 0; i < dataCountOneMonthBefore.length; i++) {
+        if(dataCountOneMonthBefore[i].value !== 0) {
+          positionHaveData = i;
+          break;
+        } else {
+          count++;
+        }
+      }
+      const rawDataElectricInDayLength = rawDataElectricInDay.length;
+      if (rawDataElectricInDayLength === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res, 
+          "Không có dữ liệu năng lượng"
+        );
+
+      //1 tháng trước không có dữ liệu, mà dữ liệu trong khoảng thời gian hiện tại chỉ có 1 => không thể tính được
+      //số điện dùng của tháng hiện tại
+      } else if (rawDataElectricInDayLength === 1 && count === dataCountOneMonthBefore.length) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Chỉ có 1 bản ghi dữ liệu vào ngày hôm nay, đã 1 tháng kể từ trước hôm nay không có dữ liệu, không thể tính được điện đã sử dụng"
+        )
+
+      // 1 tháng về trước không có dữ liệu, tuy nhiên dữ liệu trong khoảng thơi gian hiện tại là từ 2 bản ghi 
+      //trở lên => lấy bản ghi đầu tiên làm mốc để tính
+      } else if (rawDataElectricInDayLength >= 2 && count === dataCountOneMonthBefore.length) {
+        // lấy giá trị đầu tiên của ngày làm mốc
+
+        // --------------------------------------------------
+        // let kWhData = [];
+        // let lastValue = rawDataElectricInDay[0].value;
+
+        // let newRawDataElectricInDay: DataElectricType[] = [];
+        
+
+        // if(rawDataElectricInDayLength < 24) {
+        //   newRawDataElectricInDay = await fillNullForDataElectricEmptyInOneDay(rawDataElectricInDay);
+        // } else {
+        //   newRawDataElectricInDay = rawDataElectricInDay;
+        // }
+
+        // const labelTime = newRawDataElectricInDay.map((data) => {
+        //   return data.ts;
+        // })
+
+        // for (let i = 0; i < newRawDataElectricInDay.length; i++) {
+        //   if (newRawDataElectricInDay[i].value === null) {
+        //     kWhData.push(null);
+        //   } else {
+        //     let result = newRawDataElectricInDay[i].value - lastValue;
+        //     kWhData.push(parseFloat(result.toFixed(3)));
+        //     lastValue = newRawDataElectricInDay[i].value;
+        //   }
+        // }
+
+        // const totalkWhTime = kWhData.reduce((acc, curr) => acc + curr, 0);
+
+        // console.log({totalkWhTime})
+
+        // const resResult = {
+        //   totalkWhTime: totalkWhTime,
+        //   labelTime: labelTime,
+        //   kWhData: kWhData,
+        // }
+        //----------------------------------------
+
+        const resResult = await caculateElectricInOneDayForNoDataBefore(rawDataElectricInDay, rawDataElectricInDayLength);
+
+        return HttpResponse.returnSuccessResponse(res, resResult);
+      }
+
+      //TH BÌNH THƯỜNG: có dữ liệu trong vòng 1 tháng trước đó
+      const timeHaveDataBeforeLatest : string = dataCountOneMonthBefore[positionHaveData].ts;
+
+      const resResult = await caculateElectricInOneDayForHaveDataBefore(
+        rawDataElectricInDay,
+        rawDataElectricInDayLength,
+        id,
+        timeHaveDataBeforeLatest,
+        dayBefore
+      );
+
+      console.log({resResult})
+
+      //------------------------------------------------------------
+      // const dataElectricLatestBeforeDay = await EnergyController.getElectric(
+      //   moment(timeHaveDataBeforeLatest).format("YYYY-MM-DD"),
+      //   dayBefore.format("YYYY-MM-DD"),
+      //   id,
+      //   'Total kWh',
+      //   'DAY',
+      //   1,
+      //   'MAX',
+      // );
+
+      // console.log({dataElectricLatestBeforeDay});
+      // let dataBeforeDay = dataElectricLatestBeforeDay[0];
+      // console.log({dataBeforeDay});
+
+      // let newRawDataElectricInDay: DataElectricType[] = [];
+      
+
+      // if(rawDataElectricInDayLength < 24) {
+      //   newRawDataElectricInDay = await fillNullForDataElectricEmptyInOneDay(rawDataElectricInDay);
+      // } else {
+      //   newRawDataElectricInDay = rawDataElectricInDay;
+      // }
+
+      // const labelTime = newRawDataElectricInDay.map((data) => {
+      //   return data.ts;
+      // })
+
+      // let kWhData = [];
+      // let lastValue = 0;
+      // if (dataBeforeDay.value !== null) {
+      //   lastValue = dataBeforeDay.value;
+      // }
+
+      // for (let i = 0; i < newRawDataElectricInDay.length; i++) {
+      //   if (newRawDataElectricInDay[i].value === null) {
+      //     kWhData.push(null);
+      //   } else {
+      //     let result = newRawDataElectricInDay[i].value - lastValue;
+      //     kWhData.push(parseFloat(result.toFixed(3)));
+      //     lastValue = newRawDataElectricInDay[i].value;
+      //   }
+      // }
+
+      // const totalkWhTime = kWhData.reduce((acc, curr) => acc + curr, 0);
+
+      // console.log({totalkWhTime});
+
+      // const resResult = {
+      //   totalkWhTime: totalkWhTime,
+      //   labelTime: labelTime,
+      //   kWhData: kWhData,
+      // }
+      //-----------------------------------------------
+
+      return HttpResponse.returnSuccessResponse(res, resResult);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+
+  //xử lý việc thay đồng hồ
+  static async getTotalKWhPerHourInOneDayV2(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      const day : string = req.params.day;
+      const idRoom : string = req.params.idRoom;
+
+      const start: moment.Moment = moment(day + "T00:00:00+07:00");
+      const end: moment.Moment = moment(day + "T23:59:59+07:00");
+
+      const { room: roomModel } = global.mongoModel;
+
+      const roomData = await roomModel.findOne({_id: idRoom}).lean().exec();
+      if (!roomData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Không tìm được phòng"
+        );
+      }
+
+      if (!roomData.listIdElectricMetter || roomData.listIdElectricMetter.lengh === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng chưa có id đồng hồ, vui lòng thêm id cho đồng hồ!"
+        );
+      }
+
+      const listId: DataIdMetterType[] = roomData.listIdElectricMetter;
+
+      const result = await checkRangeTimeForIdMetter(listId, start, end);
+
+      const resultLength = result.length;
+
+      //TH đã thêm trả về mặc định phía dưới
+      if(resultLength === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+        )
+      } else if(resultLength === 1) {
+        const id: string = result[0].value;
+
+        const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineInOneDay(
+          start,
+          end,
+          id
+        );
+
+        if (elementResult.length === 0) {
+          return HttpResponse.returnBadRequestResponse(
+            res, 
+            "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
+          );
+        }
+
+        const resResult = await handleRawToCalculatedElectricDataInOneDay(elementResult);
+
+        return HttpResponse.returnSuccessResponse(res, resResult);
+      } else if (resultLength > 1) {
+        //NOTE: TRƯỜNG HỢP MỘT NGÀY THAY NHIỀU ĐỒNG HỒ ÍT CÓ KHẢ NĂNG XẢY RA
+        //TH bao nhiều mốc thời gian
+        //      [
+        //        {
+        //          "timestamp": "2024-04-02T01:00:00",
+        //          "value": id_1
+        //        },
+        //=>start---------------------------------------
+        //        {
+        //          "timestamp": "2024-04-02T10:00:00",
+        //          "value": id_2
+        //        },
+        //        {
+        //          "timestamp": "2024-04-02T20:00:00",
+        //          "value": id_3
+        //        },
+        //=>end---------------------------------------
+        //      ]
+        // 2 mốc thời gian nằm đúng với vị trị trong đúng list thời gian được trả, 
+        //đã được xử lý trong checkRangeTimeForIdMetter
+        let resultTotalAll: DataElectricType[] = [];
+        for(let i = 0; i < resultLength; i++) {
+          if (i === 0) {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = start;
+            const endQuery : moment.Moment = moment(result[i + 1].timestamp);
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineInOneDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+            console.log({elementResult});
+
+          } else if (i === (resultLength - 1)) {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = moment(result[i].timestamp);
+            const endQuery : moment.Moment = end;
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineInOneDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+            console.log({elementResult});
+          } else {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = moment(result[i].timestamp);
+            const endQuery : moment.Moment = moment(result[i + 1].timestamp);
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineInOneDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+            console.log({elementResult});
+          }
+        }
+
+        if (resultTotalAll.length === 0) {
+          return HttpResponse.returnBadRequestResponse(
+            res, 
+            "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
+          );
+        }
+        console.log({resultTotalAll});
+
+        const resResult = await handleRawToCalculatedElectricDataInOneDay(resultTotalAll);
+
+        return HttpResponse.returnSuccessResponse(res, resResult);
+      }
+
+      return HttpResponse.returnBadRequestResponse(
+        res,
+        "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+      )
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getTotalKWhPerDayInOneMonthV2(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      const month : string = req.params.month;
+      console.log({month});
+      const idRoom : string = req.params.idRoom;
+
+      const start: moment.Moment = moment(month, 'YYYY-MM').startOf('month');
+      const end: moment.Moment = moment(month, 'YYYY-MM').endOf('month');
+      console.log({start})
+      console.log({end})
+
+      const { room: roomModel } = global.mongoModel;
+
+      const roomData = await roomModel.findOne({_id: idRoom}).lean().exec();
+      if (!roomData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Không tìm được phòng"
+        );
+      }
+
+      if (!roomData.listIdElectricMetter || roomData.listIdElectricMetter.lengh === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng chưa có id đồng hồ, vui lòng thêm id cho đồng hồ!"
+        );
+      }
+
+      const listId: DataIdMetterType[] = roomData.listIdElectricMetter;
+
+      console.log({listId});
+
+      const result = await checkRangeTimeForIdMetter(listId, start, end);
+
+      const resultLength = result.length;
+
+      console.log({result});
+
+      //TH đã thêm trả về mặc định phía dưới
+      if(resultLength === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+        )
+      } else if(resultLength === 1) {
+        const id: string = result[0].value;
+
+        const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+          start,
+          end,
+          id
+        );
+
+        if (elementResult.length === 0) {
+          return HttpResponse.returnBadRequestResponse(
+            res, 
+            "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
+          );
+        }
+
+        const resResult = await handleRawToCalculatedElectricDataDayToDay(
+          elementResult,
+          start, 
+          end
+        );
+
+        return HttpResponse.returnSuccessResponse(res, resResult);
+      } else if (resultLength > 1) {
+        //NOTE: TRƯỜNG HỢP MỘT NGÀY THAY NHIỀU ĐỒNG HỒ ÍT CÓ KHẢ NĂNG XẢY RA
+        //TH bao nhiều mốc thời gian
+        //      [
+        //        {
+        //          "timestamp": "2024-04-02T01:00:00",
+        //          "value": id_1
+        //        },
+        //=>start---------------------------------------
+        //        {
+        //          "timestamp": "2024-04-02T10:00:00",
+        //          "value": id_2
+        //        },
+        //        {
+        //          "timestamp": "2024-04-02T20:00:00",
+        //          "value": id_3
+        //        },
+        //=>end---------------------------------------
+        //      ]
+        // 2 mốc thời gian nằm đúng với vị trị trong đúng list thời gian được trả, 
+        //đã được xử lý trong checkRangeTimeForIdMetter
+        let resultTotalAll: DataElectricType[] = [];
+        for(let i = 0; i < resultLength; i++) {
+          if (i === 0) {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = start;
+            const endQuery : moment.Moment = moment(result[i + 1].timestamp);
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+            console.log({elementResult});
+
+          } else if (i === (resultLength - 1)) {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = moment(result[i].timestamp);
+            const endQuery : moment.Moment = end;
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+            console.log({elementResult});
+          } else {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = moment(result[i].timestamp);
+            const endQuery : moment.Moment = moment(result[i + 1].timestamp);
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+            console.log({elementResult});
+          }
+        }
+
+        if (resultTotalAll.length === 0) {
+          return HttpResponse.returnBadRequestResponse(
+            res, 
+            "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
+          );
+        }
+        console.log({resultTotalAll});
+
+        const resResult = await handleRawToCalculatedElectricDataDayToDay(
+          resultTotalAll,
+          start,
+          end,
+        );
+
+        return HttpResponse.returnSuccessResponse(res, resResult);
+      }
+
+      return HttpResponse.returnBadRequestResponse(
+        res,
+        "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+      )
+
+      // return HttpResponse.returnSuccessResponse(res, "success");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getTotalKWhPerDayForDayToDayV2(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      const idRoom : string = req.params.idRoom;
+
+      const start: moment.Moment = moment(req.params.start).startOf('day');
+      const end: moment.Moment = moment(req.params.end).endOf('day');
+      console.log({start})
+      console.log({end})
+
+      const { room: roomModel } = global.mongoModel;
+
+      const roomData = await roomModel.findOne({_id: idRoom}).lean().exec();
+      if (!roomData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Không tìm được phòng"
+        );
+      }
+
+      if (!roomData.listIdElectricMetter || roomData.listIdElectricMetter.lengh === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng chưa có id đồng hồ, vui lòng thêm id cho đồng hồ!"
+        );
+      }
+
+      const listId: DataIdMetterType[] = roomData.listIdElectricMetter;
+
+      console.log({listId});
+
+      const result = await checkRangeTimeForIdMetter(listId, start, end);
+
+      const resultLength = result.length;
+
+      console.log({result});
+
+      //TH đã thêm trả về mặc định phía dưới
+      if(resultLength === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+        )
+      } else if(resultLength === 1) {
+        const id: string = result[0].value;
+
+        const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+          start,
+          end,
+          id
+        );
+
+        if (elementResult.length === 0) {
+          return HttpResponse.returnBadRequestResponse(
+            res, 
+            "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
+          );
+        }
+
+        const resResult = await handleRawToCalculatedElectricDataDayToDay(
+          elementResult,
+          start, 
+          end
+        );
+
+        return HttpResponse.returnSuccessResponse(res, resResult);
+      } else if (resultLength > 1) {
+        //NOTE: TRƯỜNG HỢP MỘT NGÀY THAY NHIỀU ĐỒNG HỒ ÍT CÓ KHẢ NĂNG XẢY RA
+        //TH bao nhiều mốc thời gian
+        //      [
+        //        {
+        //          "timestamp": "2024-04-02T01:00:00",
+        //          "value": id_1
+        //        },
+        //=>start---------------------------------------
+        //        {
+        //          "timestamp": "2024-04-02T10:00:00",
+        //          "value": id_2
+        //        },
+        //        {
+        //          "timestamp": "2024-04-02T20:00:00",
+        //          "value": id_3
+        //        },
+        //=>end---------------------------------------
+        //      ]
+        // 2 mốc thời gian nằm đúng với vị trị trong đúng list thời gian được trả, 
+        //đã được xử lý trong checkRangeTimeForIdMetter
+        let resultTotalAll: DataElectricType[] = [];
+        for(let i = 0; i < resultLength; i++) {
+          if (i === 0) {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = start;
+            const endQuery : moment.Moment = moment(result[i + 1].timestamp);
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+            console.log({elementResult});
+
+          } else if (i === (resultLength - 1)) {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = moment(result[i].timestamp);
+            const endQuery : moment.Moment = end;
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+            console.log({elementResult});
+          } else {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = moment(result[i].timestamp);
+            const endQuery : moment.Moment = moment(result[i + 1].timestamp);
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+            console.log({elementResult});
+          }
+        }
+
+        if (resultTotalAll.length === 0) {
+          return HttpResponse.returnBadRequestResponse(
+            res, 
+            "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
+          );
+        }
+        console.log({resultTotalAll});
+
+        const resResult = await handleRawToCalculatedElectricDataDayToDay(
+          resultTotalAll,
+          start,
+          end,
+        );
+
+        return HttpResponse.returnSuccessResponse(res, resResult);
+      }
+
+      return HttpResponse.returnBadRequestResponse(
+        res,
+        "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+      )
+
+      // return HttpResponse.returnSuccessResponse(res, "success");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getElectricPerHour(
+    start: string, end: string, id: string, key: string
+  ): Promise<any> {
+    let resData = [];
+    let startTime: string = start;
+    startTime += 'T00:00:00+07:00'
+    let endTime: string = end;
+    endTime += 'T23:59:59+07:00';
+
+    try {
+      const headers = {
+          'x-api-key': process.env.ENERGY_API_KEY
+      };
+
+      const instance = axios.create({
+          baseURL: process.env.ENERGY_BASE_URL,
+          timeout: 1000,
+          headers: headers
+      });
+
+      const response = await instance.get('/telemetry/metrics/values', {
+          params: {
+              device_id: id,
+              key: key,
+              start: startTime,
+              end: endTime,
+              interval_type: 'HOUR',
+              interval: 1,
+              agg_type: 'MAX',
+              limit: 100
+          }
+      });
+
+      resData = response.data;
+      return resData;
+    } catch (error) {
+        console.error(error);
+        return resData;
+    }
+  }
+
+  static async getElectric(
+    start: string, 
+    end: string, 
+    id: string, 
+    key: string, 
+    intervalType: string,
+    interval: number,
+    aggType: string,
+  ):
+  Promise<any> {
+    let resData = [];
+    let startTime: string = start;
+    startTime += 'T00:00:00+07:00'
+    let endTime: string = end;
+    endTime += 'T23:59:59+07:00';
+
+    try {
+      const headers = {
+          'x-api-key': process.env.ENERGY_API_KEY
+      };
+
+      const instance = axios.create({
+          baseURL: process.env.ENERGY_BASE_URL,
+          timeout: 1000,
+          headers: headers
+      });
+
+      const response = await instance.get('/telemetry/metrics/values', {
+          params: {
+              device_id: id,
+              key: key,
+              start: startTime,
+              end: endTime,
+              interval_type: intervalType,
+              interval: interval,
+              agg_type: aggType,
+              limit: 100
+          }
+      });
+
+      resData = response.data;
+      return resData;
+    } catch (error) {
+        console.error(error);
+        return resData;
+    }
+  }
+
+  //đúng theo từng giờ phút giây
+  static async getElectricV2(
+    start: moment.Moment, 
+    end: moment.Moment, 
+    id: string, 
+    key: string, 
+    intervalType: string,
+    interval: number,
+    aggType: string,
+  ):
+  Promise<any> {
+    let resData = [];
+
+    let startTime: string = start.format();
+    let endTime: string = end.format();
+
+    try {
+      const headers = {
+          'x-api-key': process.env.ENERGY_API_KEY
+      };
+
+      const instance = axios.create({
+          baseURL: process.env.ENERGY_BASE_URL,
+          timeout: 1000,
+          headers: headers
+      });
+
+      const response = await instance.get('/telemetry/metrics/values', {
+          params: {
+              device_id: id,
+              key: key,
+              start: startTime,
+              end: endTime,
+              interval_type: intervalType,
+              interval: interval,
+              agg_type: aggType,
+              limit: 100
+          }
+      });
+
+      resData = response.data;
+      return resData;
+    } catch (error) {
+        console.error(error);
+        return resData;
     }
   }
 }
@@ -3958,6 +5036,135 @@ async function mergeBuffer(
   }
 }
 
+type DataIdMetterType = { timestamp: string, value: string };
+//return: 
+// [] -> 2 mốc thời gian nằm trước thời gian tồn tại của id đồng hồ
+// [1] -> 2 mốc thời gian nằm ở sau mốc thời gian mà id hiện tại theo thời gian thực đang hoạt động
+// [n] -> 2 mốc thời gian đang bao lấy nhiều id
+
+async function checkRangeTimeForIdMetter(
+  listId: DataIdMetterType[], 
+  start: moment.Moment, 
+  end: moment.Moment
+): Promise<DataIdMetterType[]> {
+  //kiểm tra 2 mốc có bao mốc nào trong danh sách id
+  let listIdInTime: DataIdMetterType[] = listId.filter((id) => {
+    return(moment(id.timestamp) > start && moment(id.timestamp) < end);
+  })
+
+  let newListIdInTime = [];
+  //nếu 2 mốc không bao, vậy 2 mốc sẽ nằm trong khoảng hoặc ngoài khoảng
+  if (listIdInTime.length === 0) {
+    //2 mốc thời gian không bao mốc nào trong list id (mốc ở đây là tg id bắt đầu được thêm vào phòng)
+    if (listId.length === 1) {
+      //2 mốc tg nằm trước lúc đồng hồ hoạt động
+      if(end.isSameOrBefore(moment(listId[0].timestamp))) {
+        newListIdInTime = [];
+      }
+      //2 mốc tg nằm sau lúc đồng hồ hoạt động
+      if(start.isSameOrAfter(moment(listId[0].timestamp))) {
+        newListIdInTime.push(listId[0]);
+      }
+    } else {
+      //2 mốc nằm trước khoảng list id
+      if(end.isSameOrBefore(moment(listId[0].timestamp))) {
+        newListIdInTime = [];
+      //2 mốc nằm sau khoảng list id
+      } else if(start.isSameOrAfter(moment(listId[listId.length - 1].timestamp))) {
+        newListIdInTime.push(listId[listId.length - 1]);
+      //2 mốc nằm trong khoảng list id
+      } else {
+        for(let i = 1; i < listId.length; i++) {
+      
+          if ( start >= moment(listId[i - 1].timestamp) && start <= moment(listId[i].timestamp)) {
+            newListIdInTime.push(listId[i]);
+            break;
+          }
+    
+        }
+      }
+
+    }
+    
+  } else {
+    //2 mốc tg có bao 1 mốc thời gian trong list id (mốc ở đây là tg id bắt đầu được thêm vào phòng)
+    const secondElement = listIdInTime[0];
+
+    const index = listId.findIndex(item =>
+      item.timestamp === secondElement.timestamp && item.value === secondElement.value
+    );
+
+    if(index > 0 ) { 
+      //trường hợp chứa id phía trước thì thêm id phía trước
+      listIdInTime.unshift(listId[index - 1]); //chèn vào đầu
+    }
+
+    // nếu trước đó không chứa id nào nữa-khoảng thời gian query có trước thời gian tồn tại id đầu tiên
+
+    newListIdInTime = listIdInTime;
+  }
+
+  console.log({newListIdInTime})
+  return newListIdInTime;
+}
+
+
+type DataElectricType = { ts: string, value: number | null };
+
+async function fillNullForDataElectricEmptyInOneDay(
+  data: DataElectricType[]
+): Promise<DataElectricType[]> {
+  var allTimes = [];
+  for (var i = 0; i < 24; i++) {
+    var hour = (i < 10) ? "0" + i : i;
+    allTimes.push(moment(data[0].ts).format("YYYY-MM-DD") +"T" + hour + ":00:00");
+  }
+
+  // Chèn mốc thời gian bị thiếu vào mảng ban đầu với giá trị null
+  allTimes.forEach(function(time) {
+    var found = data.some(function(item) {
+        return item.ts === time;
+    });
+    if (!found) {
+        data.push({ "ts": time, "value": null });
+    }
+  });
+
+  // Sắp xếp lại mảng theo thời gian
+  data.sort(function(a, b) {
+    return a.ts.localeCompare(b.ts);
+  });
+
+  return data;
+}
+async function fillNullForDataElectricEmptyDayToDay(
+  data: DataElectricType[],
+  start: moment.Moment,
+  end: moment.Moment,
+): Promise<DataElectricType[]> {
+  var result: DataElectricType[] = [];
+  var current = moment(start);
+
+  // Lặp qua từng ngày từ start đến end
+  while (current.isSameOrBefore(end, 'day')) {
+    // Tạo một mốc thời gian trong ngày và kiểm tra xem nó có trong mảng dữ liệu không
+    var time = current.format("YYYY-MM-DD") + "T00:00:00";
+    var found = data.some(function(item) {
+      return item.ts === time;
+    });
+    // Nếu không tìm thấy, thêm một mục mới với giá trị null
+    if (!found) {
+      result.push({ "ts": time, "value": null });
+    }
+    // Di chuyển đến ngày tiếp theo
+    current.add(1, 'day');
+  }
+
+  // Kết hợp mảng kết quả với mảng dữ liệu ban đầu và sắp xếp lại theo thời gian
+  return data.concat(result).sort(function(a, b) {
+    return a.ts.localeCompare(b.ts);
+  });
+};
 
 async function generatePDF(json, banking, energy): Promise<Buffer> {
   console.log({ banking });
@@ -4746,6 +5953,518 @@ async function countElectric(jobId, startTime, endTime): Promise<number> {
   }
 }
 
+async function caculateElectricInOneDayForNoDataBefore(
+  rawDataElectricInDay: any,
+  rawDataElectricInDayLength: number,
+): Promise<any> {
+  let kWhData = [];
+  let lastValue = rawDataElectricInDay[0].value;
+
+  let newRawDataElectricInDay: DataElectricType[] = [];
+  // type DataElectricType = { ts: string, value: number };
+  
+
+  if(rawDataElectricInDayLength < 24) {
+    newRawDataElectricInDay = await fillNullForDataElectricEmptyInOneDay(rawDataElectricInDay);
+  } else {
+    newRawDataElectricInDay = rawDataElectricInDay;
+  }
+
+  const labelTime = newRawDataElectricInDay.map((data) => {
+    return data.ts;
+  })
+
+  for (let i = 0; i < newRawDataElectricInDay.length; i++) {
+    if (newRawDataElectricInDay[i].value === null) {
+      kWhData.push(null);
+    } else {
+      let result = newRawDataElectricInDay[i].value - lastValue;
+      kWhData.push(parseFloat(result.toFixed(3)));
+      lastValue = newRawDataElectricInDay[i].value;
+    }
+  }
+
+  const totalkWhTime = kWhData.reduce((acc, curr) => acc + curr, 0);
+
+  console.log({totalkWhTime})
+
+  const resResult = {
+    totalkWhTime: totalkWhTime,
+    labelTime: labelTime,
+    kWhData: kWhData,
+  }
+  return resResult;
+}
+
+async function caculateElectricInOneDayForHaveDataBefore(
+  rawDataElectricInDay: any,
+  rawDataElectricInDayLength: number,
+  id: string,
+  timeHaveDataBeforeLatest: string,
+  dayBefore: moment.Moment,
+): Promise<any> {
+  //TH BÌNH THƯỜNG: có dữ liệu trong vòng 1 tháng trước đó
+
+  const dataElectricLatestBeforeDay = await EnergyController.getElectric(
+    moment(timeHaveDataBeforeLatest).format("YYYY-MM-DD"),
+    dayBefore.format("YYYY-MM-DD"),
+    id,
+    'Total kWh',
+    'DAY',
+    1,
+    'MAX',
+  );
+
+  console.log({dataElectricLatestBeforeDay});
+  let dataBeforeDay = dataElectricLatestBeforeDay[0];
+  console.log({dataBeforeDay});
+
+  let newRawDataElectricInDay: DataElectricType[] = [];
+
+  
+  
+
+  if(rawDataElectricInDayLength < 24) {
+    newRawDataElectricInDay = await fillNullForDataElectricEmptyInOneDay(rawDataElectricInDay);
+  } else {
+    newRawDataElectricInDay = rawDataElectricInDay;
+  }
+
+  const labelTime = newRawDataElectricInDay.map((data) => {
+    return data.ts;
+  })
+
+  let kWhData = [];
+  let lastValue = 0;
+  if (dataBeforeDay.value !== null) {
+    lastValue = dataBeforeDay.value;
+  }
+
+  for (let i = 0; i < newRawDataElectricInDay.length; i++) {
+    if (newRawDataElectricInDay[i].value === null) {
+      kWhData.push(null);
+    } else {
+      let result = newRawDataElectricInDay[i].value - lastValue;
+      kWhData.push(parseFloat(result.toFixed(3)));
+      lastValue = newRawDataElectricInDay[i].value;
+    }
+  }
+
+  const totalkWhTime = kWhData.reduce((acc, curr) => acc + curr, 0);
+
+  console.log({totalkWhTime});
+
+  const resResult = {
+    totalkWhTime: totalkWhTime,
+    labelTime: labelTime,
+    kWhData: kWhData,
+  }
+
+  return resResult;
+}
+
+
+//return: 
+// [] => không có dữ liệu năng lượng
+//[n] => có dữ liệu
+async function getElementRawDataElectricForTimePointHaveManyTimeLineInOneDay(
+  startQuery: moment.Moment,
+  endQuery: moment.Moment,
+  id: string,
+): Promise<DataElectricType[]> {
+  let kWhDataWithTime: DataElectricType[] = []; 
+  let rawDataElectricInDay = await EnergyController.getElectricV2(
+    startQuery, //start
+    endQuery, //end
+    id,
+    'Total kWh', //key
+    'HOUR',
+    1,
+    'MAX'
+  );
+
+  const rawDataElectricInDayLength = rawDataElectricInDay.length;
+  if (rawDataElectricInDayLength === 0) {
+    return kWhDataWithTime;
+  }
+
+  rawDataElectricInDay = rawDataElectricInDay.reverse();
+  // const dayBefore = startQuery.subtract(1, "days").set({ hour: 23, minute: 59, second: 59 });
+
+  const dayBefore = startQuery; //NOTE: lấy trường hợp trước đó hoặc bằng, ở đây là thời điểm đầu ngày
+  //00h00p00s => nếu trường hợp bằng xảy ra thì cần cân nhắc
+  let dayBeforeOneMonth  = moment(dayBefore).subtract(1, "months");
+
+  const dataCountOneMonthBefore = await EnergyController.getElectricV2(
+    dayBeforeOneMonth,
+    dayBefore,
+    id,
+    'Total kWh',
+    'MONTH',
+    1,
+    'COUNT',
+  );
+
+  console.log({dataCountOneMonthBefore});
+
+  //ví dụ: dataCountOneMonthBefore =
+  // [
+  //   {
+  //     "ts": "2024-05-01T00:00:00",
+  //     "value": 590
+  //   },
+  //   {
+  //     "ts": "2024-04-01T00:00:00",
+  //     "value": 2046
+  //   }
+  // ]
+  // api trên được viết chắc chắn trả về {}, các {} được sắp xếp với thời gian giảm dần
+  //=> Lặp qua để kiểm tra 
+  let count = 0;
+  let positionHaveData = -1;
+  for (let i = 0; i < dataCountOneMonthBefore.length; i++) {
+    if(dataCountOneMonthBefore[i].value !== 0) {
+      positionHaveData = i;
+      break;
+    } else {
+      count++;
+    }
+  }
+
+  if (rawDataElectricInDayLength === 1 && count === dataCountOneMonthBefore.length) {
+    // Chỉ có 1 bản ghi dữ liệu vào ngày hôm nay, đã 1 tháng kể từ trước hôm nay không có dữ liệu, 
+    // không thể tính được điện đã sử dụng
+    return kWhDataWithTime;
+  } else if (rawDataElectricInDayLength >= 2 && count === dataCountOneMonthBefore.length) {
+    //không có dữ liệu trong vòng 1 tháng trước nhưng dữ liệu trong khoảng truy xuất có từ 2 bản ghi trở lên
+    // lấy giá trị đầu tiên của ngày làm mốc
+
+    // type DataElectricType = { ts: string, value: number };
+    let lastValue = rawDataElectricInDay[0].value;
+    console.log({lastValue});
+    console.log({rawDataElectricInDay});
+
+    for (let i = 0; i < rawDataElectricInDay.length; i++) {
+      let result = rawDataElectricInDay[i].value - lastValue;
+      kWhDataWithTime.push({"ts": rawDataElectricInDay[i].ts, "value": parseFloat(result.toFixed(3))});
+      lastValue = rawDataElectricInDay[i].value;
+    }
+
+    return kWhDataWithTime;
+
+  }
+
+   //TH BÌNH THƯỜNG: có dữ liệu trong vòng 1 tháng trước đó
+  const timeHaveDataBeforeLatest : string = dataCountOneMonthBefore[positionHaveData].ts;
+
+  const dataElectricLatestBeforeDay = await EnergyController.getElectricV2(
+    moment(timeHaveDataBeforeLatest),
+    dayBefore,
+    id,
+    'Total kWh',
+    'DAY',
+    1,
+    'MAX',
+  );
+
+  // type DataElectricType = { ts: string, value: number };
+  let lastValue = dataElectricLatestBeforeDay[0].value;
+  console.log({lastValue});
+  console.log({dataElectricLatestBeforeDay});
+
+  for (let i = 0; i < rawDataElectricInDay.length; i++) {
+    let result = rawDataElectricInDay[i].value - lastValue;
+    kWhDataWithTime.push({"ts": rawDataElectricInDay[i].ts, "value": parseFloat(result.toFixed(3))});
+    lastValue = rawDataElectricInDay[i].value;
+  }
+
+  // console.log({kWhDataWithTime});
+  return kWhDataWithTime;
+}
+
+async function getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+  startQuery: moment.Moment,
+  endQuery: moment.Moment,
+  id: string,
+): Promise<DataElectricType[]> {
+  let kWhDataWithTime: DataElectricType[] = []; 
+  let rawDataElectricInDay = await EnergyController.getElectricV2(
+    startQuery, //start
+    endQuery, //end
+    id,
+    'Total kWh', //key
+    'DAY',
+    1,
+    'MAX'
+  );
+
+  const rawDataElectricInDayLength = rawDataElectricInDay.length;
+  if (rawDataElectricInDayLength === 0) {
+    return kWhDataWithTime;
+  }
+
+  rawDataElectricInDay = rawDataElectricInDay.reverse();
+  // const dayBefore = startQuery.subtract(1, "days").set({ hour: 23, minute: 59, second: 59 });
+
+  const dayBefore = startQuery; //NOTE: lấy trường hợp trước đó hoặc bằng, ở đây là thời điểm đầu ngày
+  //00h00p00s có dữ liệu => nếu trường hợp bằng xảy ra thì cần cân nhắc
+  let dayBeforeOneMonth  = moment(dayBefore).subtract(1, "months");
+
+  const dataCountOneMonthBefore = await EnergyController.getElectricV2(
+    dayBeforeOneMonth,
+    dayBefore,
+    id,
+    'Total kWh',
+    'MONTH',
+    1,
+    'COUNT',
+  );
+
+  // console.log({dataCountOneMonthBefore});
+
+  //ví dụ: dataCountOneMonthBefore =
+  // [
+  //   {
+  //     "ts": "2024-05-01T00:00:00",
+  //     "value": 590
+  //   },
+  //   {
+  //     "ts": "2024-04-01T00:00:00",
+  //     "value": 2046
+  //   }
+  // ]
+  // api trên được viết chắc chắn trả về {}, các {} được sắp xếp với thời gian giảm dần
+  //=> Lặp qua để kiểm tra 
+  let count = 0;
+  let positionHaveData = -1;
+  for (let i = 0; i < dataCountOneMonthBefore.length; i++) {
+    if(dataCountOneMonthBefore[i].value !== 0) {
+      positionHaveData = i;
+      break;
+    } else {
+      count++;
+    }
+  }
+
+  if (rawDataElectricInDayLength === 1 && count === dataCountOneMonthBefore.length) {
+    // Chỉ có 1 bản ghi dữ liệu vào ngày hôm nay, đã 1 tháng kể từ trước hôm nay không có dữ liệu, 
+    // không thể tính được điện đã sử dụng
+    return kWhDataWithTime;
+  } else if (rawDataElectricInDayLength >= 2 && count === dataCountOneMonthBefore.length) {
+    //không có dữ liệu trong vòng 1 tháng trước nhưng dữ liệu trong khoảng truy xuất có từ 2 bản ghi trở lên
+    // lấy giá trị đầu tiên của ngày làm mốc
+
+    // type DataElectricType = { ts: string, value: number };
+    let lastValue = rawDataElectricInDay[0].value;
+    // console.log({lastValue});
+    // console.log({rawDataElectricInDay});
+
+    for (let i = 0; i < rawDataElectricInDay.length; i++) {
+      let result = rawDataElectricInDay[i].value - lastValue;
+      kWhDataWithTime.push({"ts": rawDataElectricInDay[i].ts, "value": parseFloat(result.toFixed(3))});
+      lastValue = rawDataElectricInDay[i].value;
+    }
+
+    return kWhDataWithTime;
+
+  }
+
+   //TH BÌNH THƯỜNG: có dữ liệu trong vòng 1 tháng trước đó
+  const timeHaveDataBeforeLatest : string = dataCountOneMonthBefore[positionHaveData].ts;
+
+  const dataElectricLatestBeforeDay = await EnergyController.getElectricV2(
+    moment(timeHaveDataBeforeLatest),
+    dayBefore,
+    id,
+    'Total kWh',
+    'DAY',
+    1,
+    'MAX',
+  );
+
+  // type DataElectricType = { ts: string, value: number };
+  let lastValue = dataElectricLatestBeforeDay[0].value;
+  // console.log({lastValue});
+  // console.log({dataElectricLatestBeforeDay});
+
+  for (let i = 0; i < rawDataElectricInDay.length; i++) {
+    let result = rawDataElectricInDay[i].value - lastValue;
+    kWhDataWithTime.push({"ts": rawDataElectricInDay[i].ts, "value": parseFloat(result.toFixed(3))});
+    lastValue = rawDataElectricInDay[i].value;
+  }
+
+  // console.log({kWhDataWithTime});
+  return kWhDataWithTime;
+}
+
+
+//tính số điện
+//sắp xếp theo thời gian
+//fill null
+type ResultHandledElectricData = {
+  totalkWhTime: number,
+  labelTime: string[],
+  kWhData: number[],
+}
+async function handleRawToCalculatedElectricDataInOneDay(
+  resultTotalAll:DataElectricType[]
+): Promise<ResultHandledElectricData> {
+  const resultIncludeTime = await fillNullForDataElectricEmptyInOneDay(resultTotalAll);
+
+  let totalkWhTime = resultIncludeTime.reduce((accumulator, currentValue) => {
+    if (currentValue.value !== null) {
+      return accumulator + currentValue.value;
+    } else {
+      return accumulator;
+    }
+  }, 0);
+
+  totalkWhTime = parseFloat(totalkWhTime.toFixed(3));
+
+  let labelTime = resultIncludeTime.map(item => item.ts);
+  let kWhData = resultIncludeTime.map(item => item.value);
+
+  const resResult = {
+    totalkWhTime: totalkWhTime,
+    labelTime: labelTime,
+    kWhData: kWhData,
+  }
+
+  return resResult;
+}
+
+async function handleRawToCalculatedElectricDataDayToDay(
+  resultTotalAll:DataElectricType[],
+  start: moment.Moment,
+  end: moment.Moment,
+): Promise<ResultHandledElectricData> {
+  const resultIncludeTime = await fillNullForDataElectricEmptyDayToDay(
+    resultTotalAll,
+    start,
+    end
+  );
+
+  let totalkWhTime = resultIncludeTime.reduce((accumulator, currentValue) => {
+    if (currentValue.value !== null) {
+      return accumulator + currentValue.value;
+    } else {
+      return accumulator;
+    }
+  }, 0);
+
+  totalkWhTime = parseFloat(totalkWhTime.toFixed(3));
+
+
+  let labelTime = resultIncludeTime.map(item => item.ts);
+  let kWhData = resultIncludeTime.map(item => item.value);
+
+  const resResult = {
+    totalkWhTime: totalkWhTime,
+    labelTime: labelTime,
+    kWhData: kWhData,
+  }
+
+  return resResult;
+}
+
+
+
+
+
+//---------------------------------
+//XỬ LÝ DỮ LIỆU NĂNG LƯỢNG
+// start: moment.Moment, 
+        // end: moment.Moment, 
+        // id: string, 
+        // key: string, 
+        // intervalType: string,
+        // interval: number,
+        // aggType: string,
+        //-----------------------------
+        // let rawDataElectricInDay = await EnergyController.getElectricV2(
+        //   start, //start
+        //   end, //end
+        //   id,
+        //   'Total kWh', //key
+        //   'HOUR',
+        //   1,
+        //   'MAX'
+        // );
+
+        // rawDataElectricInDay = rawDataElectricInDay.reverse();
+        // const rawDataElectricInDayLength = rawDataElectricInDay.length;
+
+        // if (rawDataElectricInDayLength === 0) {
+        //   return HttpResponse.returnBadRequestResponse(
+        //     res, 
+        //     "Không có dữ liệu năng lượng"
+        //   );
+        // }
+
+        // const dayBefore = moment(day + "T23:59:59+07:00").subtract(1, "days");
+
+        // let dayBeforeOneMonth  = moment(dayBefore).subtract(1, "months");
+
+        // const dataCountOneMonthBefore = await EnergyController.getElectricV2(
+        //   dayBeforeOneMonth,
+        //   dayBefore,
+        //   id,
+        //   'Total kWh',
+        //   'MONTH',
+        //   1,
+        //   'COUNT',
+        // );
+
+        // //ví dụ: dataCountOneMonthBefore =
+        // // [
+        // //   {
+        // //     "ts": "2024-05-01T00:00:00",
+        // //     "value": 590
+        // //   },
+        // //   {
+        // //     "ts": "2024-04-01T00:00:00",
+        // //     "value": 2046
+        // //   }
+        // // ]
+        // // api trên được viết chắc chắn trả về {}, các {} được sắp xếp với thời gian giảm dần
+        // //=> Lặp qua để kiểm tra 
+        // let count = 0;
+        // let positionHaveData = -1;
+        // for (let i = 0; i < dataCountOneMonthBefore.length; i++) {
+        //   if(dataCountOneMonthBefore[i].value !== 0) {
+        //     positionHaveData = i;
+        //     break;
+        //   } else {
+        //     count++;
+        //   }
+        // }
+        
+        // if (rawDataElectricInDayLength === 1 && count === dataCountOneMonthBefore.length) {
+        //   return HttpResponse.returnBadRequestResponse(
+        //     res,
+        //     "Chỉ có 1 bản ghi dữ liệu vào ngày hôm nay, đã 1 tháng kể từ trước hôm nay không có dữ liệu, không thể tính được điện đã sử dụng"
+        //   )
+        // } else if (rawDataElectricInDayLength >= 2 && count === dataCountOneMonthBefore.length) {
+        //   //không có dữ liệu trong vòng 1 tháng trước nhưng dữ liệu trong khoảng truy xuất có từ 2 bản ghi trở lên
+        //   // lấy giá trị đầu tiên của ngày làm mốc
+        //   const resResult = await caculateElectricInOneDayForNoDataBefore(rawDataElectricInDay, rawDataElectricInDayLength);
+  
+        //   return HttpResponse.returnSuccessResponse(res, resResult);
+        // }
+
+        //  //TH BÌNH THƯỜNG: có dữ liệu trong vòng 1 tháng trước đó
+        // const timeHaveDataBeforeLatest : string = dataCountOneMonthBefore[positionHaveData].ts;
+
+        // const resResult = await caculateElectricInOneDayForHaveDataBefore(
+        //   rawDataElectricInDay,
+        //   rawDataElectricInDayLength,
+        //   id,
+        //   timeHaveDataBeforeLatest,
+        //   dayBefore
+        // );
+
+        // return HttpResponse.returnSuccessResponse(res, resResult);
+        //-----------------------------------
 
 
 

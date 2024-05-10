@@ -115,6 +115,9 @@ export class Room extends Basic {
 
   @prop({ default: 0 })
   vihicle: number;
+
+  @prop({default: []})
+  listIdElectricMetter: [];
 }
 
 export const RoomModel = (connection) => {

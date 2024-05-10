@@ -243,20 +243,20 @@ export default class PaymentController {
         dayGet.setHours(7, 0, 0, 0);
 
         // SỬA: chỗ này cần tạo 1 job để tạo bill tháng đó vào cuối tháng, để có thể bao gồm tiền phòng
+        // await global.agendaInstance.agenda.schedule(
+        //   moment()
+        //     .startOf("month")
+        //     .add("1", "months")
+        //     .toDate(),
+        //   "CreateFirstMonthOrder",
+        //   { jobId: jobData._id }
+        // );
+
         await global.agendaInstance.agenda.schedule(
-          moment()
-            .startOf("month")
-            .add("1", "months")
-            .toDate(),
-          "CreateFirstMonthOrder",
+          moment().add("2", 'minutes').toDate(),
+          'CreateFirstMonthOrder',
           { jobId: jobData._id }
         );
-
-        // await global.agendaInstance.agenda.schedule(
-          // moment().add("2", 'minutes').toDate(),
-          // 'CreateFirstMonthOrder',
-          // { jobId: jobData._id }
-        // );
 
 
         // const newOrderData = await orderModel.create({

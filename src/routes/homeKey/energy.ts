@@ -6,6 +6,23 @@ import AuthMiddleware from "../../middlewares/auth";
 const energyRoute = express.Router();
 energyRoute.route("/testFunction").get(EnergyController.testFunction);
 
+energyRoute
+  .route("/device/getTotalKWhPerHourInOneDay/:idRoom/:day")
+  .get(EnergyController.getTotalKWhPerHourInOneDay);
+
+//có xử lý việc thay đồng hồ
+energyRoute
+  .route("/device/getTotalKWhPerHourInOneDayV2/:idRoom/:day")
+  .get(EnergyController.getTotalKWhPerHourInOneDayV2);
+
+energyRoute
+  .route("/device/getTotalKWhPerDayInOneMonthV2/:idRoom/:month")
+  .get(EnergyController.getTotalKWhPerDayInOneMonthV2);
+
+energyRoute
+  .route("/device/getTotalKWhPerDayForDayToDayV2/:idRoom/:start/:end")
+  .get(EnergyController.getTotalKWhPerDayForDayToDayV2);
+
 /* -------------------------------------------------------------------------- */
 /*                            START ROOM MIDDLEWARE                           */
 /* -------------------------------------------------------------------------- */
@@ -22,6 +39,7 @@ energyRoute.route("/testFunction").get(EnergyController.testFunction);
 //                     .get(EnergyController.getCurrentMonDataPerDayV1);
 
 // ----------------------BACKUP----------------------------------------
+
 
 energyRoute.route("/export-pdf").get(EnergyController.exportPdf);
 
