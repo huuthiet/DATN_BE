@@ -23,6 +23,14 @@ energyRoute
   .route("/device/getTotalKWhPerDayForDayToDayV2/:idRoom/:start/:end")
   .get(EnergyController.getTotalKWhPerDayForDayToDayV2);
 
+energyRoute
+  .route("/device/getListIdMetterElectricByRoom/:id")
+  .get(EnergyController.getListIdMetterByRoom);
+
+energyRoute
+  .route("/device/addIdMetterElectricForRoom/:id/:time/:newIdMetter")
+  .put(EnergyController.addIdMetterForRoom);
+
 /* -------------------------------------------------------------------------- */
 /*                            START ROOM MIDDLEWARE                           */
 /* -------------------------------------------------------------------------- */

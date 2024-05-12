@@ -3708,6 +3708,13 @@ export default class EnergyController {
     next: NextFunction
   ): Promise<any> {
     try {
+      const a = await EnergyController.calculateElectricUsedDayToDay(
+        "663336db2c01a43510a32e9f",
+        "2024-05-06",
+        "2024-05-07"
+      );
+
+      console.log({a});
       // let date = moment('2024-05-25', 'YYYY-MM'); // Lấy ngày đầu tiên của tháng (ví dụ: tháng 5 năm 2024)
       // console.log({date});
       // let lastDayOfMonth = date.endOf('month').format('YYYY-MM-DD');
@@ -3720,30 +3727,30 @@ export default class EnergyController {
       // console.log({lastDayOfMonthZ});
       // console.log(moment(lastDayOfMonthY));
 
-      const a = [{
-          "ts": "2024-04-03T00:00:00",
-          "value": 152.779998779297
-        },
-        {
-          "ts": "2024-04-02T00:00:00",
-          "value": 152.220001220703
-        },
-        {
-          "ts": "2024-04-07T00:00:00",
-          "value": 152.050003051758
-        },
-        {
-          "ts": "2024-04-09T00:00:00",
-          "value": 151.729995727539
-        },]
+      // const a = [{
+      //     "ts": "2024-04-03T00:00:00",
+      //     "value": 152.779998779297
+      //   },
+      //   {
+      //     "ts": "2024-04-02T00:00:00",
+      //     "value": 152.220001220703
+      //   },
+      //   {
+      //     "ts": "2024-04-07T00:00:00",
+      //     "value": 152.050003051758
+      //   },
+      //   {
+      //     "ts": "2024-04-09T00:00:00",
+      //     "value": 151.729995727539
+      //   },]
 
-      const b = await fillNullForDataElectricEmptyDayToDay(
-        a,
-        moment("2024-03-28T00:00:00"),
-        moment("2024-04-09T23:59:59")
-      );
+      // const b = await fillNullForDataElectricEmptyDayToDay(
+      //   a,
+      //   moment("2024-03-28T00:00:00"),
+      //   moment("2024-04-09T23:59:59")
+      // );
 
-      console.log({b});
+      // console.log({b});
 
       // const a = moment().subtract(1, "days").set({ hour: 23, minute: 59, second: 59 });
       // console.log({a});
@@ -4847,6 +4854,213 @@ export default class EnergyController {
       )
 
       // return HttpResponse.returnSuccessResponse(res, "success");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async calculateElectricUsedDayToDay(
+    idRoom: string,
+    startDay: string,
+    endDay: string,
+  ): Promise<number> {
+    try {
+      const start: moment.Moment = moment(startDay).startOf('day');
+      const end: moment.Moment = moment(endDay).endOf('day');
+      console.log({start})
+      console.log({end})
+
+      const { room: roomModel } = global.mongoModel;
+
+      const roomData = await roomModel.findOne({_id: idRoom}).lean().exec();
+      if (!roomData) {
+        // "Không tìm được phòng"
+        return 0;
+      }
+
+      if (!roomData.listIdElectricMetter || roomData.listIdElectricMetter.lengh === 0) {
+        // "Phòng chưa có id đồng hồ, vui lòng thêm id cho đồng hồ!"
+        return 0;
+      }
+
+      const listId: DataIdMetterType[] = roomData.listIdElectricMetter;
+
+      const result = await checkRangeTimeForIdMetter(listId, start, end);
+
+      const resultLength = result.length;
+
+      //TH đã thêm trả về mặc định phía dưới
+      if(resultLength === 0) {
+        // "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+        return 0;
+      } else if(resultLength === 1) {
+        const id: string = result[0].value;
+
+        const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+          start,
+          end,
+          id
+        );
+
+        if (elementResult.length === 0) {
+          // "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
+          return 0;
+        }
+
+        const resResult = await handleRawToCalculatedElectricDataDayToDay(
+          elementResult,
+          start, 
+          end
+        );
+
+        return resResult.totalkWhTime;
+      } else if (resultLength > 1) {
+        //NOTE: TRƯỜNG HỢP MỘT NGÀY THAY NHIỀU ĐỒNG HỒ ÍT CÓ KHẢ NĂNG XẢY RA
+        //TH bao nhiều mốc thời gian
+        //      [
+        //        {
+        //          "timestamp": "2024-04-02T01:00:00",
+        //          "value": id_1
+        //        },
+        //=>start---------------------------------------
+        //        {
+        //          "timestamp": "2024-04-02T10:00:00",
+        //          "value": id_2
+        //        },
+        //        {
+        //          "timestamp": "2024-04-02T20:00:00",
+        //          "value": id_3
+        //        },
+        //=>end---------------------------------------
+        //      ]
+        // 2 mốc thời gian nằm đúng với vị trị trong đúng list thời gian được trả, 
+        //đã được xử lý trong checkRangeTimeForIdMetter
+        let resultTotalAll: DataElectricType[] = [];
+        for(let i = 0; i < resultLength; i++) {
+          if (i === 0) {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = start;
+            const endQuery : moment.Moment = moment(result[i + 1].timestamp);
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+
+          } else if (i === (resultLength - 1)) {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = moment(result[i].timestamp);
+            const endQuery : moment.Moment = end;
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+          } else {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = moment(result[i].timestamp);
+            const endQuery : moment.Moment = moment(result[i + 1].timestamp);
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+          }
+        }
+
+        if (resultTotalAll.length === 0) {
+          // "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
+          return 0;
+        }
+
+        const resResult = await handleRawToCalculatedElectricDataDayToDay(
+          resultTotalAll,
+          start,
+          end,
+        );
+
+        return resResult.totalkWhTime;
+      }
+
+      // "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+      return 0;
+
+      // return HttpResponse.returnSuccessResponse(res, "success");
+    } catch (error) {
+      console.log({error});
+    }
+  }
+
+  static async getListIdMetterByRoom(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const id = req.params.id;
+      const {room: roomModel} = global.mongoModel;
+      console.log({id});
+
+      const roomData = await roomModel.findOne({_id: id})
+                                                                  .lean()
+                                                                  .exec();
+      
+      if(!roomData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Không tìm được phòng"
+        );
+      }
+      const listIdMetter = roomData.listIdElectricMetter;
+      return HttpResponse.returnSuccessResponse(res, listIdMetter);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async addIdMetterForRoom(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const id = req.params.id;
+      const time = req.params.time;
+      const newIdMetter = req.params.newIdMetter;
+
+      const {room: roomModel} = global.mongoModel;
+      console.log({id});
+      console.log({time});
+      console.log({newIdMetter});
+
+      const roomData = await roomModel.findOne({_id: id})
+                                                                  .lean()
+                                                                  .exec();
+      
+      if(!roomData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Không tìm được phòng"
+        );
+      }
+
+      const resData = await roomModel.findOneAndUpdate(
+        { _id: id },
+        {
+          $addToSet: {
+            listIdElectricMetter: { "timestamp": time, "value": newIdMetter }
+          },
+        },
+        { new: true }
+      );
+
+      return HttpResponse.returnSuccessResponse(res, resData);
     } catch (error) {
       next(error);
     }
