@@ -3444,6 +3444,50 @@ export default class EnergyController {
     }
   }
 
+  static async countElectricV2(jobId, startTime, endTime): Promise<number> {
+    // 2024-03-01 YYYY-MM-DD
+    console.log({jobId});
+    console.log(typeof(jobId));
+    console.log(jobId.length);
+    console.log("startTime", startTime);
+    
+  
+    if (new Date(startTime) > new Date(endTime)) {
+      return null;
+    }
+  
+    const { 
+      room: roomModel,
+      job: jobModel } = global.mongoModel;
+  
+    try {
+      const jobData = await jobModel.findOne({_id: jobId})
+                                                          .lean()
+                                                          .exec()
+  
+      console.log({jobData});
+      if (jobData) {
+        const roomId = jobData.room;
+        const roomData = await roomModel.findOne(roomId)
+                                                                    .lean()
+                                                                    .exec();
+        if (roomData) {
+          const totalkWhTime = await EnergyController.calculateElectricUsedDayToDay(
+            roomData._id,
+            startTime,
+            endTime
+          );
+  
+          return totalkWhTime;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.log({error});
+      return null;
+    }
+  }
+
   static async buildingRevenue(
     req: Request,
     res: Response,
@@ -6166,6 +6210,8 @@ async function countElectric(jobId, startTime, endTime): Promise<number> {
     return null;
   }
 }
+
+
 
 async function caculateElectricInOneDayForNoDataBefore(
   rawDataElectricInDay: any,

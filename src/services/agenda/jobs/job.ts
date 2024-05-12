@@ -90,8 +90,8 @@ export default (agenda) => {
       const start = moment().subtract(1, 'months').startOf("months").format("YYYY-MM-DD"); // đầu tháng trước
       const end = moment().subtract(1, 'months').endOf("months").format("YYYY-MM-DD");// cuối tháng trước
 
-      let electricNumber = await EnergyController.countElectric(job.attrs.data.jobId, start, end);
-      // console.log({electricNumber});
+      let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
+      console.log({electricNumber});
 
       const roomId = resData.room;
       const roomData = await roomModel.findOne({_id: roomId})
@@ -179,7 +179,7 @@ export default (agenda) => {
           const start = moment(checkInTime).format("YYYY-MM-DD");
           const end = moment(checkInTime).endOf("month").format("YYYY-MM-DD");
   
-          let electricNumber = await EnergyController.countElectric(job.attrs.data.jobId, start, end);
+          let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
           console.log({electricNumber});
   
           const roomId = resData.room;
@@ -969,7 +969,7 @@ export default (agenda) => {
             // const end = moment().year() + "-" + monInEnd + "-" + "04";
             const end = checkOutTime.format("YYYY-MM-DD");
 
-            let electricNumber = await EnergyController.countElectric(jobData._id, start, end);
+            let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
             const roomId = jobData.room;
             const roomData = await roomModel.findOne({_id: roomId})
@@ -1132,7 +1132,7 @@ export default (agenda) => {
           const start = checkOutDay.startOf("months").format("YYYY-MM-DD");
           const end = checkOutDay.format("YYYY-MM-DD");
           
-          let electricNumber = await EnergyController.countElectric(job.attrs.data.jobId, start, end);
+          let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
   
           const roomId = resData.room;
           const roomData = await roomModel.findOne({_id: roomId})
@@ -1538,7 +1538,7 @@ export default (agenda) => {
             const monInEnd = (moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1);
             const end = moment().year() + "-" + monInEnd + "-" + "15";
 
-            let electricNumber = await EnergyController.countElectric(jobData._id, start, end);
+            let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
             const roomId = jobData.room;
             const roomData = await roomModel.findOne({_id: roomId})
@@ -1763,7 +1763,7 @@ export default (agenda) => {
             const start = moment().startOf("months").format("YYYY-MM-DD");
             const end = checkOutDay.format("YYYY-MM-DD");
 
-            let electricNumber = await EnergyController.countElectric(jobData._id, start, end);
+            let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
             const roomId = jobData.room;
             const roomData = await roomModel.findOne({_id: roomId})
@@ -2001,7 +2001,7 @@ export default (agenda) => {
             const monInEnd = (moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1);
             const end = moment().year() + "-" + monInEnd + "-" + "15";
 
-            let electricNumber = await EnergyController.countElectric(jobData._id, start, end);
+            let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
             const roomId = jobData.room;
             const roomData = await roomModel.findOne({_id: roomId})
@@ -2197,7 +2197,7 @@ export default (agenda) => {
           const start = checkOutDay.startOf("months").format("YYYY-MM-DD");
           const end = checkOutDay.format("YYYY-MM-DD");
           
-          let electricNumber = await EnergyController.countElectric(job.attrs.data.jobId, start, end);
+          let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
   
           const roomId = resData.room;
           const roomData = await roomModel.findOne({_id: roomId})
