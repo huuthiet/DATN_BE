@@ -961,6 +961,43 @@ export default class EnergyController {
       next(e);
     }
   }
+  static async getCurrentMonDataPerDayV2(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const jobId = req.params.id;
+      const { room: roomModel, job: jobModel } = global.mongoModel;
+
+      const jobData = await jobModel.findOne({_id: jobId}).lean().exec();
+
+      const roomId = jobData.room;
+      const checkInDay = jobData.checkInTime;
+
+      const checkInYear: string = moment(checkInDay).format("YYYY");
+      const checkInMonth: string = moment(checkInDay).format("MM");
+      let start: string = '';
+      const end: string = moment().format("YYYY-MM-DD");
+      if (checkInYear === moment().format("YYYY") && checkInMonth === moment().format("YY")) {
+        start = moment(checkInDay).format("YYYY-MM-DD");
+      }
+      start = moment().startOf("month").format("YYYY-MM-DD");
+
+      const totalkWhTime = await EnergyController.calculateElectricUsedDayToDay(
+        roomId,
+        start,
+        end
+      );
+
+      console.log({totalkWhTime});
+
+      return HttpResponse.returnSuccessResponse(res, totalkWhTime);
+
+    } catch (error) {
+      next(error);
+    }
+  }
 
   //get all data of all devices by year and month
   static async getAllDataByYearMonth(
@@ -1671,9 +1708,12 @@ export default class EnergyController {
     const startTime = req.params.startTime;
     const endTime = req.params.endTime;
 
-    const startTimeQuery = new Date(startTime);
-    const endTimeQuery = new Date(endTime);
-    endTimeQuery.setHours(30, 59, 59, 59);
+    // const startTimeQuery = new Date(startTime);
+    // const endTimeQuery = new Date(endTime);
+    // endTimeQuery.setHours(30, 59, 59, 59);
+
+    const startTimeQuery: string = moment(startTime).format("YYYY-MM-DD");
+    const endTimeQuery: string = moment(endTime).format("YYYY-MM-DD");
 
     let dataEnergy: {
       totalkWhTime: number;
@@ -1691,7 +1731,7 @@ export default class EnergyController {
 
     const getRandomInt = (min, max) =>
       Math.floor(Math.random() * (max - min)) + min;
-    const getRandomString = (length, base) => {
+      const getRandomString = (length, base) => {
       let result = "";
       const baseLength = base.length;
 
@@ -1717,6 +1757,7 @@ export default class EnergyController {
       address: addressModel,
       user: userModel,
       banking: BankingModel,
+      job: jobModel,
     } = global.mongoModel;
 
     try {
@@ -1805,147 +1846,200 @@ export default class EnergyController {
         const addressUser = userInfor.address;
         const emailUser = userInfor.email;
 
-        if (roomInfor.idElectricMetter) {
-          //chuyển string -> number
-          let idElectricMetterNumber: number = +roomInfor.idElectricMetter;
+        if(roomInfor.listIdElectricMetter) {
+          if (roomInfor.listIdElectricMetter.length !== 0) {
+            const jobData = await jobModel.findOne({
+              room: roomInfor._id,
+              isDeleted: false,
+              isActived: true,
+            }).lean().exec();
 
-          // input: 2024-01-24/2024-01-24: không cần giờ
-          console.log("startTime", startTimeQuery);
-          const lastStartDay = startTimeQuery;
-
-          console.log("endTime", endTimeQuery);
-          const lastEndDay = endTimeQuery;
-
-          console.log("Kết quả phép so sánh:", lastStartDay < lastEndDay);
-          const { electrics: ElectricsModel } = global.mongoModel;
-
-          if (lastStartDay > lastEndDay) {
-            console.log("Thời gian bắt đầu lớn hơn thời gian kết thúc");
-          } else {
-            const datesInRange: Date[] = [];
-            let currentDate = new Date(lastStartDay);
-
-            while (currentDate <= lastEndDay) {
-              datesInRange.push(new Date(currentDate));
-              currentDate.setDate(currentDate.getDate() + 1);
+            if (!jobData) {
+              const data = "No data in this time";
+              return HttpResponse.returnSuccessResponse(res, data);
+            }
+            let startTimeQueryTemp: string = startTimeQuery;
+            if (moment(startTimeQuery) < moment(jobData.checkInTime)) {
+              //nếu thời gian query trước thời gian checkIn
+              startTimeQueryTemp = moment(jobData.checkInTime).format("YYYY-MM-DD");
             }
 
-            const resultData = [];
-            for (const date of datesInRange) {
-              const endOfDay = new Date(date);
-              endOfDay.setHours(30, 59, 59, 999);
+            console.log({startTimeQueryTemp});
+            console.log({endTimeQuery});
 
-              const query = {
-                IdDevice: roomInfor.idElectricMetter,
-                Time: {
-                  $gte: date,
-                  $lte: endOfDay,
-                },
-              };
-
-              const result = await ElectricsModel.findOne(query)
-                .sort({ Time: -1 })
-                .lean()
-                .exec();
-              resultData.push(result);
-              console.log("resultttttttttttttttttttttttttttttttttt", result);
-
-              console.log(
-                `Dữ liệu ${idMotel} vào cuối ngày ${date.toISOString()}:`,
-                result
-              );
-            }
-
-            const totalKwhPerDay = resultData.map((item) =>
-              item !== null ? item.Total_kWh : null
+            const resResult = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+              roomInfor._id,
+              startTimeQueryTemp,
+              endTimeQuery,
             );
 
-            const labelTime: (string | null)[] = resultData.map((item) => {
-              if (item !== null) {
-                const date = new Date(item.Time);
-                console.log("date", date);
-                const formattedDate = date.toISOString().split("T")[0];
-                return formattedDate;
-              } else {
-                return null;
-              }
-            });
+            console.log("resResult", resResult);
 
-            const query = {
-              IdDevice: roomInfor.idElectricMetter,
-              Time: {
-                $lte: lastStartDay,
-              },
-            };
-
-            const dataBefore = await ElectricsModel.findOne(query)
-              .sort({ Time: -1 })
-              .lean()
-              .exec();
-
-            let kWhData = [];
-            let lastValue = 0;
-            if (dataBefore !== null) {
-              lastValue = dataBefore.Total_kWh;
+            if (resResult === null) {
+              const data = "No data in this time";
+              return HttpResponse.returnSuccessResponse(res, data);
             }
 
-            for (let i = 0; i < totalKwhPerDay.length; i++) {
-              if (totalKwhPerDay[i] === null) {
-                kWhData.push(null);
-              } else {
-                let result = totalKwhPerDay[i] - lastValue;
-                // Trường hợp thay đồng hồ khác có chỉ số nhỏ hơn chỉ số cũ, nếu ngày đó thay đồng hồ thì chấp nhận mất dữ liệu của ngày đó
-                if (result < 0) {
-                  kWhData.push(null);
-                  lastValue = totalKwhPerDay[i];
-                } else {
-                  kWhData.push(result);
-                  lastValue = totalKwhPerDay[i];
-                }
-              }
-            }
+            typeElectricity = resResult.totalkWhTime;
 
-            const totalkWhTime = kWhData.reduce((acc, curr) => acc + curr, 0);
+            const labelTime = resResult.labelTime;
+            console.log("label Time", labelTime);
+            const kWhData = resResult.kWhData;
 
             dataEnergy = {
-              totalkWhTime: totalkWhTime,
-              labelTime: labelTime,
-              kWhData: kWhData,
-              totalKwhPerDay: totalKwhPerDay,
-              dataBefore: dataBefore,
-              rawData: resultData,
+              totalkWhTime: resResult.totalkWhTime,
+              labelTime: resResult.labelTime,
+              kWhData: resResult.kWhData,
+              totalKwhPerDay: null,
+              dataBefore: null,
+              rawData: null,
             };
-          }
-          const lastedValueElectric = await ElectricsModel.findOne({
-            IdDevice: idElectricMetterNumber,
-            Time: { $lt: endTimeQuery },
-          })
-            .sort({ Time: -1 })
-            .lean()
-            .exec();
 
-          const beforeValueElectric = await ElectricsModel.findOne({
-            IdDevice: idElectricMetterNumber,
-            Time: { $lt: startTimeQuery },
-          })
-            .sort({ Time: -1 })
-            .lean()
-            .exec();
-
-          //note: CẦN XEM SUY NGHĨ THÊM VỀ CÁC CASE
-          if (beforeValueElectric) {
-            typeElectricity = parseFloat(
-              (
-                lastedValueElectric.Total_kWh - beforeValueElectric.Total_kWh
-              ).toFixed(3)
-            );
+            // //chuyển string -> number
+            // let idElectricMetterNumber: number = +roomInfor.idElectricMetter;
+  
+            // // input: 2024-01-24/2024-01-24: không cần giờ
+            // console.log("startTime", startTimeQuery);
+            // const lastStartDay = startTimeQuery;
+  
+            // console.log("endTime", endTimeQuery);
+            // const lastEndDay = endTimeQuery;
+  
+            // console.log("Kết quả phép so sánh:", lastStartDay < lastEndDay);
+            // const { electrics: ElectricsModel } = global.mongoModel;
+  
+            // if (lastStartDay > lastEndDay) {
+            //   console.log("Thời gian bắt đầu lớn hơn thời gian kết thúc");
+            // } else {
+            //   const datesInRange: Date[] = [];
+            //   let currentDate = new Date(lastStartDay);
+  
+            //   while (currentDate <= lastEndDay) {
+            //     datesInRange.push(new Date(currentDate));
+            //     currentDate.setDate(currentDate.getDate() + 1);
+            //   }
+  
+            //   const resultData = [];
+            //   for (const date of datesInRange) {
+            //     const endOfDay = new Date(date);
+            //     endOfDay.setHours(30, 59, 59, 999);
+  
+            //     const query = {
+            //       IdDevice: roomInfor.idElectricMetter,
+            //       Time: {
+            //         $gte: date,
+            //         $lte: endOfDay,
+            //       },
+            //     };
+  
+            //     const result = await ElectricsModel.findOne(query)
+            //       .sort({ Time: -1 })
+            //       .lean()
+            //       .exec();
+            //     resultData.push(result);
+            //     console.log("resultttttttttttttttttttttttttttttttttt", result);
+  
+            //     console.log(
+            //       `Dữ liệu ${idMotel} vào cuối ngày ${date.toISOString()}:`,
+            //       result
+            //     );
+            //   }
+  
+            //   const totalKwhPerDay = resultData.map((item) =>
+            //     item !== null ? item.Total_kWh : null
+            //   );
+  
+            //   const labelTime: (string | null)[] = resultData.map((item) => {
+            //     if (item !== null) {
+            //       const date = new Date(item.Time);
+            //       console.log("date", date);
+            //       const formattedDate = date.toISOString().split("T")[0];
+            //       return formattedDate;
+            //     } else {
+            //       return null;
+            //     }
+            //   });
+  
+            //   const query = {
+            //     IdDevice: roomInfor.idElectricMetter,
+            //     Time: {
+            //       $lte: lastStartDay,
+            //     },
+            //   };
+  
+            //   const dataBefore = await ElectricsModel.findOne(query)
+            //     .sort({ Time: -1 })
+            //     .lean()
+            //     .exec();
+  
+            //   let kWhData = [];
+            //   let lastValue = 0;
+            //   if (dataBefore !== null) {
+            //     lastValue = dataBefore.Total_kWh;
+            //   }
+  
+            //   for (let i = 0; i < totalKwhPerDay.length; i++) {
+            //     if (totalKwhPerDay[i] === null) {
+            //       kWhData.push(null);
+            //     } else {
+            //       let result = totalKwhPerDay[i] - lastValue;
+            //       // Trường hợp thay đồng hồ khác có chỉ số nhỏ hơn chỉ số cũ, nếu ngày đó thay đồng hồ thì chấp nhận mất dữ liệu của ngày đó
+            //       if (result < 0) {
+            //         kWhData.push(null);
+            //         lastValue = totalKwhPerDay[i];
+            //       } else {
+            //         kWhData.push(result);
+            //         lastValue = totalKwhPerDay[i];
+            //       }
+            //     }
+            //   }
+  
+            //   const totalkWhTime = kWhData.reduce((acc, curr) => acc + curr, 0);
+  
+            //   dataEnergy = {
+            //     totalkWhTime: totalkWhTime,
+            //     labelTime: labelTime,
+            //     kWhData: kWhData,
+            //     totalKwhPerDay: totalKwhPerDay,
+            //     dataBefore: dataBefore,
+            //     rawData: resultData,
+            //   };
+            // }
+            // const lastedValueElectric = await ElectricsModel.findOne({
+            //   IdDevice: idElectricMetterNumber,
+            //   Time: { $lt: endTimeQuery },
+            // })
+            //   .sort({ Time: -1 })
+            //   .lean()
+            //   .exec();
+  
+            // const beforeValueElectric = await ElectricsModel.findOne({
+            //   IdDevice: idElectricMetterNumber,
+            //   Time: { $lt: startTimeQuery },
+            // })
+            //   .sort({ Time: -1 })
+            //   .lean()
+            //   .exec();
+  
+            // //note: CẦN XEM SUY NGHĨ THÊM VỀ CÁC CASE
+            // if (beforeValueElectric) {
+            //   typeElectricity = parseFloat(
+            //     (
+            //       lastedValueElectric.Total_kWh - beforeValueElectric.Total_kWh
+            //     ).toFixed(3)
+            //   );
+            // } else {
+            //   typeElectricity = parseFloat(lastedValueElectric.toFixed(3));
+            // }
           } else {
-            typeElectricity = parseFloat(lastedValueElectric.toFixed(3));
+            const data = "Room no id metter";
+            return HttpResponse.returnSuccessResponse(res, data);
           }
         } else {
           const data = "Room no id metter";
           return HttpResponse.returnSuccessResponse(res, data);
         }
+        
 
         json = {
           idBill: getRandomHex2(),
@@ -2112,7 +2206,8 @@ export default class EnergyController {
           from: "cr7ronadol12345@gmail.com",
           // to: listHost[i].email,
           // to: "quyetthangmarvel@gmail.com",
-          to: emailOwner,
+          // to: emailOwner,
+          to: "nguyenhuuthiet01012002@gmail.com",
           subject: `[${nameMotel} - ${nameRoom}] HÓA ĐƠN TỪ ${startTime} ĐẾN ${endTime}`,
           text: `Phòng ${nameRoom}, dãy phòng ${nameMotel} địa chỉ ${motelAddress.address}`,
           attachments: [
@@ -2152,9 +2247,12 @@ export default class EnergyController {
     const startTime = req.params.startTime;
     const endTime = req.params.endTime;
 
-    const startTimeQuery = new Date(startTime);
-    const endTimeQuery = new Date(endTime);
-    endTimeQuery.setHours(30, 59, 59, 59);
+    // const startTimeQuery = new Date(startTime);
+    // const endTimeQuery = new Date(endTime);
+    // endTimeQuery.setHours(30, 59, 59, 59);
+
+    const startTimeQuery = moment(startTime).format("YYYY-MM-DD");
+    const endTimeQuery = moment(endTime).format("YYYY-MM-DD");
 
     let dataEnergy: {
       totalkWhTime: number;
@@ -2197,6 +2295,7 @@ export default class EnergyController {
       address: addressModel,
       user: userModel,
       banking: BankingModel,
+      job: jobModel,
     } = global.mongoModel;
 
     try {
@@ -2323,333 +2422,382 @@ export default class EnergyController {
               const addressUser = userInfor.address;
               const emailUser = userInfor.email;
 
-              if (roomInfor.idElectricMetter) {
-                countRoomHaveIdMetter += 1;
-                console.log("PHÒNG ĐÃ CÓ ĐỒNG HÒOOOOOOOOOO");
-                //chuyển string -> number
-                let idElectricMetterNumber: number = +roomInfor.idElectricMetter;
-
-                // input: 2024-01-24/2024-01-24: không cần giờ
-                console.log("startTime", startTimeQuery);
-                const lastStartDay = startTimeQuery;
-
-                console.log("endTime", endTimeQuery);
-                const lastEndDay = endTimeQuery;
-
-                console.log("Kết quả phép so sánh:", lastStartDay < lastEndDay);
-                const { electrics: ElectricsModel } = global.mongoModel;
-
-                if (lastStartDay > lastEndDay) {
-                  console.log("Thời gian bắt đầu lớn hơn thời gian kết thúc");
-                } else {
-                  const datesInRange: Date[] = [];
-                  let currentDate = new Date(lastStartDay);
-
-                  while (currentDate <= lastEndDay) {
-                    datesInRange.push(new Date(currentDate));
-                    currentDate.setDate(currentDate.getDate() + 1);
+              if(roomInfor.listIdElectricMetter) {
+                if ( roomInfor.listIdElectricMetter.length !== 0) {
+                  countRoomHaveIdMetter += 1;
+                  console.log("PHÒNG ĐÃ CÓ ĐỒNG HÒOOOOOOOOOO");
+  
+                  const jobData = await jobModel.findOne({
+                    room: roomInfor._id,
+                    isDeleted: false,
+                    isActived: true,
+                  }).lean().exec();
+  
+                  if (!jobData) {
+                    continue;
+                  }
+                  let startTimeQueryTemp: string = startTimeQuery;
+                  if (moment(startTimeQuery) < moment(jobData.checkInTime)) {
+                    //nếu thời gian query trước thời gian checkIn
+                    startTimeQueryTemp = moment(jobData.checkInTime).format("YYYY-MM-DD");
                   }
 
-                  const resultData = [];
-                  for (const date of datesInRange) {
-                    const endOfDay = new Date(date);
-                    endOfDay.setHours(30, 59, 59, 999);
-
-                    const query = {
-                      IdDevice: roomInfor.idElectricMetter,
-                      Time: {
-                        $gte: date,
-                        $lte: endOfDay,
-                      },
-                    };
-
-                    const result = await ElectricsModel.findOne(query)
-                      .sort({ Time: -1 })
-                      .lean()
-                      .exec();
-                    resultData.push(result);
-                    // console.log(
-                    //   "resultttttttttttttttttttttttttttttttttt",
-                    //   result
-                    // );
-
-                    // console.log(
-                    //   `Dữ liệu ${idMotel} vào cuối ngày ${date.toISOString()}:`,
-                    //   result
-                    // );
+                  console.log({startTimeQueryTemp});
+                  console.log({endTimeQuery});
+  
+                  const resResult = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+                    roomInfor._id,
+                    startTimeQueryTemp,
+                    endTimeQuery,
+                  );
+  
+                  console.log("resResult", resResult);
+  
+                  if (resResult === null) {
+                    continue;
                   }
 
-                  const totalKwhPerDay = resultData.map((item) =>
-                    item !== null ? item.Total_kWh : null
-                  );
-
-                  const labelTime: (string | null)[] = resultData.map(
-                    (item) => {
-                      if (item !== null) {
-                        const date = new Date(item.Time);
-                        console.log("date", date);
-                        const formattedDate = date.toISOString().split("T")[0];
-                        return formattedDate;
-                      } else {
-                        return null;
-                      }
-                    }
-                  );
-
-                  const query = {
-                    IdDevice: roomInfor.idElectricMetter,
-                    Time: {
-                      $lte: lastStartDay,
+                  typeElectricity = resResult.totalkWhTime;
+  
+                  //chuyển string -> number
+                  // let idElectricMetterNumber: number = +roomInfor.idElectricMetter;
+  
+                  // // input: 2024-01-24/2024-01-24: không cần giờ
+                  // console.log("startTime", startTimeQuery);
+                  // const lastStartDay = startTimeQuery;
+  
+                  // console.log("endTime", endTimeQuery);
+                  // const lastEndDay = endTimeQuery;
+  
+                  // console.log("Kết quả phép so sánh:", lastStartDay < lastEndDay);
+                  // const { electrics: ElectricsModel } = global.mongoModel;
+  
+                  // if (lastStartDay > lastEndDay) {
+                  //   console.log("Thời gian bắt đầu lớn hơn thời gian kết thúc");
+                  // } else {
+                  //   const datesInRange: Date[] = [];
+                  //   let currentDate = new Date(lastStartDay);
+  
+                  //   while (currentDate <= lastEndDay) {
+                  //     datesInRange.push(new Date(currentDate));
+                  //     currentDate.setDate(currentDate.getDate() + 1);
+                  //   }
+  
+                  //   const resultData = [];
+                  //   for (const date of datesInRange) {
+                  //     const endOfDay = new Date(date);
+                  //     endOfDay.setHours(30, 59, 59, 999);
+  
+                  //     const query = {
+                  //       IdDevice: roomInfor.idElectricMetter,
+                  //       Time: {
+                  //         $gte: date,
+                  //         $lte: endOfDay,
+                  //       },
+                  //     };
+  
+                  //     const result = await ElectricsModel.findOne(query)
+                  //       .sort({ Time: -1 })
+                  //       .lean()
+                  //       .exec();
+                  //     resultData.push(result);
+                  //     // console.log(
+                  //     //   "resultttttttttttttttttttttttttttttttttt",
+                  //     //   result
+                  //     // );
+  
+                  //     // console.log(
+                  //     //   `Dữ liệu ${idMotel} vào cuối ngày ${date.toISOString()}:`,
+                  //     //   result
+                  //     // );
+                  //   }
+  
+                  //   const totalKwhPerDay = resultData.map((item) =>
+                  //     item !== null ? item.Total_kWh : null
+                  //   );
+  
+                  //   const labelTime: (string | null)[] = resultData.map(
+                  //     (item) => {
+                  //       if (item !== null) {
+                  //         const date = new Date(item.Time);
+                  //         console.log("date", date);
+                  //         const formattedDate = date.toISOString().split("T")[0];
+                  //         return formattedDate;
+                  //       } else {
+                  //         return null;
+                  //       }
+                  //     }
+                  //   );
+  
+                  //   const query = {
+                  //     IdDevice: roomInfor.idElectricMetter,
+                  //     Time: {
+                  //       $lte: lastStartDay,
+                  //     },
+                  //   };
+  
+                  //   const dataBefore = await ElectricsModel.findOne(query)
+                  //     .sort({ Time: -1 })
+                  //     .lean()
+                  //     .exec();
+  
+                  //   let kWhData = [];
+                  //   let lastValue = 0;
+                  //   if (dataBefore !== null) {
+                  //     lastValue = dataBefore.Total_kWh;
+                  //   }
+  
+                  //   for (let i = 0; i < totalKwhPerDay.length; i++) {
+                  //     if (totalKwhPerDay[i] === null) {
+                  //       kWhData.push(null);
+                  //     } else {
+                  //       let result = totalKwhPerDay[i] - lastValue;
+                  //       // Trường hợp thay đồng hồ khác có chỉ số nhỏ hơn chỉ số cũ, nếu ngày đó thay đồng hồ thì chấp nhận mất dữ liệu của ngày đó
+                  //       if (result < 0) {
+                  //         kWhData.push(null);
+                  //         lastValue = totalKwhPerDay[i];
+                  //       } else {
+                  //         kWhData.push(result);
+                  //         lastValue = totalKwhPerDay[i];
+                  //       }
+                  //     }
+                  //   }
+  
+                  //   const totalkWhTime = kWhData.reduce(
+                  //     (acc, curr) => acc + curr,
+                  //     0
+                  //   );
+  
+                  //   dataEnergy = {
+                  //     totalkWhTime: totalkWhTime,
+                  //     labelTime: labelTime,
+                  //     kWhData: kWhData,
+                  //     totalKwhPerDay: totalKwhPerDay,
+                  //     dataBefore: dataBefore,
+                  //     rawData: resultData,
+                  //   };
+                  // }
+                  // const lastedValueElectric = await ElectricsModel.findOne({
+                  //   IdDevice: idElectricMetterNumber,
+                  //   Time: { $lt: endTimeQuery },
+                  // })
+                  //   .sort({ Time: -1 })
+                  //   .lean()
+                  //   .exec();
+  
+                  // const beforeValueElectric = await ElectricsModel.findOne({
+                  //   IdDevice: idElectricMetterNumber,
+                  //   Time: { $lt: startTimeQuery },
+                  // })
+                  //   .sort({ Time: -1 })
+                  //   .lean()
+                  //   .exec();
+                  // //note: CẦN XEM SUY NGHĨ THÊM VỀ CÁC CASE
+                  // if (beforeValueElectric) {
+                  //   typeElectricity = parseFloat(
+                  //     (
+                  //       lastedValueElectric.Total_kWh -
+                  //       beforeValueElectric.Total_kWh
+                  //     ).toFixed(3)
+                  //   );
+                  // } else {
+                  //   typeElectricity = parseFloat(lastedValueElectric.toFixed(3));
+                  // }
+  
+                  const labelTime = resResult.labelTime;
+                  console.log("label Time", labelTime);
+                  const kWhData = resResult.kWhData;
+  
+                  let dataEnergy = {
+                    totalkWhTime: resResult.totalkWhTime,
+                    labelTime: resResult.labelTime,
+                    kWhData: resResult.kWhData,
+                    totalKwhPerDay: null,
+                    dataBefore: null,
+                    rawData: null,
+                  };
+  
+                  json = {
+                    idBill: getRandomHex2(),
+                    phoneOwner: phoneOwner,
+                    expireTime: expireTime,
+                    dateBill: parsedTime,
+                    nameMotel: nameMotel,
+                    addressMotel: addressMotel,
+                    nameRoom: nameRoom,
+                    nameUser: nameUser,
+                    phoneUser: phoneUser,
+                    addressUser: addressUser,
+                    addressOwner: addressOwner,
+                    imgRoom: "",
+                    emailUser: emailUser,
+                    emailOwner: emailOwner,
+  
+                    totalAll:
+                      unitPriceRoom +
+                      typeElectricity * unitPriceElectricity +
+                      typeWater * unitPriceWater +
+                      typeGarbage * unitPriceGarbage +
+                      typeWifi * unitPriceWifi +
+                      typeOther * unitPriceOther,
+  
+                    totalAndTaxAll:
+                      unitPriceRoom +
+                      typeElectricity * unitPriceElectricity +
+                      typeWater * unitPriceWater +
+                      typeGarbage * unitPriceGarbage +
+                      typeWifi * unitPriceWifi +
+                      typeOther * unitPriceOther,
+  
+                    totalTaxAll: 0,
+                    typeTaxAll: 0,
+                    expenseRoom: "Chi Phí Phòng",
+                    typeRoom: typeRoom,
+                    unitPriceRoom: unitPriceRoom,
+                    totalRoom: unitPriceRoom,
+                    expenseElectricity: "Chi Phí Điện",
+                    typeElectricity: typeElectricity,
+                    unitPriceElectricity: unitPriceElectricity,
+                    totalElectricity: typeElectricity * unitPriceElectricity,
+                    expenseWater: "Chi Phí Nước",
+                    typeWater: typeWater,
+                    unitPriceWater: unitPriceWater,
+                    totalWater: typeWater * unitPriceWater,
+                    expenseGarbage: "Phí Dịch Vụ",
+                    typeGarbage: typeGarbage,
+                    unitPriceGarbage: unitPriceGarbage,
+                    totalGarbage: typeGarbage * unitPriceGarbage,
+                    expenseWifi: "Chi Phí Xe",
+                    typeWifi: typeWifi,
+                    unitPriceWifi: unitPriceWifi,
+                    totalWifi: typeWifi * unitPriceWifi,
+                    expenseOther: "Tiện Ích Khác",
+                    typeOther: typeOther,
+                    unitPriceOther: unitPriceOther,
+                    totalOther: typeOther * unitPriceOther,
+                  };
+                  const configuration: ChartConfiguration = {
+                    type: "line",
+                    data: {
+                      labels: dataEnergy.labelTime.map((item) =>
+                        item ? item : "Chưa có dữ liệu"
+                      ),
+                      datasets: [
+                        {
+                          label: `Tổng số điện từ ${startTime} đến ${endTime}`,
+                          data: dataEnergy.kWhData.map((item) =>
+                            item ? item : 0
+                          ),
+                          backgroundColor: ["rgba(255, 99, 132, 0.2)"],
+                          borderColor: ["rgba(255,99,132,1)"],
+                          borderWidth: 1,
+                          tension: 0.01,
+                          fill: false,
+                        },
+                      ],
                     },
-                  };
-
-                  const dataBefore = await ElectricsModel.findOne(query)
-                    .sort({ Time: -1 })
-                    .lean()
-                    .exec();
-
-                  let kWhData = [];
-                  let lastValue = 0;
-                  if (dataBefore !== null) {
-                    lastValue = dataBefore.Total_kWh;
-                  }
-
-                  for (let i = 0; i < totalKwhPerDay.length; i++) {
-                    if (totalKwhPerDay[i] === null) {
-                      kWhData.push(null);
-                    } else {
-                      let result = totalKwhPerDay[i] - lastValue;
-                      // Trường hợp thay đồng hồ khác có chỉ số nhỏ hơn chỉ số cũ, nếu ngày đó thay đồng hồ thì chấp nhận mất dữ liệu của ngày đó
-                      if (result < 0) {
-                        kWhData.push(null);
-                        lastValue = totalKwhPerDay[i];
-                      } else {
-                        kWhData.push(result);
-                        lastValue = totalKwhPerDay[i];
-                      }
-                    }
-                  }
-
-                  const totalkWhTime = kWhData.reduce(
-                    (acc, curr) => acc + curr,
-                    0
-                  );
-
-                  dataEnergy = {
-                    totalkWhTime: totalkWhTime,
-                    labelTime: labelTime,
-                    kWhData: kWhData,
-                    totalKwhPerDay: totalKwhPerDay,
-                    dataBefore: dataBefore,
-                    rawData: resultData,
-                  };
-                }
-                const lastedValueElectric = await ElectricsModel.findOne({
-                  IdDevice: idElectricMetterNumber,
-                  Time: { $lt: endTimeQuery },
-                })
-                  .sort({ Time: -1 })
-                  .lean()
-                  .exec();
-
-                const beforeValueElectric = await ElectricsModel.findOne({
-                  IdDevice: idElectricMetterNumber,
-                  Time: { $lt: startTimeQuery },
-                })
-                  .sort({ Time: -1 })
-                  .lean()
-                  .exec();
-                //note: CẦN XEM SUY NGHĨ THÊM VỀ CÁC CASE
-                if (beforeValueElectric) {
-                  typeElectricity = parseFloat(
-                    (
-                      lastedValueElectric.Total_kWh -
-                      beforeValueElectric.Total_kWh
-                    ).toFixed(3)
-                  );
-                } else {
-                  typeElectricity = parseFloat(lastedValueElectric.toFixed(3));
-                }
-
-                json = {
-                  idBill: getRandomHex2(),
-                  phoneOwner: phoneOwner,
-                  expireTime: expireTime,
-                  dateBill: parsedTime,
-                  nameMotel: nameMotel,
-                  addressMotel: addressMotel,
-                  nameRoom: nameRoom,
-                  nameUser: nameUser,
-                  phoneUser: phoneUser,
-                  addressUser: addressUser,
-                  addressOwner: addressOwner,
-                  imgRoom: "",
-                  emailUser: emailUser,
-                  emailOwner: emailOwner,
-
-                  totalAll:
-                    unitPriceRoom +
-                    typeElectricity * unitPriceElectricity +
-                    typeWater * unitPriceWater +
-                    typeGarbage * unitPriceGarbage +
-                    typeWifi * unitPriceWifi +
-                    typeOther * unitPriceOther,
-
-                  totalAndTaxAll:
-                    unitPriceRoom +
-                    typeElectricity * unitPriceElectricity +
-                    typeWater * unitPriceWater +
-                    typeGarbage * unitPriceGarbage +
-                    typeWifi * unitPriceWifi +
-                    typeOther * unitPriceOther,
-
-                  totalTaxAll: 0,
-                  typeTaxAll: 0,
-                  expenseRoom: "Chi Phí Phòng",
-                  typeRoom: typeRoom,
-                  unitPriceRoom: unitPriceRoom,
-                  totalRoom: unitPriceRoom,
-                  expenseElectricity: "Chi Phí Điện",
-                  typeElectricity: typeElectricity,
-                  unitPriceElectricity: unitPriceElectricity,
-                  totalElectricity: typeElectricity * unitPriceElectricity,
-                  expenseWater: "Chi Phí Nước",
-                  typeWater: typeWater,
-                  unitPriceWater: unitPriceWater,
-                  totalWater: typeWater * unitPriceWater,
-                  expenseGarbage: "Phí Dịch Vụ",
-                  typeGarbage: typeGarbage,
-                  unitPriceGarbage: unitPriceGarbage,
-                  totalGarbage: typeGarbage * unitPriceGarbage,
-                  expenseWifi: "Chi Phí Xe",
-                  typeWifi: typeWifi,
-                  unitPriceWifi: unitPriceWifi,
-                  totalWifi: typeWifi * unitPriceWifi,
-                  expenseOther: "Tiện Ích Khác",
-                  typeOther: typeOther,
-                  unitPriceOther: unitPriceOther,
-                  totalOther: typeOther * unitPriceOther,
-                };
-                const configuration: ChartConfiguration = {
-                  type: "line",
-                  data: {
-                    labels: dataEnergy.labelTime.map((item) =>
-                      item ? item : "Chưa có dữ liệu"
-                    ),
-                    datasets: [
+                    options: {
+                      scales: {
+                        x: {
+                          title: {
+                            display: true,
+                            text: "Thời gian",
+                          },
+                        },
+                        y: {
+                          title: {
+                            display: true,
+                            text: "Số KwH",
+                          },
+                        },
+                      },
+                    },
+                    plugins: [
                       {
-                        label: `Tổng số điện từ ${startTime} đến ${endTime}`,
-                        data: dataEnergy.kWhData.map((item) =>
-                          item ? item : 0
-                        ),
-                        backgroundColor: ["rgba(255, 99, 132, 0.2)"],
-                        borderColor: ["rgba(255,99,132,1)"],
-                        borderWidth: 1,
-                        tension: 0.01,
-                        fill: false,
+                        id: "background-colour",
+                        beforeDraw: (chart) => {
+                          const ctx = chart.ctx;
+                          ctx.save();
+                          ctx.fillStyle = "white";
+                          ctx.fillRect(0, 0, width, height);
+                          ctx.restore();
+                        },
+                      },
+                      {
+                        id: "chart-data-labels",
+                        afterDatasetsDraw: (chart, args, options) => {
+                          const { ctx } = chart;
+                          ctx.save();
+  
+                          // Configure data labels here
+                          chart.data.datasets.forEach((dataset, i) => {
+                            const meta = chart.getDatasetMeta(i);
+                            meta.data.forEach((element, index) => {
+                              const model = element;
+                              const x = model.x;
+                              const y = model.y;
+                              const text = dataset.data[index]
+                                ? (+dataset.data[index].toString()).toFixed(2)
+                                : ""; // You can customize this based on your data
+                              const font = "12px Arial"; // Example font setting
+                              const fillStyle = "black"; // Example color setting
+                              const textAlign = "center"; // Example alignment setting
+  
+                              ctx.fillStyle = fillStyle;
+                              ctx.font = font;
+                              ctx.textAlign = textAlign;
+                              ctx.fillText(text, x, y);
+                            });
+                          });
+  
+                          ctx.restore();
+                        },
                       },
                     ],
-                  },
-                  options: {
-                    scales: {
-                      x: {
-                        title: {
-                          display: true,
-                          text: "Thời gian",
-                        },
-                      },
-                      y: {
-                        title: {
-                          display: true,
-                          text: "Số KwH",
-                        },
-                      },
+                  };
+                  const chartBufferPNG = await chartJSNodeCanvas.renderToBuffer(
+                    configuration
+                  );
+                  const buffer = await generatePDF(json, banking, dataEnergy);
+                  const mergedBuffer = await mergeBuffer(buffer, chartBufferPNG);
+                  results.push({ buffer: Buffer.from(mergedBuffer) });
+  
+                  const transporter = nodemailer.createTransport({
+                    service: "gmail",
+                    auth: {
+                      user: "cr7ronadol12345@gmail.com",
+                      pass: "wley oiaw yhpl oupy",
                     },
-                  },
-                  plugins: [
-                    {
-                      id: "background-colour",
-                      beforeDraw: (chart) => {
-                        const ctx = chart.ctx;
-                        ctx.save();
-                        ctx.fillStyle = "white";
-                        ctx.fillRect(0, 0, width, height);
-                        ctx.restore();
-                      },
+                    tls: {
+                      rejectUnauthorized: false,
                     },
-                    {
-                      id: "chart-data-labels",
-                      afterDatasetsDraw: (chart, args, options) => {
-                        const { ctx } = chart;
-                        ctx.save();
-
-                        // Configure data labels here
-                        chart.data.datasets.forEach((dataset, i) => {
-                          const meta = chart.getDatasetMeta(i);
-                          meta.data.forEach((element, index) => {
-                            const model = element;
-                            const x = model.x;
-                            const y = model.y;
-                            const text = dataset.data[index]
-                              ? (+dataset.data[index].toString()).toFixed(2)
-                              : ""; // You can customize this based on your data
-                            const font = "12px Arial"; // Example font setting
-                            const fillStyle = "black"; // Example color setting
-                            const textAlign = "center"; // Example alignment setting
-
-                            ctx.fillStyle = fillStyle;
-                            ctx.font = font;
-                            ctx.textAlign = textAlign;
-                            ctx.fillText(text, x, y);
-                          });
-                        });
-
-                        ctx.restore();
-                      },
-                    },
-                  ],
-                };
-                const chartBufferPNG = await chartJSNodeCanvas.renderToBuffer(
-                  configuration
-                );
-                const buffer = await generatePDF(json, banking, dataEnergy);
-                const mergedBuffer = await mergeBuffer(buffer, chartBufferPNG);
-                results.push({ buffer: Buffer.from(mergedBuffer) });
-
-                const transporter = nodemailer.createTransport({
-                  service: "gmail",
-                  auth: {
-                    user: "cr7ronadol12345@gmail.com",
-                    pass: "wley oiaw yhpl oupy",
-                  },
-                  tls: {
-                    rejectUnauthorized: false,
-                  },
-                });
-
-                const files = ["a.txt", "b.pdf", "c.png"];
-                // thay email người nhận thành : emailOwner - chủ trọ
-                const mailOptions = {
-                  from: "cr7ronadol12345@gmail.com",
-                  // to: "quyetthangmarvel@gmail.com",
-                  to: emailUser,
-                  subject: `[${nameMotel} ] HÓA ĐƠN TỪ ${startTime} ĐẾN ${endTime}`,
-                  text: `Dãy phòng ${nameMotel} địa chỉ ${motelAddress.address}`,
-                  attachments: results.map((result) => ({
-                    filename: `Invoice - ${nameMotel} - from ${startTime} to ${endTime}.pdf`,
-                    content: result.buffer,
-                  })),
-                };
-
-                transporter.sendMail(mailOptions, function (error, info) {
-                  if (error) {
-                    console.error(error);
-                  } else {
-                    console.log("Email đã được gửi: " + info.response);
-                  }
-                });
-              } else {
-                //không có id metter
+                  });
+  
+                  const files = ["a.txt", "b.pdf", "c.png"];
+                  // thay email người nhận thành : emailOwner - chủ trọ
+                  const mailOptions = {
+                    from: "cr7ronadol12345@gmail.com",
+                    // to: "quyetthangmarvel@gmail.com",
+                    // to: emailUser,
+                    to: "nguyenhuuthiet01012002@gmail.com",
+                    subject: `[${nameMotel} ] HÓA ĐƠN TỪ ${startTime} ĐẾN ${endTime}`,
+                    text: `Dãy phòng ${nameMotel} địa chỉ ${motelAddress.address}`,
+                    attachments: results.map((result) => ({
+                      filename: `Invoice - ${nameMotel} - from ${startTime} to ${endTime}.pdf`,
+                      content: result.buffer,
+                    })),
+                  };
+  
+                  transporter.sendMail(mailOptions, function (error, info) {
+                    if (error) {
+                      console.error(error);
+                    } else {
+                      console.log("Email đã được gửi: " + info.response);
+                    }
+                  });
+                } else {
+                  //không có id metter
+                }
               }
             } else {
               //phòng chưa được thuê
@@ -4919,12 +5067,12 @@ export default class EnergyController {
       const roomData = await roomModel.findOne({_id: idRoom}).lean().exec();
       if (!roomData) {
         // "Không tìm được phòng"
-        return 0;
+        return null;
       }
 
       if (!roomData.listIdElectricMetter || roomData.listIdElectricMetter.lengh === 0) {
         // "Phòng chưa có id đồng hồ, vui lòng thêm id cho đồng hồ!"
-        return 0;
+        return null;
       }
 
       const listId: DataIdMetterType[] = roomData.listIdElectricMetter;
@@ -4936,7 +5084,7 @@ export default class EnergyController {
       //TH đã thêm trả về mặc định phía dưới
       if(resultLength === 0) {
         // "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
-        return 0;
+        return null;
       } else if(resultLength === 1) {
         const id: string = result[0].value;
 
@@ -4948,7 +5096,7 @@ export default class EnergyController {
 
         if (elementResult.length === 0) {
           // "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
-          return 0;
+          return null;
         }
 
         const resResult = await handleRawToCalculatedElectricDataDayToDay(
@@ -4956,6 +5104,8 @@ export default class EnergyController {
           start, 
           end
         );
+
+        
 
         return resResult.totalkWhTime;
       } else if (resultLength > 1) {
@@ -5020,7 +5170,7 @@ export default class EnergyController {
 
         if (resultTotalAll.length === 0) {
           // "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
-          return 0;
+          return null;
         }
 
         const resResult = await handleRawToCalculatedElectricDataDayToDay(
@@ -5033,7 +5183,156 @@ export default class EnergyController {
       }
 
       // "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
-      return 0;
+      return null;
+
+      // return HttpResponse.returnSuccessResponse(res, "success");
+    } catch (error) {
+      console.log({error});
+    }
+  }
+  static async calculateElectricUsedDayToDayHaveLabelTime(
+    idRoom: string,
+    startDay: string,
+    endDay: string,
+  ): Promise<any> {
+    try {
+      const start: moment.Moment = moment(startDay).startOf('day');
+      const end: moment.Moment = moment(endDay).endOf('day');
+      console.log({start})
+      console.log({end})
+
+      const { room: roomModel } = global.mongoModel;
+
+      const roomData = await roomModel.findOne({_id: idRoom}).lean().exec();
+      if (!roomData) {
+        // "Không tìm được phòng"
+        return null;
+      }
+
+      if (!roomData.listIdElectricMetter || roomData.listIdElectricMetter.lengh === 0) {
+        // "Phòng chưa có id đồng hồ, vui lòng thêm id cho đồng hồ!"
+        return null;
+      }
+
+      const listId: DataIdMetterType[] = roomData.listIdElectricMetter;
+
+      const result = await checkRangeTimeForIdMetter(listId, start, end);
+
+      const resultLength = result.length;
+
+      //TH đã thêm trả về mặc định phía dưới
+      if(resultLength === 0) {
+        // "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+        return null;
+      } else if(resultLength === 1) {
+        const id: string = result[0].value;
+
+        const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+          start,
+          end,
+          id
+        );
+
+        if (elementResult.length === 0) {
+          // "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
+          return null;
+        }
+
+        const resResult = await handleRawToCalculatedElectricDataDayToDay(
+          elementResult,
+          start, 
+          end
+        );
+
+        // const resResult = {
+        //   totalkWhTime: totalkWhTime,
+        //   labelTime: labelTime,
+        //   kWhData: kWhData,
+        // }
+
+        return resResult;
+      } else if (resultLength > 1) {
+        //NOTE: TRƯỜNG HỢP MỘT NGÀY THAY NHIỀU ĐỒNG HỒ ÍT CÓ KHẢ NĂNG XẢY RA
+        //TH bao nhiều mốc thời gian
+        //      [
+        //        {
+        //          "timestamp": "2024-04-02T01:00:00",
+        //          "value": id_1
+        //        },
+        //=>start---------------------------------------
+        //        {
+        //          "timestamp": "2024-04-02T10:00:00",
+        //          "value": id_2
+        //        },
+        //        {
+        //          "timestamp": "2024-04-02T20:00:00",
+        //          "value": id_3
+        //        },
+        //=>end---------------------------------------
+        //      ]
+        // 2 mốc thời gian nằm đúng với vị trị trong đúng list thời gian được trả, 
+        //đã được xử lý trong checkRangeTimeForIdMetter
+        let resultTotalAll: DataElectricType[] = [];
+        for(let i = 0; i < resultLength; i++) {
+          if (i === 0) {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = start;
+            const endQuery : moment.Moment = moment(result[i + 1].timestamp);
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+
+          } else if (i === (resultLength - 1)) {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = moment(result[i].timestamp);
+            const endQuery : moment.Moment = end;
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+          } else {
+            const id : string = result[i].value;
+            const startQuery : moment.Moment = moment(result[i].timestamp);
+            const endQuery : moment.Moment = moment(result[i + 1].timestamp);
+
+            const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
+              startQuery,
+              endQuery,
+              id
+            );
+            resultTotalAll = resultTotalAll.concat(elementResult);
+          }
+        }
+
+        if (resultTotalAll.length === 0) {
+          // "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
+          return null;
+        }
+
+        const resResult = await handleRawToCalculatedElectricDataDayToDay(
+          resultTotalAll,
+          start,
+          end,
+        );
+
+        // const resResult = {
+        //   totalkWhTime: totalkWhTime,
+        //   labelTime: labelTime,
+        //   kWhData: kWhData,
+        // }
+
+        return resResult;
+      }
+
+      // "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+      return null;
 
       // return HttpResponse.returnSuccessResponse(res, "success");
     } catch (error) {
@@ -6615,7 +6914,7 @@ async function handleRawToCalculatedElectricDataDayToDay(
   totalkWhTime = parseFloat(totalkWhTime.toFixed(3));
 
 
-  let labelTime = resultIncludeTime.map(item => item.ts);
+  let labelTime = resultIncludeTime.map(item => item.ts.split('T')[0]);
   let kWhData = resultIncludeTime.map(item => item.value);
 
   const resResult = {

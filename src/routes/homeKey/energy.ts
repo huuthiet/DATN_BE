@@ -73,9 +73,9 @@ energyRoute
   .route("/device/exportBillAllRoom/:idMotel/:startTime/:endTime")
   .get(EnergyController.exportBillAllRoom);
 
-energyRoute
-  .route("/device/exportBillAllRoom/:idMotel/:startTime/:endTime")
-  .get(EnergyController.buildingRevenue);
+// energyRoute
+//   .route("/device/exportBillAllRoom/:idMotel/:startTime/:endTime")
+//   .get(EnergyController.buildingRevenue);
 
 energyRoute
   .route("/device/exportBillBuilding/:idMotel/:startTime/:endTime")
@@ -112,6 +112,10 @@ energyRoute
 energyRoute
   .route("/device/currentMonDataPerDay/:id/:year/:month")
   .get(EnergyController.getCurrentMonDataPerDay);
+
+energyRoute
+  .route("/device/currentMonDataPerDayV2/:id/")
+  .get(EnergyController.getCurrentMonDataPerDayV2);
 
 // Master
 energyRoute.use(AuthMiddleware.isMaster);

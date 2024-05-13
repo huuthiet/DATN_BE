@@ -93,6 +93,10 @@ export default (agenda) => {
       let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
       console.log({electricNumber});
 
+      if (electricNumber === null) {
+        electricNumber = 0;
+      }
+
       const roomId = resData.room;
       const roomData = await roomModel.findOne({_id: roomId})
                                                                   .lean()
@@ -181,6 +185,10 @@ export default (agenda) => {
   
           let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
           console.log({electricNumber});
+
+          if (electricNumber === null) {
+            electricNumber = 0;
+          }
   
           const roomId = resData.room;
           const roomData = await roomModel.findOne({_id: roomId})
@@ -971,6 +979,10 @@ export default (agenda) => {
 
             let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
+            if (electricNumber === null) {
+              electricNumber = 0;
+            }
+
             const roomId = jobData.room;
             const roomData = await roomModel.findOne({_id: roomId})
                                                                         .lean()
@@ -1133,6 +1145,10 @@ export default (agenda) => {
           const end = checkOutDay.format("YYYY-MM-DD");
           
           let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
+
+          if (electricNumber === null) {
+            electricNumber = 0;
+          }
   
           const roomId = resData.room;
           const roomData = await roomModel.findOne({_id: roomId})
@@ -1540,6 +1556,9 @@ export default (agenda) => {
 
             let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
+            if (electricNumber === null) {
+              electricNumber = 0;
+            }
             const roomId = jobData.room;
             const roomData = await roomModel.findOne({_id: roomId})
                                                                         .lean()
@@ -1765,6 +1784,9 @@ export default (agenda) => {
 
             let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
+            if (electricNumber === null) {
+              electricNumber = 0;
+            }
             const roomId = jobData.room;
             const roomData = await roomModel.findOne({_id: roomId})
                                                                         .lean()
@@ -2003,6 +2025,9 @@ export default (agenda) => {
 
             let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
+            if (electricNumber === null) {
+              electricNumber = 0;
+            }
             const roomId = jobData.room;
             const roomData = await roomModel.findOne({_id: roomId})
                                                                         .lean()
@@ -2199,6 +2224,10 @@ export default (agenda) => {
           
           let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
   
+          if (electricNumber === null) {
+            electricNumber = 0;
+          }
+          
           const roomId = resData.room;
           const roomData = await roomModel.findOne({_id: roomId})
                                                                       .lean()
