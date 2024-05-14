@@ -3900,13 +3900,62 @@ export default class EnergyController {
     next: NextFunction
   ): Promise<any> {
     try {
-      const a = await EnergyController.calculateElectricUsedDayToDay(
-        "663336db2c01a43510a32e9f",
-        "2024-05-06",
-        "2024-05-07"
-      );
 
-      console.log({a});
+      // 663336dc2c01a43510a32ea1: test ngày
+//       -- CASE 1: 4 device
+// -- device1 = 'ab7a8c9a-6b56-481f-9fa9-a779e0e02b1a'; "2024-05-04T04:00:00" -> "2024-05-04T09:00:00"
+// -- device2 = 'a58b933e-6a94-4ffc-9cc1-97e64001a819'; "2024-05-04T10:00:00" -> "2024-05-04T18:00:00"
+// -- device3 = 'd0e894a3-4b6a-4137-a782-a0bb5d6c1994'; "2024-05-04T19:00:00" -> "2024-05-05T03:00:00"
+// -- device4 = 'd5c6cd8f-aee5-4dec-bfc8-0d4b9b027b57'; "2024-05-05T04:00:00" -> hnay
+
+      //663336dc2c01a43510a32ea0: test tháng
+      // -- CASE 2: 5 device
+// -- device1: 'be6db39d-485c-45a4-b19c-d358717e7c92'; "2024-01-03T19:00:00" -> "2024-01-16T20:00:00"
+// -- device2: '3330ad03-f7fe-47e0-99d1-f88b7cf21d51'; "2024-01-16T23:00:00" - "2024-02-03T14:00:00"
+// -- device3: '4f3abc4a-8be3-4a0e-91f7-4291b7e2750b'; "2024-02-03T18:00:00" - "2024-02-23T18:00:00"
+// -- device4: 'c6208e6d-b48a-462e-ba28-f05269d767bf'; "2024-02-23T23:00:00" - "2024-03-14T22:00:00"
+// -- device5: '1d84e187-fdd9-44be-960a-c473c42a6f00'; "2024-03-15T00:32:00" - "2024-04-02T21:32:00"
+
+const a = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+  "663336dc2c01a43510a32ea0",
+  "2024-01-03",
+  "2024-02-22"
+);
+
+console.log({a});
+
+      // const {
+      //   room: roomModel,
+      //   floor: floorModel,
+      //   motelRoom: motelRoomModel,
+      //   job: jobModel,
+      //   user: userModel,
+      //   order: orderModel,
+      // } = global.mongoModel;
+
+      // // const newRoom = await roomModel.create()
+
+      // // room: 663336db2c01a43510a32e9f
+      // const dataUpdate = await roomModel.findOneAndUpdate(
+      //   {_id: "663336dc2c01a43510a32ea0"},
+      //   {
+      //     $addToSet: { 
+      //       // listIdElectricMetter:  { "timestamp": new Date("2024-05-02T13:00:00"), "value": "id_metter_test_1" },
+      //       listIdElectricMetter: { "timestamp": "2024-03-15T00:32:00", "value": "1d84e187-fdd9-44be-960a-c473c42a6f00" }
+      //     },
+      //     // "idTest": [
+      //     //   { "timestamp": "2024-05-01T12:00:00", "value": "55497245-4cc8-415c-9794-118715dc08f9" },
+      //     //   { "timestamp": "2024-05-02T13:00:00", "value": "id_metter_test_1" },
+      //       // { "timestamp": "2024-05-03T14:00:00", "value": "id_metter_test_2" },
+      //       // { "timestamp": "2024-05-04T14:00:00", "value": "id_metter_test_3" },
+      //       // { "timestamp": "2024-05-05T14:00:00", "value": "id_metter_test_4" },
+      //       // { "timestamp": "2024-05-06T14:00:00", "value": "id_metter_test_5" },
+      //     // ]
+      //   },
+      //   {new: true}
+      // );
+
+      
       // let date = moment('2024-05-25', 'YYYY-MM'); // Lấy ngày đầu tiên của tháng (ví dụ: tháng 5 năm 2024)
       // console.log({date});
       // let lastDayOfMonth = date.endOf('month').format('YYYY-MM-DD');
@@ -4077,36 +4126,7 @@ export default class EnergyController {
       // console.log(moment().add(1, "days"))
       // console.log(moment().add(1, "days").startOf("days"))
 
-      // const {
-      //   room: roomModel,
-      //   floor: floorModel,
-      //   motelRoom: motelRoomModel,
-      //   job: jobModel,
-      //   user: userModel,
-      //   order: orderModel,
-      // } = global.mongoModel;
-
-      // // const newRoom = await roomModel.create()
-
-      // // room: 663336db2c01a43510a32e9f
-      // const dataUpdate = await roomModel.findOneAndUpdate(
-      //   {_id: "663336db2c01a43510a32e9f"},
-      //   {
-      //     $addToSet: { 
-      //       // listIdElectricMetter:  { "timestamp": new Date("2024-05-02T13:00:00"), "value": "id_metter_test_1" },
-      //       listIdElectricMetter: { "timestamp": "2024-05-04T12:00:00", "value": "55497245-4cc8-415c-9794-118715dc08f9" }
-      //     },
-      //     // "idTest": [
-      //     //   { "timestamp": "2024-05-01T12:00:00", "value": "55497245-4cc8-415c-9794-118715dc08f9" },
-      //     //   { "timestamp": "2024-05-02T13:00:00", "value": "id_metter_test_1" },
-      //       // { "timestamp": "2024-05-03T14:00:00", "value": "id_metter_test_2" },
-      //       // { "timestamp": "2024-05-04T14:00:00", "value": "id_metter_test_3" },
-      //       // { "timestamp": "2024-05-05T14:00:00", "value": "id_metter_test_4" },
-      //       // { "timestamp": "2024-05-06T14:00:00", "value": "id_metter_test_5" },
-      //     // ]
-      //   },
-      //   {new: true}
-      // );
+      
 
       // console.log({dataUpdate});
       // const data = await roomModel.findOne({_id: "663336db2c01a43510a32e9f"});
@@ -4605,6 +4625,7 @@ export default class EnergyController {
           "Không tìm được phòng"
         );
       }
+      console.log({roomData});
 
       if (!roomData.listIdElectricMetter || roomData.listIdElectricMetter.lengh === 0) {
         return HttpResponse.returnBadRequestResponse(
@@ -4753,6 +4774,7 @@ export default class EnergyController {
           "Không tìm được phòng"
         );
       }
+      console.log({roomData});
 
       if (!roomData.listIdElectricMetter || roomData.listIdElectricMetter.lengh === 0) {
         return HttpResponse.returnBadRequestResponse(
@@ -4871,8 +4893,10 @@ export default class EnergyController {
         }
         console.log({resultTotalAll});
 
+        const resultX = await handleDuplicateTimeTotalKwh(resultTotalAll);
+
         const resResult = await handleRawToCalculatedElectricDataDayToDay(
-          resultTotalAll,
+          resultX,
           start,
           end,
         );
@@ -4913,6 +4937,7 @@ export default class EnergyController {
           "Không tìm được phòng"
         );
       }
+      console.log({roomData});
 
       if (!roomData.listIdElectricMetter || roomData.listIdElectricMetter.lengh === 0) {
         return HttpResponse.returnBadRequestResponse(
@@ -5031,8 +5056,10 @@ export default class EnergyController {
         }
         console.log({resultTotalAll});
 
+        const resultX = await handleDuplicateTimeTotalKwh(resultTotalAll);
+
         const resResult = await handleRawToCalculatedElectricDataDayToDay(
-          resultTotalAll,
+          resultX,
           start,
           end,
         );
@@ -5069,6 +5096,7 @@ export default class EnergyController {
         // "Không tìm được phòng"
         return null;
       }
+      console.log({roomData});
 
       if (!roomData.listIdElectricMetter || roomData.listIdElectricMetter.lengh === 0) {
         // "Phòng chưa có id đồng hồ, vui lòng thêm id cho đồng hồ!"
@@ -5173,8 +5201,10 @@ export default class EnergyController {
           return null;
         }
 
+        const resultX = await handleDuplicateTimeTotalKwh(resultTotalAll);
+
         const resResult = await handleRawToCalculatedElectricDataDayToDay(
-          resultTotalAll,
+          resultX,
           start,
           end,
         );
@@ -5198,31 +5228,41 @@ export default class EnergyController {
     try {
       const start: moment.Moment = moment(startDay).startOf('day');
       const end: moment.Moment = moment(endDay).endOf('day');
-      console.log({start})
-      console.log({end})
+      // console.log({start})
+      // console.log({end})
+      console.log("Gọiiiii", idRoom);
 
       const { room: roomModel } = global.mongoModel;
 
       const roomData = await roomModel.findOne({_id: idRoom}).lean().exec();
       if (!roomData) {
         // "Không tìm được phòng"
+        console.log("Không tìm được phòng")
         return null;
       }
+      console.log({roomData});
 
       if (!roomData.listIdElectricMetter || roomData.listIdElectricMetter.lengh === 0) {
         // "Phòng chưa có id đồng hồ, vui lòng thêm id cho đồng hồ!"
+        console.log("Phòng chưa có id đồng hồ, vui lòng thêm id cho đồng hồ!")
         return null;
       }
 
       const listId: DataIdMetterType[] = roomData.listIdElectricMetter;
 
+      console.log({start});
+      console.log({end});
+      console.log({listId});
+
       const result = await checkRangeTimeForIdMetter(listId, start, end);
+      console.log({result});
 
       const resultLength = result.length;
 
       //TH đã thêm trả về mặc định phía dưới
       if(resultLength === 0) {
         // "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+        console.log("Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này");
         return null;
       } else if(resultLength === 1) {
         const id: string = result[0].value;
@@ -5235,6 +5275,7 @@ export default class EnergyController {
 
         if (elementResult.length === 0) {
           // "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
+          console.log("Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm xxx");
           return null;
         }
 
@@ -5249,6 +5290,8 @@ export default class EnergyController {
         //   labelTime: labelTime,
         //   kWhData: kWhData,
         // }
+
+        console.log(`Dữ liệu đầu ra của + ${roomData._id}: `, resResult  );
 
         return resResult;
       } else if (resultLength > 1) {
@@ -5328,10 +5371,14 @@ export default class EnergyController {
         //   kWhData: kWhData,
         // }
 
+        console.log(`Dữ liệu đầu ra của + ${roomData._id}: `, resResult  );
+
+
         return resResult;
       }
 
       // "Không có đồng hồ nào của phòng được lắp đặt và sử dụng trong khoảng thời gian này"
+      console.log("TH mặc định")
       return null;
 
       // return HttpResponse.returnSuccessResponse(res, "success");
@@ -5512,7 +5559,9 @@ export default class EnergyController {
     let resData = [];
 
     let startTime: string = start.format();
+    
     let endTime: string = end.format();
+    console.log({endTime});
 
     try {
       const headers = {
@@ -5537,6 +5586,8 @@ export default class EnergyController {
               limit: 100
           }
       });
+
+      
 
       resData = response.data;
       return resData;
@@ -5609,6 +5660,7 @@ async function checkRangeTimeForIdMetter(
     return(moment(id.timestamp) > start && moment(id.timestamp) < end);
   })
 
+
   let newListIdInTime = [];
   //nếu 2 mốc không bao, vậy 2 mốc sẽ nằm trong khoảng hoặc ngoài khoảng
   if (listIdInTime.length === 0) {
@@ -5634,11 +5686,12 @@ async function checkRangeTimeForIdMetter(
         for(let i = 1; i < listId.length; i++) {
       
           if ( start >= moment(listId[i - 1].timestamp) && start <= moment(listId[i].timestamp)) {
-            newListIdInTime.push(listId[i]);
+            newListIdInTime.push(listId[i - 1]);
             break;
           }
     
         }
+        console.log({newListIdInTime})
       }
 
     }
@@ -5659,9 +5712,10 @@ async function checkRangeTimeForIdMetter(
     // nếu trước đó không chứa id nào nữa-khoảng thời gian query có trước thời gian tồn tại id đầu tiên
 
     newListIdInTime = listIdInTime;
+    
   }
 
-  console.log({newListIdInTime})
+  
   return newListIdInTime;
 }
 
@@ -6747,6 +6801,9 @@ async function getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
   id: string,
 ): Promise<DataElectricType[]> {
   let kWhDataWithTime: DataElectricType[] = []; 
+  console.log({startQuery});
+  console.log({endQuery});
+
   let rawDataElectricInDay = await EnergyController.getElectricV2(
     startQuery, //start
     endQuery, //end
@@ -6757,8 +6814,11 @@ async function getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
     'MAX'
   );
 
+  console.log({rawDataElectricInDay});
+
   const rawDataElectricInDayLength = rawDataElectricInDay.length;
   if (rawDataElectricInDayLength === 0) {
+    console.log("XXX")
     return kWhDataWithTime;
   }
 
@@ -6808,6 +6868,7 @@ async function getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
   if (rawDataElectricInDayLength === 1 && count === dataCountOneMonthBefore.length) {
     // Chỉ có 1 bản ghi dữ liệu vào ngày hôm nay, đã 1 tháng kể từ trước hôm nay không có dữ liệu, 
     // không thể tính được điện đã sử dụng
+    
     return kWhDataWithTime;
   } else if (rawDataElectricInDayLength >= 2 && count === dataCountOneMonthBefore.length) {
     //không có dữ liệu trong vòng 1 tháng trước nhưng dữ liệu trong khoảng truy xuất có từ 2 bản ghi trở lên
@@ -6824,6 +6885,7 @@ async function getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
       lastValue = rawDataElectricInDay[i].value;
     }
 
+    
     return kWhDataWithTime;
 
   }
@@ -6853,6 +6915,7 @@ async function getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
   }
 
   // console.log({kWhDataWithTime});
+  
   return kWhDataWithTime;
 }
 
@@ -6924,6 +6987,27 @@ async function handleRawToCalculatedElectricDataDayToDay(
   }
 
   return resResult;
+}
+
+//Xử lý các trường hợp 2 id trong 1 ngày dẫn đến trùng thời gian 2 ngày
+//cộng tổng giá trị của chúng
+async function handleDuplicateTimeTotalKwh(
+  resultTotalAll: DataElectricType[]
+): Promise<DataElectricType[]>{
+  let map = {};
+        resultTotalAll.forEach(item => {
+            if (!map[item.ts]) {
+                map[item.ts] = item.value;
+            } else {
+                map[item.ts] += item.value;
+            }
+        });
+
+        let resultX = [];
+        for (let key in map) {
+            resultX.push({ ts: key, value: map[key] });
+        }
+  return resultX;
 }
 
 
