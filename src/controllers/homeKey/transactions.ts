@@ -1,10 +1,14 @@
 import { NextFunction, Request, Response } from "express";
+const { ObjectId } = require('mongodb');
+import * as moment from "moment";
 import * as lodash from "lodash";
 import { helpers } from "../../utils";
 import ImageService from "../../services/image";
 import HttpResponse from "../../services/response";
+import RoomController from "./room";
 import e = require("express");
 import sendMail from "../../utils/Mailer/mailer";
+import JobController from "./job.controller";
 import * as rn from "random-number";
 import * as bcrypt from "bcryptjs";
 var optionsNumbeer = {
@@ -142,6 +146,672 @@ export default class TransactionsController {
       next(e);
     }
   }
+  static async postTransactionsPendingBanking(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init models
+      const { 
+        transactions: TransactionsModel,
+        order: orderModel,
+        user: userModel,
+        room: roomModel,
+        motelRoom: motelRoomModel,
+        floor: floorModel,
+        job: jobModel,
+       } = global.mongoModel;
+      
+      const id = req.params.id;
+
+      let { body: formData } = req;
+
+      const roomData = await RoomController.getRoomById(formData.roomId);
+
+      if (roomData && roomData.error) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          roomData.errors[0].errorMessage
+        );
+      }
+
+      if (!roomData.isCompleted) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng chưa hoàn thành"
+        );
+      }
+
+      if (roomData.status !== "available") {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng Đã Được Đặt"
+        );
+      }
+
+      const dayID = moment(roomData.availableDate).format("DD/MM/YYYY");
+
+      if (
+        moment(formData.checkInTime, "MM-DD-YYYY").isBefore(
+          moment(dayID, "MM-DD-YYYY")
+        )
+      ) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Thời gian bắt đầu thuê nhỏ hơn ngày hiện tại"
+        );
+      }
+
+      const myDateOld = formData.checkInTime;
+
+      const dateOld = myDateOld.split("/")[0];
+      const monthOld = myDateOld.split("/")[1];
+      const yearOld = myDateOld.split("/")[2];
+
+      const stringDate = `${dateOld}-${monthOld}-${yearOld}`;
+      let date = new Date(
+        stringDate.replace(/(\d{2})-(\d{2})-(\d{4})/, "$2/$1/$3")
+      );
+      const myDateNew = date;
+      formData.checkInTime = myDateNew;
+      formData.room = roomData._id;
+      formData.user = req["userId"];
+
+      const floorData = await floorModel
+        .findOne({ rooms: formData.roomId })
+        .lean()
+        .exec();
+
+      if (!floorData) {
+        return HttpResponse.returnBadRequestResponse(res, "Tầng không hợp lệ");
+      }
+
+      const motelRoomData = await motelRoomModel
+        .findOne({ floors: floorData._id })
+        .lean()
+        .exec();
+
+      if (!motelRoomData) {
+        return HttpResponse.returnBadRequestResponse(res, "Phòng không hợp lệ");
+      }
+      let resData = await jobModel.create(formData);
+      let userUpdateData = {
+        $addToSet: {
+          jobs: resData._id,
+        },
+      };
+
+      if (
+        req["userProfile"].phoneNumber.number ===
+        helpers.stripeZeroOut(formData.phoneNumber)
+      ) {
+        userUpdateData["currentJob"] = resData._id;
+        userUpdateData["room"] = roomData._id;
+      }
+
+      await userModel
+        .findOneAndUpdate({ _id: req["userId"] }, userUpdateData, { new: true })
+        .exec();
+
+      await floorModel
+        .findOneAndUpdate(
+          { _id: floorData._id },
+          {
+            $inc: {
+              availableRoom: -1,
+              depositedRoom: 1,
+            },
+          }
+        )
+        .exec();
+      await motelRoomModel
+        .findOneAndUpdate(
+          { _id: floorData._id },
+          {
+            $inc: {
+              availableRoom: -1,
+              depositedRoom: 1,
+            },
+          }
+        )
+        .exec();
+
+
+
+      const orderData = await orderModel.create({
+        user: req["userId"],
+        job: resData._id,
+        isCompleted: false,
+        description: `Tiền cọc phòng tháng ${myDateOld.split("/")[1]}/${myDateOld.split("/")[2]
+          }`,
+        amount: formData.deposit,
+        type: "deposit",
+      });
+
+      resData = await jobModel.findOneAndUpdate(
+        { _id: resData._id },
+        {
+          isCompleted: orderData.isCompleted,
+          $addToSet: { orders: orderData._id },
+          currentOrder: orderData._id,
+        },
+        { new: true }
+      );
+
+      // let resData = await userModel
+      //   .findOne(
+      //     { _id: req["userId"], isDeleted: false },
+      //     { password: 0, token: 0 }
+      //   )
+      //   .populate("avatar identityCards")
+      //   .lean()
+      //   .exec();
+      // if (!resData) {
+      //   return HttpResponse.returnBadRequestResponse(
+      //     res,
+      //     "Tài khoản không tồn tại"
+      //   );
+      // }
+      const transactionsData = await TransactionsModel.create({
+        user: req["userId"],
+        keyPayment: formData.keyPayment,
+        description: `Tiền cọc phòng tháng ${myDateOld.split("/")[1]}/${myDateOld.split("/")[2]}`,
+        amount: orderData.amount,
+        status: "waiting",
+        paymentMethod: formData.type,
+        order: orderData._id,
+        banking: formData.banking,
+        type: "deposit",
+        motel: motelRoomData._id,
+        room: roomData._id,
+      });
+      // Get ip
+      // formData["ipAddr"] =
+      //   req.headers["x-forwarded-for"] ||
+      //   req.connection.remoteAddress ||
+      //   req.socket.remoteAddress ||
+      //   req.socket.remoteAddress;
+
+      return HttpResponse.returnSuccessResponse(res, transactionsData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async getBankingCashPendingDepositListByMotel (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      // const id = req.params.id;
+      const idMotel = req.params.id;
+
+      console.log({idMotel});
+      const {
+        user: userModel,
+        transactions: TransactionsModel,
+        image: imageModel,
+        room: roomModel,
+      } = global.mongoModel;
+
+      const transactionsData = await TransactionsModel.find({
+        motel: ObjectId(idMotel),
+        type: "deposit",
+        paymentMethod: { $ne: "wallet" },
+        isDeleted: false,
+        status: "waiting",
+      }).populate("user").lean().exec();
+
+      console.log({transactionsData})
+      if (transactionsData) {
+        for (let i = 0; i < transactionsData.length; i++) {
+            if (transactionsData[i].file) {
+              const dataimg = await imageModel.findOne({
+                _id: transactionsData[i].file,
+              });
+              if (dataimg) {
+                transactionsData[i].file = await helpers.getImageUrl(dataimg);
+              }
+            }     
+            
+            // if(transactionsData[i].motel) {
+            //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+            //   if(motelData) {
+            //     transactionsData[i].motel = motelData;
+            //   }
+            // }
+
+            if(transactionsData[i].room) {
+              const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+              if(roomData) {
+                transactionsData[i].room = roomData;
+              }
+            }
+        }
+      }
+
+      if (!transactionsData) {
+        return HttpResponse.returnBadRequestResponse(res, "logPayment");
+      }
+
+      return HttpResponse.returnSuccessResponse(res, transactionsData);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getBankingCashTransactionsList (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      // const id = req.params.id;
+      const id = req["userId"];
+
+      console.log({id});
+      const {
+        user: userModel,
+        transactions: TransactionsModel,
+        image: imageModel,
+        motelRoom: motelRoomModel,
+        room: roomModel,
+      } = global.mongoModel;
+
+      const userData = await userModel.findOne({_id: id}).lean().exec();
+      console.log({userData})
+      if (!userData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tài khoản người dùng không tồn tại"
+        );
+      }
+
+      const transactionsData = await TransactionsModel.find({
+        user: id,
+        type: { $ne: "recharge" },
+        paymentMethod: { $ne: "wallet" },
+        isDeleted: false,
+      }).lean().exec();
+
+      if (transactionsData) {
+        for (let i = 0; i < transactionsData.length; i++) {
+            if (transactionsData[i].file) {
+              const dataimg = await imageModel.findOne({
+                _id: transactionsData[i].file,
+              });
+              if (dataimg) {
+                transactionsData[i].file = await helpers.getImageUrl(dataimg);
+              }
+            }     
+            
+            if(transactionsData[i].motel) {
+              const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+              if(motelData) {
+                transactionsData[i].motel = motelData;
+              }
+            }
+
+            if(transactionsData[i].room) {
+              const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+              if(roomData) {
+                transactionsData[i].room = roomData;
+              }
+            }
+        }
+      }
+
+      if (!transactionsData) {
+        return HttpResponse.returnBadRequestResponse(res, "logPayment");
+      }
+      // console.log({transactionsData});
+
+      return HttpResponse.returnSuccessResponse(res, transactionsData);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+
+  static async putPayDeposit(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init models
+      const { payDepositList: PayDepositListModel } = global.mongoModel;
+
+      const id = req.params.id;
+      console.log({id});
+
+      let { body: data } = req;
+
+      let resData = await PayDepositListModel.findOne({
+        _id: ObjectId(id),
+        isDeleted: false,
+      })
+        .lean()
+        .exec();
+      if (!resData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Giao dịch không tồn tại"
+        );
+      }
+
+      const resDataS = await PayDepositListModel.findOneAndUpdate(
+        { _id: id },
+        { status: data.status }
+      )
+        .lean()
+        .exec();
+      // Get ip
+      data["ipAddr"] =
+        req.headers["x-forwarded-for"] ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        req.socket.remoteAddress;
+      return HttpResponse.returnSuccessResponse(res, resDataS);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async putBankingCashPendingDeposit(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init models
+      const { 
+        transactions: TransactionsModel,
+        order: orderModel,
+        user: userModel,
+        job: jobModel,
+        room: roomModel,
+        floor: floorModel,
+        motelRoom: motelRoomModel,
+      } = global.mongoModel;
+
+      const id = req.params.id;
+      console.log({id});
+
+      let { body: data } = req;
+
+      console.log({data});
+
+      let resData = await TransactionsModel.findOne({
+        _id: ObjectId(id),
+        isDeleted: false,
+      })
+        .lean()
+        .exec();
+      if (!resData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Giao dịch không tồn tại"
+        );
+      }
+
+      //TRƯỜNG HỢP HỦY VÀ TRƯỜNG HỢP ĐỒNG Ý
+      const resDataS = await TransactionsModel.findOneAndUpdate(
+        { _id: id },
+        { status: data.status },
+        {new: true}
+      )
+        .lean()
+        .exec();
+
+      if (resDataS.status === "success") {
+        const orderData = await orderModel
+          .findOne({ _id: resDataS.order })
+          .lean()
+          .exec();
+
+        if (!orderData) {
+          return HttpResponse.returnBadRequestResponse(
+            res,
+            "Hóa đơn không tồn tại"
+          );
+        }
+
+        if (orderData.isCompleted) {
+          return HttpResponse.returnBadRequestResponse(
+            res,
+            "Hóa đơn đã được thanh toán!"
+          );
+        }
+
+        if (orderData.type === "monthly") {
+          const JobData = await jobModel
+            .findOne({ _id: orderData.job })
+            .populate("room")
+            .lean()
+            .exec();
+          const RoomData = await roomModel
+            .findOne({ _id: JobData.room._id })
+            .lean()
+            .exec();
+          await jobModel
+            .findOneAndUpdate(
+              { _id: orderData.job },
+              {
+                isCompleted: true,
+                roomPassword: RoomData.roomPassword,
+                // roomPassword: helpers.generateVerifyCode(),
+                status: "monthlyPaymentCompleted",
+              }
+            )
+            .exec();
+        }
+
+        // dặt cọc
+        if (orderData.type === "deposit") {
+          const jobData = await jobModel
+            .findOne({ _id: orderData.job })
+            .populate("room")
+            .lean()
+            .exec();
+          if (jobData.room.status === "available") {
+            await roomModel
+              .findOneAndUpdate(
+                { _id: jobData.room._id },
+                { status: "deposited", rentedBy: jobData.user },
+                { new: true }
+              )
+              .exec();
+
+            let floorData = await floorModel
+              .findOne({ rooms: jobData.room._id })
+              .populate("rooms")
+              .lean()
+              .exec();
+            const roomGroup = lodash.groupBy(floorData.rooms, (room) => {
+              return room.status;
+            });
+
+            await floorModel
+              .findOneAndUpdate(
+                { _id: floorData._id },
+                {
+                  availableRoom: roomGroup["available"]
+                    ? roomGroup["available"].length
+                    : 0,
+                  rentedRoom: roomGroup["rented"]
+                    ? roomGroup["rented"].length
+                    : 0,
+                  depositedRoom: roomGroup["deposited"]
+                    ? roomGroup["deposited"].length
+                    : 0,
+                }
+              )
+              .exec();
+
+            let motelRoomData = await motelRoomModel
+              .findOne({ floors: floorData._id })
+              .populate("floors")
+              .lean()
+              .exec();
+
+            let updateData = {
+              availableRoom: lodash.sumBy(motelRoomData.floors, "availableRoom"),
+              rentedRoom: lodash.sumBy(motelRoomData.floors, "rentedRoom"),
+              depositedRoom: lodash.sumBy(motelRoomData.floors, "depositedRoom"),
+            };
+
+            await motelRoomModel
+              .findOneAndUpdate({ _id: motelRoomData._id }, updateData)
+              .exec();
+
+            const jobRes = await jobModel
+              .findOneAndUpdate(
+                { _id: orderData.job },
+                {
+                  isCompleted: true,
+                  status: "pendingActivated",
+                },
+                { new: true }
+              )
+              .exec();
+          }
+        }
+
+        if (orderData.type === "afterCheckInCost") {
+          const JobData = await jobModel
+            .findOne({ _id: orderData.job })
+            .populate("room")
+            .lean()
+            .exec();
+          const RoomData = await roomModel
+            .findOne({ _id: JobData.room._id })
+            .lean()
+            .exec();
+          await jobModel
+            .findOneAndUpdate(
+              { _id: orderData.job },
+              {
+                roomPassword: RoomData.roomPassword,
+                // roomPassword: helpers.generateVerifyCode(),
+                status: "pendingMonthlyPayment",
+              }
+            )
+            .exec();
+  
+          const jobData = await JobController.getJobNoImg(orderData.job);
+  
+          // await NotificationController.createNotification({
+          //   title: "Thông báo đóng tiền phòng",
+          //   content: "Vui lòng thanh toán tiền phòng trong vòng 5 ngày.",
+          //   user: jobData.user,
+          // });
+
+  
+          // SỬA: chỗ này cần tạo 1 job để tạo bill tháng đó vào cuối tháng, để có thể bao gồm tiền phòng
+          // await global.agendaInstance.agenda.schedule(
+          //   moment()
+          //     .startOf("month")
+          //     .add("1", "months")
+          //     .toDate(),
+          //   "CreateFirstMonthOrder",
+          //   { jobId: jobData._id }
+          // );
+  
+          await global.agendaInstance.agenda.schedule(
+            moment().add("2", 'minutes').toDate(),
+            'CreateFirstMonthOrder',
+            { jobId: jobData._id }
+          );
+  
+  
+          // const newOrderData = await orderModel.create({
+          //   user: jobData.user,
+          //   job: jobData._id,
+          //   isCompleted: false,
+          //   // description: `Tiền phòng tháng ${moment().month() + 1}/${moment().year()} `,
+          //   description: `Tiền phòng tháng ${dayGet.getMonth() + 1}/${dayGet.getFullYear()} `,
+          //   amount: Math.floor(
+          //     (jobData.room.price / moment(jobData.checkInTime).daysInMonth()) *
+          //       moment(jobData.checkInTime)
+          //         .endOf("month")
+          //         .diff(moment(jobData.checkInTime), "days")
+          //   ),
+          //   type: "monthly",
+          // });
+  
+          // await jobModel
+          //   .findOneAndUpdate(
+          //     { _id: jobData._id },
+          //     {
+          //       $addToSet: { orders: newOrderData._id },
+          //       currentOrder: newOrderData._id,
+          //       status: "pendingMonthlyPayment",
+          //     }
+          //   )
+          //   .exec();
+  
+        }
+
+        await orderModel
+          .findOneAndUpdate(
+            { _id: resDataS.order },
+            {
+              isCompleted: true,
+              paymentMethod: "cash",
+            },
+            { new: true }
+          )
+          .lean()
+          .exec()
+
+        return  HttpResponse.returnSuccessResponse(res, resDataS);
+      } else if (resDataS.status === "cancel") {
+        const orderData = await orderModel
+          .findOne({ _id: resDataS.order })
+          .lean()
+          .exec();
+
+        if (!orderData) {
+          return HttpResponse.returnBadRequestResponse(
+            res,
+            "Hóa đơn không tồn tại"
+          );
+        }
+
+        if (orderData.isCompleted) {
+          return HttpResponse.returnBadRequestResponse(
+            res,
+            "Hóa đơn đã được thanh toán!"
+          );
+        }
+
+        //note: tạm thời xóa đi job
+        await jobModel.remove({_id: orderData.job}).lean().exec();
+
+        //xóa job ra khỏi user
+
+        let userUpdateData = {
+          $pull: {
+            jobs: orderData.job,
+          },
+        };
+
+        await userModel
+          .findOneAndUpdate({ _id: resDataS.user }, userUpdateData, { new: true })
+          .exec();
+
+        return HttpResponse.returnSuccessResponse(res, resDataS);
+      }
+
+      return HttpResponse.returnSuccessResponse(res, resDataS);
+    } catch (e) {
+      next(e);
+    }
+  }
+
   static async putTransactionPayment(
     req: Request,
     res: Response,
@@ -816,6 +1486,8 @@ export default class TransactionsController {
         return HttpResponse.returnBadRequestResponse(res, "logPayment");
       }
 
+      console.log({data})
+
       return HttpResponse.returnSuccessResponse(res, data);
     } catch (e) {
       next(e);
@@ -898,6 +1570,7 @@ export default class TransactionsController {
   ): Promise<any> {
     try {
       // Init user model`
+      // const id = req.params
       const { user: userModel, code: codeModel } = global.mongoModel;
       const { banking: BankingModel, image: imageModel } = global.mongoModel;
 
@@ -913,6 +1586,42 @@ export default class TransactionsController {
         return HttpResponse.returnNotFoundResponse(res, 'No admin user found');
       }
       // return HttpResponse.returnSuccessResponse(res, bankMasterOptions);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async getBankOwnerRoom(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const id = req.params.id;
+      // Init user model`
+      // const id = req.params
+      const { 
+        user: userModel, 
+        code: codeModel, 
+        banking: BankingModel, 
+        image: imageModel,
+        floor: floorModel,
+        motelRoom: motelRoomModel
+      } = global.mongoModel;
+
+      const floorData = await floorModel.findOne({rooms: id}).lean().exec();
+
+      const motelData = await motelRoomModel.findOne({floors: floorData._id}).lean().exec();
+
+      const userData = await userModel.findOne({_id: motelData.owner});
+
+      console.log({userData});
+
+
+        // Use the admin user's ID to find banking information
+      const bankMasterOptions = await BankingModel.find({ user: userData._id });
+
+      return HttpResponse.returnSuccessResponse(res, bankMasterOptions);
     } catch (e) {
       next(e);
     }
