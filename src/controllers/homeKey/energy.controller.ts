@@ -3856,10 +3856,10 @@ export default class EnergyController {
                       (
                         lastedValueElectric.Total_kWh -
                         beforeValueElectric.Total_kWh
-                      ).toFixed(3)
+                      )
                     );
                   } else {
-                    typeElectricity = parseFloat(lastedValueElectric.toFixed(3));
+                    typeElectricity = parseFloat(lastedValueElectric);
                   }
 
                   const totalAll = unitPriceRoom + typeElectricity * unitPriceElectricity + typeWater * unitPriceWater + typeGarbage * unitPriceGarbage + typeWifi * unitPriceWifi + typeOther * unitPriceOther;

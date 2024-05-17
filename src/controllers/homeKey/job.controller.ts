@@ -119,7 +119,7 @@ export default class JobController {
       }
 
       let { body: data } = req;
-      console.log({data});
+      console.log({ data });
 
       const roomData = await RoomController.getRoomById(data.roomId);
 
@@ -354,7 +354,7 @@ export default class JobController {
   ): Promise<any> {
     try {
       // Init user model`
-      const { job: jobModel } = global.mongoModel;
+      const { job: jobModel, floor: floorModel, motelRoom: motelRoomModel } = global.mongoModel;
       let { sortBy, size, page, keyword } = req.query;
       const sortType = req.query.sortType === "ascending" ? 1 : -1;
       let condition, sort;
@@ -398,6 +398,20 @@ export default class JobController {
       }
 
       const resData = await jobModel.paginate(size, page, condition);
+
+      resData.data = await Promise.all(resData.data.map(async (item) => {
+        const floorData = await floorModel.findOne({ rooms: item.room._id }).lean().exec();
+
+        if (floorData) {
+          const motelData = await motelRoomModel.findOne({ floors: { $in: [floorData._id] } }).lean().exec();
+          const motelName = motelData ? motelData.name : "";
+          item.motelName = motelName;
+        }
+
+        return item;
+      }));
+      console.log("Check resData: ", resData);
+
 
       return HttpResponse.returnSuccessResponse(res, resData);
     } catch (e) {
@@ -663,7 +677,7 @@ export default class JobController {
             availableRoom: roomGroup["available"]
               ? roomGroup["available"].length
               : 0,
-              soonExpireContractRoom: roomGroup["soonExpireContract"]
+            soonExpireContractRoom: roomGroup["soonExpireContract"]
               ? roomGroup["soonExpireContract"].length
               : 0,
             rentedRoom: roomGroup["rented"] ? roomGroup["rented"].length : 0,
@@ -2856,7 +2870,7 @@ export default class JobController {
           .lean()
           .exec();
 
-        
+
         // let resData = await jobModel
         //   .remove({ _id: jobInfor._id })
         //   .lean()
@@ -2894,7 +2908,7 @@ export default class JobController {
               availableRoom: roomGroup["available"]
                 ? roomGroup["available"].length
                 : 0,
-                soonExpireContractRoom: roomGroup["soonExpireContract"]
+              soonExpireContractRoom: roomGroup["soonExpireContract"]
                 ? roomGroup["soonExpireContract"].length
                 : 0,
               rentedRoom: roomGroup["rented"] ? roomGroup["rented"].length : 0,
