@@ -99,6 +99,7 @@ export default class UploadImgController {
 
       // Process form data
       const processDataInfo = await imageService.processFormData(req, res);
+      console.log({processDataInfo});
 
       if (processDataInfo && processDataInfo.error) {
         return HttpResponse.returnBadRequestResponse(
@@ -108,6 +109,8 @@ export default class UploadImgController {
       }
 
       const { body: data } = req;
+
+      console.log({data});
 
       // Upload image
       if (req["files"]) {
@@ -323,6 +326,7 @@ export default class UploadImgController {
       const { transactions: TransactionsModel } = global.mongoModel;
 
       let { id: id } = req.params;
+      console.log({id});
 
       const imageService = new ImageService("local", false);
 
@@ -338,6 +342,9 @@ export default class UploadImgController {
 
       const { body: data } = req;
       console.log("check data from req", data);
+      console.log("check data from req", data.formData);
+
+      console.log("fill", req["files"]);
 
 
       // Upload image

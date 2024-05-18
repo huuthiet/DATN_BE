@@ -37,6 +37,8 @@ userRoute.get("/notification/list", UserController.getNotificationList);
 
 // recharge wallet
 userRoute.route("/recharge").post(UserController.rechargeWallet);
+//bank owner by id room
+userRoute.route("/bankOwnerRoom/:id").get(TransactionsController.getBankOwnerRoom);
 
 // note
 //bank

@@ -3,6 +3,7 @@ import * as lodash from "lodash";
 import { helpers, jwtHelper, normalizeError } from "../../utils";
 import ImageService from "../../services/image";
 import HttpResponse from "../../services/response";
+import { payDepositList } from "models/homeKey/payDepositList";
 
 export default class OrderController {
   /**
@@ -225,10 +226,7 @@ export default class OrderController {
             resData.data[i].roomDetail = DataRoom;
           }
         }
-        // console.log({ i });
-        // if (i === 50) {
-        //   console.log({ resDataItem: resData.data[49] });
-        // }
+
         if (resData.data[i].job) {
           let floorData = await floorModel
             .findOne({ rooms: resData.data[i].job.room })
@@ -289,6 +287,7 @@ export default class OrderController {
     }
   }
 
+
   static async getMonthlyOrderListByHost(
     req: Request,
     res: Response,
@@ -327,6 +326,8 @@ export default class OrderController {
       const data = [];
       const dataNone = [];
       const resData = await OrderModel.paginate(size, page, condition);
+      console.log();
+
       if (!resData) {
         return HttpResponse.returnBadRequestResponse(res, "order.not.exist");
       }
@@ -908,6 +909,80 @@ export default class OrderController {
       return HttpResponse.returnSuccessResponse(res, data);
     } catch (e) {
       next(e);
+    }
+  }
+
+  static async getPayDepositList(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      const {
+        payDepositList: PayDepositListModel,
+        motelRoom: motelRoomModel,
+        floor: floorModel,
+      } = global.mongoModel;
+
+      const idMotel: string = req.params.id;
+
+      console.log({ idMotel });
+
+      const motelData = await motelRoomModel.findOne({ _id: idMotel }).lean().exec();
+
+      console.log("motelData", motelData);
+
+      if (!motelData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không tồn tại!"
+        );
+      }
+
+      const floors = motelData.floors;
+      if (floors.length === 0) {
+        return HttpResponse.returnBadRequestResponse(res,
+          "Tòa nhà chưa có tầng nào"
+        )
+      }
+      let roomList: string[] = [];
+      for (let i = 0; i < floors.length; i++) {
+        let floorData = await floorModel.findOne({ _id: floors[i] }).lean().exec();
+        console.log({ floorData })
+        if (floorData) {
+          roomList = roomList.concat(floorData.rooms);
+        }
+      }
+      const roomListLength = roomList.length;
+      let payDeposits = [];
+      for (let i = 0; i < roomListLength; i++) {
+        const payDepositData = await PayDepositListModel.find({ room: roomList[i] })
+          .populate("user room")
+          .lean()
+          .exec();
+
+        payDeposits = payDeposits.concat(payDepositData);
+      }
+
+      console.log({ payDeposits });
+
+      return HttpResponse.returnSuccessResponse(res, payDeposits);
+    } catch (error) {
+      next(error);
+    }
+  }
+  static async getOrderDepositListByHostV2(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      const { order: orderModel } = global.mongoModel;
+
+      const id = req.params.id;
+      return HttpResponse.returnSuccessResponse(res, id);
+    } catch (error) {
+
     }
   }
 

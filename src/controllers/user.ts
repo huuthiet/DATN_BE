@@ -1741,6 +1741,8 @@ export default class UserController {
           const buildingRevenueUrl = `http://localhost:5502/api/v1/homeKey/energy/device/buildingRevenue/${motelId}/${formattedStartDate}/${formattedCurrentDate}`;
           const buildingRevenueResponse = await axios.get(buildingRevenueUrl);
           if (buildingRevenueResponse) {
+            console.log("Response from the server", buildingRevenueResponse.data.data);
+
             const buildingRevenueData = buildingRevenueResponse.data.data;
             let hostTotalRevenue = 0;
 

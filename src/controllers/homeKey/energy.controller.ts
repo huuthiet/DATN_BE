@@ -3650,11 +3650,6 @@ export default class EnergyController {
     const endTime = req.params.endTime;
     console.log("endTime", endTime);
 
-
-    const startTimeQuery = new Date(startTime);
-    const endTimeQuery = new Date(endTime);
-    endTimeQuery.setHours(23, 59, 59, 999); // Đặt giờ cuối cùng của ngày
-
     const totalJson = {}; // Object chứa thông tin tất cả các motel
 
     let jsonMotel = {};
@@ -3665,7 +3660,8 @@ export default class EnergyController {
       room: roomModel,
       address: addressModel,
       user: userModel,
-      electrics: ElectricsModel // Import ElectricsModel
+      job: jobModel,
+      order: orderModel,
     } = global.mongoModel;
 
     try {
@@ -3673,8 +3669,6 @@ export default class EnergyController {
         .find({ owner: idMotel })
         .lean()
         .exec();
-
-      // console.log("motelInfor hahahahahahahahahahahah", motelInfor);
       if (motelInfor.length === 0) {
         const data = "Motel has no floors";
         return HttpResponse.returnSuccessResponse(res, data);
@@ -3687,22 +3681,20 @@ export default class EnergyController {
             .lean()
             .exec(); // Địa chỉ của motel
 
-          // console.log("motelAddress", motelAddress);
-
-
           // Lấy thông tin của chủ motel
           const motelOwner = await userModel
             .findOne({ _id: motel.owner })
             .lean()
             .exec();
-
+          
+          console.log("Check address: ", motelOwner.address);
 
           jsonMotel = {
             idMotel: motelId,
             name: motelName,
             owner: motelOwner.lastName + motelOwner.firstName,
             phone: motelOwner.phoneNumber.countryCode + motelOwner.phoneNumber.number,
-            address: motelAddress.address,
+            address: motelAddress ? motelAddress.address : "Chưa có dữ liệu",
             email: motelOwner.email,
           };
 
@@ -3715,162 +3707,177 @@ export default class EnergyController {
               .findOne({ _id: floorId })
               .lean()
               .exec();
+            
+            if (floor && floor.rooms) {
+              const rooms = floor.rooms; // Danh sách các phòng trên tầng
+              // Duyệt qua từng phòng trên tầng
+              for (const roomId of rooms) {
 
-            const rooms = floor.rooms; // Danh sách các phòng trên tầng
-
-            // Duyệt qua từng phòng trên tầng
-            for (const roomId of rooms) {
-              const roomInfor = await roomModel
-                .findOne({ _id: roomId })
-                .lean()
-                .exec();
-
-              console.log();
-
-              const unitPriceRoom = roomInfor.price;
-              const unitPriceElectricity = roomInfor.electricityPrice;
-              const unitPriceWater = roomInfor.waterPrice;
-              const unitPriceGarbage = roomInfor.garbagePrice;
-              const unitPriceWifi = roomInfor.wifiPrice;
-              const unitPriceOther = 0;
-
-              const typeRoom: number = 1;
-              // const typeElectricity: number = roomInfor.electricityPrice; // PHÍA DƯỚI
-              const typeWater: number = roomInfor.person;
-              const typeGarbage: number = 1;
-              const typeWifi: number = roomInfor.vihicle;
-              const typeOther = 0;
-
-              let typeElectricity: number = 0;
-
-              const timeExport = new Date();
-              timeExport.setHours(timeExport.getHours() + 7);
-              let json = {};
-
-
-              if (roomInfor.rentedBy) {
-                const userId = roomInfor.rentedBy;
-                const userInfor = await userModel
-                  .findOne({ _id: userId })
+                // console.log("Check roomInfor: ", roomInfor);
+                const jobData = await jobModel.findOne({ room: roomId })
                   .lean()
                   .exec();
-
-                if (roomInfor.idElectricMetter) {
-                  //chuyển string -> number
-                  let idElectricMetterNumber: number = +roomInfor.idElectricMetter;
-
-                  // input: 2024-01-24/2024-01-24: không cần giờ
-                  const lastStartDay = startTimeQuery;
-
-                  const lastEndDay = endTimeQuery;
-
-                  const { electrics: ElectricsModel } = global.mongoModel;
-
-                  if (lastStartDay > lastEndDay) {
-                    console.log("Thời gian bắt đầu lớn hơn thời gian kết thúc");
-                  } else {
-                    const datesInRange: Date[] = [];
-                    let currentDate = new Date(lastStartDay);
-
-                    while (currentDate <= lastEndDay) {
-                      datesInRange.push(new Date(currentDate));
-                      currentDate.setDate(currentDate.getDate() + 1);
-                    }
-
-                    const resultData = [];
-                    for (const date of datesInRange) {
-                      const endOfDay = new Date(date);
-                      endOfDay.setHours(30, 59, 59, 999);
-
-                      const query = {
-                        IdDevice: roomInfor.idElectricMetter,
-                        Time: {
-                          $gte: date,
-                          $lte: endOfDay,
-                        },
-                      };
-
-                      const result = await ElectricsModel.findOne(query)
-                        .sort({ Time: -1 })
-                        .lean()
-                        .exec();
-                      resultData.push(result);
-                    }
-
-                    const totalKwhPerDay = resultData.map((item) =>
-                      item !== null ? item.Total_kWh : null
-                    );
-
-                    const query = {
-                      IdDevice: roomInfor.idElectricMetter,
-                      Time: {
-                        $lte: lastStartDay,
-                      },
-                    };
-
-                    const dataBefore = await ElectricsModel.findOne(query)
-                      .sort({ Time: -1 })
+                if (jobData) {
+                  //orders in jobData is array
+                  const orders = jobData.orders;
+                  // console.log("Check orders: ", orders);
+                  let totalRevenueRoom = 0;
+                  for (const orderId of orders) {
+                    const currentMonth = new Date().getMonth() + 1;
+                    const currentYear = new Date().getFullYear();
+                    console.log(`Tiền phòng tháng ${currentMonth}/${currentYear}`);
+                    console.log("Check orderId: ", orderId);
+                  
+                  
+                    const order = await orderModel
+                      .findOne({ _id: orderId, type: "monthly" })
                       .lean()
                       .exec();
-
-                    let kWhData = [];
-                    let lastValue = 0;
-                    if (dataBefore !== null) {
-                      lastValue = dataBefore.Total_kWh;
-                    }
-
-                    for (let i = 0; i < totalKwhPerDay.length; i++) {
-                      if (totalKwhPerDay[i] === null) {
-                        kWhData.push(null);
-                      } else {
-                        let result = totalKwhPerDay[i] - lastValue;
-                        // Trường hợp thay đồng hồ khác có chỉ số nhỏ hơn chỉ số cũ, nếu ngày đó thay đồng hồ thì chấp nhận mất dữ liệu của ngày đó
-                        if (result < 0) {
-                          kWhData.push(null);
-                          lastValue = totalKwhPerDay[i];
-                        } else {
-                          kWhData.push(result);
-                          lastValue = totalKwhPerDay[i];
-                        }
-                      }
+                    if (order && order.amount) {
+                      console.log("Check order: ", order.amount);
+                    
+                      totalRevenueRoom += order.amount;
+                    } else {
+                      console.log("No order found");
+                    
                     }
                   }
-                  const lastedValueElectric = await ElectricsModel.findOne({
-                    IdDevice: idElectricMetterNumber,
-                    Time: { $lt: endTimeQuery },
-                  })
-                    .sort({ Time: -1 })
-                    .lean()
-                    .exec();
-
-                  const beforeValueElectric = await ElectricsModel.findOne({
-                    IdDevice: idElectricMetterNumber,
-                    Time: { $lt: startTimeQuery },
-                  })
-                    .sort({ Time: -1 })
-                    .lean()
-                    .exec();
-                  //note: CẦN XEM SUY NGHĨ THÊM VỀ CÁC CASE
-                  if (beforeValueElectric) {
-                    typeElectricity = parseFloat(
-                      (
-                        lastedValueElectric.Total_kWh -
-                        beforeValueElectric.Total_kWh
-                      )
-                    );
-                  } else {
-                    typeElectricity = parseFloat(lastedValueElectric);
-                  }
-
-                  const totalAll = unitPriceRoom + typeElectricity * unitPriceElectricity + typeWater * unitPriceWater + typeGarbage * unitPriceGarbage + typeWifi * unitPriceWifi + typeOther * unitPriceOther;
-                  const totalAndTaxAll = unitPriceRoom + typeElectricity * unitPriceElectricity + typeWater * unitPriceWater + typeGarbage * unitPriceGarbage + typeWifi * unitPriceWifi + typeOther * unitPriceOther;
-                  totalRevenue += totalAndTaxAll;
-                } else {
-                  //không có id metter
+                  totalRevenue += totalRevenueRoom;
+                
                 }
-              } else {
-                //phòng chưa được thuê
+
+                const timeExport = new Date();
+                timeExport.setHours(timeExport.getHours() + 7);
+                let json = {};
+
+
+                // if (roomInfor.rentedBy) {
+                //   const userId = roomInfor.rentedBy;
+                //   const userInfor = await userModel
+                //     .findOne({ _id: userId })
+                //     .lean()
+                //     .exec();
+
+                //   // if (roomInfor.idElectricMetter) {
+                //   //   //idElectricMetterNumber là string
+                //   //   let idElectricMetterNumber = +roomInfor.idElectricMetter;
+                  
+
+                //   //   // input: 2024-01-24/2024-01-24: không cần giờ
+                //   //   const lastStartDay = startTimeQuery;
+
+                //   //   const lastEndDay = endTimeQuery;
+
+                //   //   const { electrics: ElectricsModel } = global.mongoModel;
+
+                //   //   if (lastStartDay > lastEndDay) {
+                //   //     console.log("Thời gian bắt đầu lớn hơn thời gian kết thúc");
+                //   //   } else {
+                //   //     const datesInRange: Date[] = [];
+                //   //     let currentDate = new Date(lastStartDay);
+
+                //   //     while (currentDate <= lastEndDay) {
+                //   //       datesInRange.push(new Date(currentDate));
+                //   //       currentDate.setDate(currentDate.getDate() + 1);
+                //   //     }
+
+                //   //     const resultData = [];
+                //   //     for (const date of datesInRange) {
+                //   //       const endOfDay = new Date(date);
+                //   //       endOfDay.setHours(30, 59, 59, 999);
+
+                //   //       const query = {
+                //   //         IdDevice: roomInfor.idElectricMetter,
+                //   //         Time: {
+                //   //           $gte: date,
+                //   //           $lte: endOfDay,
+                //   //         },
+                //   //       };
+
+                //   //       const result = await ElectricsModel.findOne(query)
+                //   //         .sort({ Time: -1 })
+                //   //         .lean()
+                //   //         .exec();
+                //   //       resultData.push(result);
+                //   //     }
+
+                //   //     const totalKwhPerDay = resultData.map((item) =>
+                //   //       item !== null ? item.Total_kWh : null
+                //   //     );
+
+                //   //     const query = {
+                //   //       IdDevice: roomInfor.idElectricMetter,
+                //   //       Time: {
+                //   //         $lte: lastStartDay,
+                //   //       },
+                //   //     };
+
+                //   //     const dataBefore = await ElectricsModel.findOne(query)
+                //   //       .sort({ Time: -1 })
+                //   //       .lean()
+                //   //       .exec();
+
+                //   //     let kWhData = [];
+                //   //     let lastValue = 0;
+                //   //     if (dataBefore !== null) {
+                //   //       lastValue = dataBefore.Total_kWh;
+                //   //     }
+
+                //   //     for (let i = 0; i < totalKwhPerDay.length; i++) {
+                //   //       if (totalKwhPerDay[i] === null) {
+                //   //         kWhData.push(null);
+                //   //       } else {
+                //   //         let result = totalKwhPerDay[i] - lastValue;
+                //   //         // Trường hợp thay đồng hồ khác có chỉ số nhỏ hơn chỉ số cũ, nếu ngày đó thay đồng hồ thì chấp nhận mất dữ liệu của ngày đó
+                //   //         if (result < 0) {
+                //   //           kWhData.push(null);
+                //   //           lastValue = totalKwhPerDay[i];
+                //   //         } else {
+                //   //           kWhData.push(result);
+                //   //           lastValue = totalKwhPerDay[i];
+                //   //         }
+                //   //       }
+                //   //     }
+                //   //   }
+                //   //   const lastedValueElectric = await ElectricsModel.findOne({
+                //   //     IdDevice: idElectricMetterNumber,
+                //   //     Time: { $lt: endTimeQuery },
+                //   //   })
+                //   //     .sort({ Time: -1 })
+                //   //     .lean()
+                //   //     .exec();
+
+                //   //   const beforeValueElectric = await ElectricsModel.findOne({
+                //   //     IdDevice: idElectricMetterNumber,
+                //   //     Time: { $lt: startTimeQuery },
+                //   //   })
+                //   //     .sort({ Time: -1 })
+                //   //     .lean()
+                //   //     .exec();
+                //   //   //note: CẦN XEM SUY NGHĨ THÊM VỀ CÁC CASE
+                //   //   if (beforeValueElectric) {
+                //   //     typeElectricity = parseFloat(
+                //   //       (
+                //   //         lastedValueElectric.Total_kWh -
+                //   //         beforeValueElectric.Total_kWh
+                //   //       ).toFixed(3)
+                //   //     );
+                //   //   } else {
+                //   //     typeElectricity = parseFloat(lastedValueElectric);
+                //   //   }
+
+                //   //   const totalAll = unitPriceRoom + typeElectricity * unitPriceElectricity + typeWater * unitPriceWater + typeGarbage * unitPriceGarbage + typeWifi * unitPriceWifi + typeOther * unitPriceOther;
+                //   //   const totalAndTaxAll = unitPriceRoom + typeElectricity * unitPriceElectricity + typeWater * unitPriceWater + typeGarbage * unitPriceGarbage + typeWifi * unitPriceWifi + typeOther * unitPriceOther;
+                //   //   totalRevenue += totalAndTaxAll;
+                //   // } else {
+                //   //   //không có id metter
+                //   // }
+                // } else {
+                //   //phòng chưa được thuê
+                // }
               }
+            } else {
+              //không có id metter
             }
           }
 

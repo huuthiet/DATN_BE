@@ -104,19 +104,8 @@ export default class JobController {
         floor: floorModel,
         motelRoom: motelRoomModel,
         order: orderModel,
+        image: imageModel,
       } = global.mongoModel;
-
-      const imageService = new ImageService("local", true);
-
-      // Process form data
-      const processDataInfo = await imageService.processFormData(req, res);
-
-      if (processDataInfo && processDataInfo.error) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          processDataInfo.error
-        );
-      }
 
       let { body: data } = req;
       console.log({ data });
