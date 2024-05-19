@@ -548,7 +548,7 @@ export default class JobController {
       const dataRes = [];
       for (let i = 0; i < resData.data.length; i++) {
         if (resData.data[i].user._id == req.params.id) {
-          const jobData = await JobController.getJob(resData.data[i].job._id);
+          const jobData = await JobController.getJobNoImg(resData.data[i].job._id); //note: nguyên bản là getJob, tuy nhiên lỗi đường path tìm ảnh nên dùng tạm
           if (jobData) {
             resData.data[i].room = jobData.room;
           } else {
