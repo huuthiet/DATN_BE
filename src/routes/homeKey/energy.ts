@@ -10,6 +10,7 @@ energyRoute
   .route("/device/getTotalKWhPerHourInOneDay/:idRoom/:day")
   .get(EnergyController.getTotalKWhPerHourInOneDay);
 
+
 //có xử lý việc thay đồng hồ
 energyRoute
   .route("/device/getTotalKWhPerHourInOneDayV2/:idRoom/:day")
@@ -28,7 +29,7 @@ energyRoute
   .get(EnergyController.getListIdMetterByRoom);
 
 energyRoute
-  .route("/device/addIdMetterElectricForRoom/:id/:time/:newIdMetter")
+  .route("/device/addIdMetterElectricForRoom/")
   .put(EnergyController.addIdMetterForRoom);
 
 /* -------------------------------------------------------------------------- */

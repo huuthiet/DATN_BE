@@ -21,25 +21,39 @@ orderRoute
 
 orderRoute.use(AuthMiddleware.isAuthenticated);
 
+orderRoute
+  .route("/postTransactionAfterCheckInCostPendingBanking/")
+  .post(TransactionsController.postTransactionAfterCheckInCostPendingBanking)
+
 //user
 orderRoute
   .route("/bankingCashTransactionsList/")
   .get(TransactionsController.getBankingCashTransactionsList);
 
+//--------------------------------------------------------------------
 orderRoute.use(AuthMiddleware.isHost);
 
 //hosts
 orderRoute
   .route("/bankingCashPendingDepositListByMotel/:id")
   .get(TransactionsController.getBankingCashPendingDepositListByMotel)
+
+orderRoute
+  .route("/bankingCashPendingAfterCheckInCostListByMotel/:id")
+  .get(TransactionsController.getBankingCashPendingAfterCheckInCostListByMotel)
+
+orderRoute
+  .route("/bankingCashPendingMonthlyByMotel/:id")
+  .get(TransactionsController.getBankingCashPendingMonthlyByMotel)
   
 orderRoute
-  .route("/putBankingCashPendingDepositByMotel/:id")
-  .put(TransactionsController.putBankingCashPendingDeposit);
+  .route("/putBankingCashPendingTransactionByMotel/:id")
+  .put(TransactionsController.putBankingCashPendingTransactionByMotel);
   
 orderRoute
   .route("/payDeposit/:id")
   .put(TransactionsController.putPayDeposit);
+
 
 
 /* ------------------------------ PRIVATE APIS ------------------------------ */

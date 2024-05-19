@@ -101,9 +101,18 @@ export default (agenda) => {
       const roomData = await roomModel.findOne({_id: roomId})
                                                                   .lean()
                                                                   .exec();
+
       const electricityPricePerKwh = roomData.electricityPrice;
 
       const electricPrice = electricNumber * electricityPricePerKwh;
+
+      const numberDayStay = moment(start).daysInMonth();
+      const waterPrice = (roomData.waterPrice * roomData.person);
+      const servicePrice = roomData.garbagePrice;
+      const vehiclePrice = roomData.wifiPrice * roomData.vihicle;
+      const roomPrice = resData.room.price;
+      const amount = roomPrice + vehiclePrice + servicePrice + waterPrice + electricPrice;
+
 
 
       if (resData) {
@@ -112,10 +121,15 @@ export default (agenda) => {
             user: resData.user,
             job: resData._id,
             isCompleted: false,
+            numberDayStay: numberDayStay,
             electricNumber: electricNumber,
             electricPrice: electricPrice,
+            waterPrice: waterPrice,
+            servicePrice: servicePrice,
+            vehiclePrice: vehiclePrice,
+            roomPrice: roomPrice,
             description: `Tiền phòng tháng ${ timeCal.month() + 1}/${ timeCal.year()}`, //đang ở đầu tháng để tạo order cho tháng trước
-            amount: resData.room.price,
+            amount: amount,
             type: "monthly",
           });
 
@@ -197,20 +211,27 @@ export default (agenda) => {
           const electricityPricePerKwh = roomData.electricityPrice;
   
           const electricPrice = electricNumber * electricityPricePerKwh;
+          const dayOfMon = moment(checkInTime).daysInMonth(); // số ngày của tháng
+          const numberDayStay = (moment(resData.checkInTime).endOf("month").diff(moment(resData.checkInTime), "days") + 1); //cộng 1: tính cả ngày checkIn
+          const waterPrice = (roomData.waterPrice * roomData.person)/dayOfMon * numberDayStay;
+          const servicePrice = roomData.garbagePrice/dayOfMon * numberDayStay;
+          const vehiclePrice = (roomData.wifiPrice * roomData.vihicle)/dayOfMon * numberDayStay;
+          const roomPrice = (resData.room.price / dayOfMon) * numberDayStay;
+          const amount = roomPrice + vehiclePrice + servicePrice + waterPrice + electricPrice;
           
-  
           const orderData = await orderModel.create({
             user: resData.user,
             job: resData._id,
             isCompleted: false,
             electricNumber: electricNumber,
             electricPrice: electricPrice,
+            numberDayStay: numberDayStay,
+            waterPrice: waterPrice,
+            servicePrice: servicePrice,
+            vehiclePrice: vehiclePrice,
+            roomPrice: roomPrice,
             description: `Tiền phòng tháng ${moment(checkInTime).month() + 1}/${moment(checkInTime).year()}`, 
-            amount:
-              (resData.room.price / moment(checkInTime).daysInMonth()) *
-              (moment(resData.checkInTime)
-                .endOf("month")
-                .diff(moment(resData.checkInTime), "days") + 1), //cộng 1: tính cả ngày checkIn
+            amount: amount,
             type: "monthly",
           });
   
@@ -225,7 +246,7 @@ export default (agenda) => {
           );
   
           await global.agendaInstance.agenda.schedule(
-            moment().add("2", 'minutes').toDate(), //note: 5
+            moment().add("5", 'hours').toDate(), //note: 5 minute
             "CheckOrderStatusTemp",
             { orderId: orderData._id }
           );
@@ -990,6 +1011,14 @@ export default (agenda) => {
             const electricityPricePerKwh = roomData.electricityPrice;
             const electricPrice = electricNumber * electricityPricePerKwh;
 
+            const dayOfMon = moment().daysInMonth(); // số ngày của tháng
+            const numberDayStay = (Math.abs(checkOutTime.diff(checkOutTime.startOf("month"), "days")) + 1); //cộng 1: tính cả ngày checkIn
+            const waterPrice = (roomData.waterPrice * roomData.person)/dayOfMon * numberDayStay;
+            const servicePrice = roomData.garbagePrice/dayOfMon * numberDayStay;
+            const vehiclePrice = (roomData.wifiPrice * roomData.vihicle)/dayOfMon * numberDayStay;
+            const roomPrice = (jobData.room.price / dayOfMon) * numberDayStay;
+            const amount = roomPrice + vehiclePrice + servicePrice + waterPrice + electricPrice;
+
             //oder  những ngày của tháng mới
             const orderDataNoPay = await orderModel.create({
               user: jobData.user,
@@ -997,10 +1026,13 @@ export default (agenda) => {
               isCompleted: false,
               electricNumber: electricNumber,
               electricPrice: electricPrice,
+              numberDayStay: numberDayStay,
+              waterPrice: waterPrice,
+              servicePrice: servicePrice,
+              vehiclePrice: vehiclePrice,
+              roomPrice: roomPrice,
               description: `Tiền phòng tháng ${moment().month() + 1}/${moment().year()}`,
-              amount:
-                (jobData.room.price / moment().daysInMonth()) * 
-                (Math.abs(checkOutTime.diff(checkOutTime.startOf("month"), "days")) + 1),
+              amount: amount,
               type: "monthly",
             });
 
@@ -1157,7 +1189,14 @@ export default (agenda) => {
           const electricityPricePerKwh = roomData.electricityPrice;
   
           const electricPrice = electricNumber * electricityPricePerKwh;
-  
+
+          const dayOfMon = moment(checkOutDay).daysInMonth(); // số ngày của tháng
+          const numberDayStay = (Math.abs(checkOutDay.diff(checkOutDay.startOf("month"), "days")) + 1); //cộng 1: tính cả ngày checkIn
+          const waterPrice = (roomData.waterPrice * roomData.person)/dayOfMon * numberDayStay;
+          const servicePrice = roomData.garbagePrice/dayOfMon * numberDayStay;
+          const vehiclePrice = (roomData.wifiPrice * roomData.vihicle)/dayOfMon * numberDayStay;
+          const roomPrice = (resData.room.price / dayOfMon) * numberDayStay;
+          const amount = roomPrice + vehiclePrice + servicePrice + waterPrice + electricPrice;
   
           const orderData = await orderModel.create({
             user: resData.user,
@@ -1165,10 +1204,13 @@ export default (agenda) => {
             isCompleted: false,
             electricNumber: electricNumber,
             electricPrice: electricPrice,
+            numberDayStay: numberDayStay,
+            waterPrice: waterPrice,
+            servicePrice: servicePrice,
+            vehiclePrice: vehiclePrice,
+            roomPrice: roomPrice,
             description: `Tiền phòng tháng ${checkOutDay.month() + 1}/${checkOutDay.year()}`,
-            amount:
-              (resData.room.price / moment(checkOutDay).daysInMonth()) *
-              (Math.abs(checkOutDay.diff(checkOutDay.startOf("month"), "days")) + 1), // tính số ngày từ đầu tháng đến ngày hết hạn(đã cộng ngày hiện tại)
+            amount: amount,
             type: "monthly",
           });
   
@@ -1566,6 +1608,14 @@ export default (agenda) => {
             const electricityPricePerKwh = roomData.electricityPrice;
             const electricPrice = electricNumber * electricityPricePerKwh;
 
+            const dayOfMon = moment().daysInMonth(); // số ngày của tháng
+            const numberDayStay = 15; 
+            const waterPrice = (roomData.waterPrice * roomData.person)/dayOfMon * numberDayStay;
+            const servicePrice = roomData.garbagePrice/dayOfMon * numberDayStay;
+            const vehiclePrice = (roomData.wifiPrice * roomData.vihicle)/dayOfMon * numberDayStay;
+            const roomPrice = (jobData.room.price / dayOfMon) * numberDayStay;
+            const amount = roomPrice + vehiclePrice + servicePrice + waterPrice + electricPrice;
+
             //oder  những ngày của tháng mới
             const orderDataNoPay = await orderModel.create({
               user: jobData.user,
@@ -1573,9 +1623,13 @@ export default (agenda) => {
               isCompleted: false,
               electricNumber: electricNumber,
               electricPrice: electricPrice,
+              numberDayStay: numberDayStay,
+              waterPrice: waterPrice,
+              servicePrice: servicePrice,
+              vehiclePrice: vehiclePrice,
+              roomPrice: roomPrice,
               description: `Tiền phòng tháng ${moment().month() + 1}/${moment().year()}`,
-              amount:
-                (jobData.room.price / moment().daysInMonth()) * 15,
+              amount: amount,
               type: "monthly",
             });
 
@@ -1794,6 +1848,14 @@ export default (agenda) => {
             const electricityPricePerKwh = roomData.electricityPrice;
             const electricPrice = electricNumber * electricityPricePerKwh;
 
+            const dayOfMon = moment().daysInMonth(); // số ngày của tháng
+            const numberDayStay = (Math.abs(checkOutDay.diff(checkOutDay.startOf("month"), "days")) + 1); //cộng 1: tính cả ngày checkIn
+            const waterPrice = (roomData.waterPrice * roomData.person)/dayOfMon * numberDayStay;
+            const servicePrice = roomData.garbagePrice/dayOfMon * numberDayStay;
+            const vehiclePrice = (roomData.wifiPrice * roomData.vihicle)/dayOfMon * numberDayStay;
+            const roomPrice = (jobData.room.price / dayOfMon) * numberDayStay;
+            const amount = roomPrice + vehiclePrice + servicePrice + waterPrice + electricPrice;
+
             //oder  những ngày của tháng mới
             const orderDataNoPay = await orderModel.create({
               user: jobData.user,
@@ -1801,10 +1863,13 @@ export default (agenda) => {
               isCompleted: false,
               electricNumber: electricNumber,
               electricPrice: electricPrice,
+              numberDayStay: numberDayStay,
+              waterPrice: waterPrice,
+              servicePrice: servicePrice,
+              vehiclePrice: vehiclePrice,
+              roomPrice: roomPrice,
               description: `Tiền phòng tháng ${moment().month() + 1}/${moment().year()}`,
-              amount:
-                (jobData.room.price / moment().daysInMonth()) * 
-                (Math.abs(checkOutDay.diff(checkOutDay.startOf("month"), "days")) + 1),
+              amount: amount,
               type: "monthly",
             });
 
@@ -2035,6 +2100,14 @@ export default (agenda) => {
             const electricityPricePerKwh = roomData.electricityPrice;
             const electricPrice = electricNumber * electricityPricePerKwh;
 
+            const dayOfMon = moment().daysInMonth(); // số ngày của tháng
+            const numberDayStay = 15; 
+            const waterPrice = (roomData.waterPrice * roomData.person)/dayOfMon * numberDayStay;
+            const servicePrice = roomData.garbagePrice/dayOfMon * numberDayStay;
+            const vehiclePrice = (roomData.wifiPrice * roomData.vihicle)/dayOfMon * numberDayStay;
+            const roomPrice = (jobData.room.price / dayOfMon) * numberDayStay;
+            const amount = roomPrice + vehiclePrice + servicePrice + waterPrice + electricPrice;
+
             //order  những ngày của tháng mới
             const orderDataNoPay = await orderModel.create({
               user: jobData.user,
@@ -2042,9 +2115,13 @@ export default (agenda) => {
               isCompleted: false,
               electricNumber: electricNumber,
               electricPrice: electricPrice,
+              numberDayStay: numberDayStay,
+              waterPrice: waterPrice,
+              servicePrice: servicePrice,
+              vehiclePrice: vehiclePrice,
+              roomPrice: roomPrice,
               description: `Tiền phòng tháng ${moment().month() + 1}/${moment().year()}`,
-              amount:
-                (jobData.room.price / moment().daysInMonth()) * 15,
+              amount: amount,
               type: "monthly",
             });
 
@@ -2235,6 +2312,14 @@ export default (agenda) => {
           const electricityPricePerKwh = roomData.electricityPrice;
   
           const electricPrice = electricNumber * electricityPricePerKwh;
+
+          const dayOfMon = moment(checkOutDay).daysInMonth(); // số ngày của tháng
+          const numberDayStay = (Math.abs(checkOutDay.diff(checkOutDay.startOf("month"), "days")) + 1); //cộng 1: tính cả ngày checkIn
+          const waterPrice = (roomData.waterPrice * roomData.person)/dayOfMon * numberDayStay;
+          const servicePrice = roomData.garbagePrice/dayOfMon * numberDayStay;
+          const vehiclePrice = (roomData.wifiPrice * roomData.vihicle)/dayOfMon * numberDayStay;
+          const roomPrice = (resData.room.price / dayOfMon) * numberDayStay;
+          const amount = roomPrice + vehiclePrice + servicePrice + waterPrice + electricPrice;
   
   
           const orderData = await orderModel.create({
@@ -2243,10 +2328,13 @@ export default (agenda) => {
             isCompleted: false,
             electricNumber: electricNumber,
             electricPrice: electricPrice,
+            numberDayStay: numberDayStay,
+            waterPrice: waterPrice,
+            servicePrice: servicePrice,
+            vehiclePrice: vehiclePrice,
+            roomPrice: roomPrice,
             description: `Tiền phòng tháng ${checkOutDay.month() + 1}/${checkOutDay.year()}`,
-            amount:
-              (resData.room.price / moment(checkOutDay).daysInMonth()) *
-              (Math.abs(checkOutDay.diff(checkOutDay.startOf("month"), "days")) + 1), // tính số ngày từ đầu tháng đến ngày hết hạn(đã cộng ngày hiện tại)
+            amount: amount,
             type: "monthly",
           });
   

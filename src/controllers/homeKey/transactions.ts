@@ -11,6 +11,7 @@ import sendMail from "../../utils/Mailer/mailer";
 import JobController from "./job.controller";
 import * as rn from "random-number";
 import * as bcrypt from "bcryptjs";
+import { TransactionModel } from "models/transaction";
 var optionsNumbeer = {
   // example input , yes negative values do work
   min: 1000,
@@ -146,7 +147,7 @@ export default class TransactionsController {
       next(e);
     }
   }
-  static async postTransactionsPendingBanking(
+  static async postTransactionsDepositPendingBanking(
     req: Request,
     res: Response,
     next: NextFunction
@@ -339,6 +340,120 @@ export default class TransactionsController {
     }
   }
 
+  static async postTransactionAfterCheckInCostPendingBanking(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init models
+      // let requestData = {
+      //   order: job.currentOrder._id,
+      //   afterCheckInCost: job.afterCheckInCost,
+      //   deposit: job.deposit,
+      //   rentalPeriod: job.rentalPeriod,
+      //   user: job.user._id,
+      //   fullName: job.fullName,
+      //   job: job._id,
+      //   motel: job.motelRoom._id,
+      //   room:  job.room._id,
+      //   type: job.currentOrder.type,
+      //   keyPayment: keyPayment,
+      //   banking: banking,
+      // }
+      const { 
+        transactions: TransactionsModel,
+        order: orderModel,
+        user: userModel,
+        room: roomModel,
+        motelRoom: motelRoomModel,
+        floor: floorModel,
+        job: jobModel,
+       } = global.mongoModel;
+      
+
+      let { body: formData } = req;
+
+      console.log({formData});
+
+      const orderData = await orderModel.findOne({_id: formData.order}).lean().exec();
+
+      if(!orderData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Hóa đơn không tồn tại"
+        )
+      }
+
+      const motelData = await motelRoomModel.findOne({_id: formData.motel}).lean().exec();
+      if(!motelData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không tồn tại"
+        )
+      }
+
+      const roomData = await roomModel.findOne({_id: formData.room}).lean().exec();
+      if(!roomData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng không tồn tại"
+        )
+      }
+
+      const tranRes = await TransactionsModel.findOne({order: ObjectId(formData.order)}).lean().exec();
+      console.log({tranRes});
+      if(tranRes) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Yêu cầu thanh toán đã tồn tài, vui lòng chờ phê duyệt"
+        )
+      }
+      let transactionsData = {}
+      if(formData.type === "afterCheckInCost") {
+        transactionsData = await TransactionsModel.create({
+          user: req["userId"],
+          keyPayment: formData.keyPayment,
+          description: `Tiền thanh toán khi nhận phòng`,
+          amount: orderData.amount,
+          status: "waiting",
+          paymentMethod: formData.paymentMethod,
+          order: orderData._id,
+          banking: formData.banking,
+          type: "afterCheckInCost",
+          motel: motelData._id,
+          room: roomData._id,
+        });
+      } else if(formData.type === "monthly") {
+        transactionsData = await TransactionsModel.create({
+          user: req["userId"],
+          keyPayment: formData.keyPayment,
+          description: orderData.description,
+          amount: orderData.amount,
+          status: "waiting",
+          paymentMethod: formData.paymentMethod,
+          order: orderData._id,
+          banking: formData.banking,
+          type: "monthly",
+          motel: motelData._id,
+          room: roomData._id,
+        });
+      }
+
+      
+      // Get ip
+      // formData["ipAddr"] =
+      //   req.headers["x-forwarded-for"] ||
+      //   req.connection.remoteAddress ||
+      //   req.socket.remoteAddress ||
+      //   req.socket.remoteAddress;
+
+      return HttpResponse.returnSuccessResponse(res, transactionsData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
   static async getBankingCashPendingDepositListByMotel (
     req: Request,
     res: Response,
@@ -363,6 +478,133 @@ export default class TransactionsController {
         isDeleted: false,
         status: "waiting",
       }).populate("user").lean().exec();
+
+      console.log({transactionsData})
+      if (transactionsData) {
+        for (let i = 0; i < transactionsData.length; i++) {
+            if (transactionsData[i].file) {
+              const dataimg = await imageModel.findOne({
+                _id: transactionsData[i].file,
+              });
+              if (dataimg) {
+                transactionsData[i].file = await helpers.getImageUrl(dataimg);
+              }
+            }     
+            
+            // if(transactionsData[i].motel) {
+            //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+            //   if(motelData) {
+            //     transactionsData[i].motel = motelData;
+            //   }
+            // }
+
+            if(transactionsData[i].room) {
+              const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+              if(roomData) {
+                transactionsData[i].room = roomData;
+              }
+            }
+        }
+      }
+
+      if (!transactionsData) {
+        return HttpResponse.returnBadRequestResponse(res, "logPayment");
+      }
+
+      return HttpResponse.returnSuccessResponse(res, transactionsData);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getBankingCashPendingAfterCheckInCostListByMotel (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      // const id = req.params.id;
+      const idMotel = req.params.id;
+
+      console.log({idMotel});
+      const {
+        user: userModel,
+        transactions: TransactionsModel,
+        image: imageModel,
+        room: roomModel,
+      } = global.mongoModel;
+
+      const transactionsData = await TransactionsModel.find({
+        motel: ObjectId(idMotel),
+        type: "afterCheckInCost",
+        paymentMethod: { $ne: "wallet" },
+        isDeleted: false,
+        status: "waiting",
+      }).populate("user").lean().exec();
+
+      console.log({transactionsData})
+      if (transactionsData) {
+        for (let i = 0; i < transactionsData.length; i++) {
+            if (transactionsData[i].file) {
+              const dataimg = await imageModel.findOne({
+                _id: transactionsData[i].file,
+              });
+              if (dataimg) {
+                transactionsData[i].file = await helpers.getImageUrl(dataimg);
+              }
+            }     
+            
+            // if(transactionsData[i].motel) {
+            //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+            //   if(motelData) {
+            //     transactionsData[i].motel = motelData;
+            //   }
+            // }
+
+            if(transactionsData[i].room) {
+              const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+              if(roomData) {
+                transactionsData[i].room = roomData;
+              }
+            }
+        }
+      }
+
+      if (!transactionsData) {
+        return HttpResponse.returnBadRequestResponse(res, "logPayment");
+      }
+
+      return HttpResponse.returnSuccessResponse(res, transactionsData);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getBankingCashPendingMonthlyByMotel (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      const idMotel = req.params.id;
+
+      console.log({idMotel});
+      const {
+        user: userModel,
+        transactions: TransactionsModel,
+        image: imageModel,
+        room: roomModel,
+      } = global.mongoModel;
+
+      const transactionsData = await TransactionsModel.find({
+        motel: ObjectId(idMotel),
+        type: "monthly",
+        paymentMethod: { $ne: "wallet" },
+        isDeleted: false,
+        status: "waiting",
+      }).populate("user").lean().exec();
+
+      console.log({transactionsData});
 
       console.log({transactionsData})
       if (transactionsData) {
@@ -520,7 +762,7 @@ export default class TransactionsController {
     }
   }
 
-  static async putBankingCashPendingDeposit(
+  static async putBankingCashPendingTransactionByMotel(
     req: Request,
     res: Response,
     next: NextFunction

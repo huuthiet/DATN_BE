@@ -40,13 +40,28 @@ export class Order extends Basic {
   description?: string;
 
   @prop({ default: 0 })
-  amount: number;
+  amount: number; // tổng tất cả
 
   @prop({ default: 0 })
-  electricPrice: number;
+  numberDayStay: number;
 
   @prop({ default: 0 })
-  electricNumber: number;
+  roomPrice: number;
+
+  @prop({ default: 0 })
+  electricNumber: number; // số kí điện sử dụng
+
+  @prop({ default: 0 })
+  electricPrice: number; // tổng tiền điện
+
+  @prop({ default: 0 })
+  waterPrice: number;  // (price x person)/(số ngày của tháng) x (số ngày ở)
+
+  @prop({ default: 0 })
+  servicePrice: number; // (price)/(số ngày của tháng) x (số ngày ở)
+
+  @prop({ default: 0 })
+  vehiclePrice: number; // (price x vihicle)/(số ngày của tháng) x (số ngày ở)
 
   @prop()
   type: PaymentType;

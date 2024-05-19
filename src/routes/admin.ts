@@ -35,8 +35,8 @@ adminRoute
   .route("/transactions/:id")
   .post(TransactionsController.postTransactionPayment);
 adminRoute
-  .route("/transactionsPendingBanking/:id")
-  .post(TransactionsController.postTransactionsPendingBanking);
+  .route("/postTransactionsDepositPendingBanking/:id")
+  .post(TransactionsController.postTransactionsDepositPendingBanking);
 adminRoute.route("/bankname/user").get(TransactionsController.getBankNameUser);
 adminRoute
   .route("/transactions/user")

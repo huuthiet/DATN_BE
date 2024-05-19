@@ -3923,32 +3923,37 @@ export default class EnergyController {
 // -- device4: 'c6208e6d-b48a-462e-ba28-f05269d767bf'; "2024-02-23T23:00:00" - "2024-03-14T22:00:00"
 // -- device5: '1d84e187-fdd9-44be-960a-c473c42a6f00'; "2024-03-15T00:32:00" - "2024-04-02T21:32:00"
 
-const a = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
-  "663336dc2c01a43510a32ea0",
-  "2024-01-03",
-  "2024-02-22"
-);
+// const a = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+//   "663336dc2c01a43510a32ea0",
+//   "2024-01-03",
+//   "2024-02-22"
+// );
 
-console.log({a});
+// console.log({a});
 
-      // const {
-      //   room: roomModel,
-      //   floor: floorModel,
-      //   motelRoom: motelRoomModel,
-      //   job: jobModel,
-      //   user: userModel,
-      //   order: orderModel,
-      // } = global.mongoModel;
+      const {
+        room: roomModel,
+        floor: floorModel,
+        motelRoom: motelRoomModel,
+        job: jobModel,
+        user: userModel,
+        order: orderModel,
+        transactions: TransactionsModel
+      } = global.mongoModel;
 
+      const a = await TransactionsModel.find({
+        motel: "663336dd2c01a43510a32ead"
+      })
+      console.log({a});
       // // const newRoom = await roomModel.create()
 
       // // room: 663336db2c01a43510a32e9f
       // const dataUpdate = await roomModel.findOneAndUpdate(
-      //   {_id: "663336dc2c01a43510a32ea0"},
+      //   {_id: "663336dc2c01a43510a32ea8"},
       //   {
       //     $addToSet: { 
       //       // listIdElectricMetter:  { "timestamp": new Date("2024-05-02T13:00:00"), "value": "id_metter_test_1" },
-      //       listIdElectricMetter: { "timestamp": "2024-03-15T00:32:00", "value": "1d84e187-fdd9-44be-960a-c473c42a6f00" }
+      //       listIdElectricMetter: { "timestamp": "2024-03-15T16:11:00", "value": "caa57f62-a04d-4338-b98b-22bf6c43f029" }
       //     },
       //     // "idTest": [
       //     //   { "timestamp": "2024-05-01T12:00:00", "value": "55497245-4cc8-415c-9794-118715dc08f9" },
@@ -5427,16 +5432,15 @@ console.log({a});
     next: NextFunction
   ): Promise<any> {
     try {
-      const id = req.params.id;
-      const time = req.params.time;
-      const newIdMetter = req.params.newIdMetter;
-
       const {room: roomModel} = global.mongoModel;
-      console.log({id});
-      console.log({time});
-      console.log({newIdMetter});
+      // console.log({id});
+      // console.log({time});
+      // console.log({newIdMetter});
 
-      const roomData = await roomModel.findOne({_id: id})
+      console.log("dattttt", req.body);
+      const data = req.body;
+
+      const roomData = await roomModel.findOne({_id: data.id})
                                                                   .lean()
                                                                   .exec();
       
@@ -5447,17 +5451,29 @@ console.log({a});
         );
       }
 
-      const resData = await roomModel.findOneAndUpdate(
-        { _id: id },
+      // if(!roomData.listIdElectricMetter) {
+      //   console.log("Chưa tồn tại");
+      //   const resData = await roomModel.findOneAndUpdate(
+      //     { _id: data._id },
+      //     {
+      //       $set: {
+      //         listIdElectricMetter: []
+      //       }
+      //     },
+      //   );
+      // }
+
+      const dataUpdate = await roomModel.findOneAndUpdate(
+        {_id: roomData._id},
         {
-          $addToSet: {
-            listIdElectricMetter: { "timestamp": time, "value": newIdMetter }
+          $addToSet: { 
+            listIdElectricMetter: { "timestamp": data.time, "value": data.newIdMeter }
           },
         },
-        { new: true }
+        {new: true}
       );
 
-      return HttpResponse.returnSuccessResponse(res, resData);
+      return HttpResponse.returnSuccessResponse(res, dataUpdate);
     } catch (error) {
       next(error);
     }
