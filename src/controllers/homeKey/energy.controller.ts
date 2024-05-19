@@ -4667,6 +4667,8 @@ export default class EnergyController {
           id
         );
 
+        console.log({elementResult})
+
         if (elementResult.length === 0) {
           return HttpResponse.returnBadRequestResponse(
             res, 
@@ -4674,9 +4676,45 @@ export default class EnergyController {
           );
         }
 
-        const resResult = await handleRawToCalculatedElectricDataInOneDay(elementResult);
+        let resResult = await handleRawToCalculatedElectricDataInOneDay(elementResult);
 
-        return HttpResponse.returnSuccessResponse(res, resResult);
+        console.log({resResult})
+
+        let currentDataRaw = await EnergyController.getElectricV2(
+          start, //start
+          end, //end
+          id,
+          'Current', //key
+          'HOUR',
+          1,
+          'MAX'
+        );
+        currentDataRaw =await fillNullForDataElectricEmptyInOneDay(currentDataRaw);
+        console.log({currentDataRaw})
+        currentDataRaw = currentDataRaw.map(item => item.value);
+
+        let voltageDataRaw = await EnergyController.getElectricV2(
+          start, //start
+          end, //end
+          id,
+          'Voltage', //key
+          'HOUR',
+          1,
+          'MAX'
+        );
+        voltageDataRaw = await fillNullForDataElectricEmptyInOneDay(voltageDataRaw);
+        console.log({voltageDataRaw})
+        voltageDataRaw = voltageDataRaw.map(item => item.value);
+
+        const resDataS = {
+          totalkWhTime: resResult.totalkWhTime,
+          labelTime: resResult.labelTime,
+          kWhData: resResult.kWhData,
+          currentData: currentDataRaw,
+          voltageData: voltageDataRaw,
+        }
+
+        return HttpResponse.returnSuccessResponse(res, resDataS);
       } else if (resultLength > 1) {
         //NOTE: TRƯỜNG HỢP MỘT NGÀY THAY NHIỀU ĐỒNG HỒ ÍT CÓ KHẢ NĂNG XẢY RA
         //TH bao nhiều mốc thời gian
@@ -4699,6 +4737,8 @@ export default class EnergyController {
         // 2 mốc thời gian nằm đúng với vị trị trong đúng list thời gian được trả, 
         //đã được xử lý trong checkRangeTimeForIdMetter
         let resultTotalAll: DataElectricType[] = [];
+        let resCurrentData = [];
+        let resVoltageData = [];
         for(let i = 0; i < resultLength; i++) {
           if (i === 0) {
             const id : string = result[i].value;
@@ -4713,6 +4753,28 @@ export default class EnergyController {
             resultTotalAll = resultTotalAll.concat(elementResult);
             console.log({elementResult});
 
+            let currentDataRaw = await EnergyController.getElectricV2(
+              startQuery, //start
+              endQuery, //end
+              id,
+              'Current', //key
+              'HOUR',
+              1,
+              'MAX'
+            );
+            resCurrentData = resCurrentData.concat(currentDataRaw);
+    
+            let voltageDataRaw = await EnergyController.getElectricV2(
+              startQuery, //start
+              endQuery, //end
+              id,
+              'Voltage', //key
+              'HOUR',
+              1,
+              'MAX'
+            );
+            resVoltageData = resVoltageData.concat(voltageDataRaw);
+
           } else if (i === (resultLength - 1)) {
             const id : string = result[i].value;
             const startQuery : moment.Moment = moment(result[i].timestamp);
@@ -4725,6 +4787,29 @@ export default class EnergyController {
             );
             resultTotalAll = resultTotalAll.concat(elementResult);
             console.log({elementResult});
+
+            let currentDataRaw = await EnergyController.getElectricV2(
+              startQuery, //start
+              endQuery, //end
+              id,
+              'Current', //key
+              'HOUR',
+              1,
+              'MAX'
+            );
+            resCurrentData = resCurrentData.concat(currentDataRaw);
+    
+            let voltageDataRaw = await EnergyController.getElectricV2(
+              startQuery, //start
+              endQuery, //end
+              id,
+              'Voltage', //key
+              'HOUR',
+              1,
+              'MAX'
+            );
+            resVoltageData = resVoltageData.concat(voltageDataRaw);
+
           } else {
             const id : string = result[i].value;
             const startQuery : moment.Moment = moment(result[i].timestamp);
@@ -4737,6 +4822,28 @@ export default class EnergyController {
             );
             resultTotalAll = resultTotalAll.concat(elementResult);
             console.log({elementResult});
+
+            let currentDataRaw = await EnergyController.getElectricV2(
+              startQuery, //start
+              endQuery, //end
+              id,
+              'Current', //key
+              'HOUR',
+              1,
+              'MAX'
+            );
+            resCurrentData = resCurrentData.concat(currentDataRaw);
+    
+            let voltageDataRaw = await EnergyController.getElectricV2(
+              startQuery, //start
+              endQuery, //end
+              id,
+              'Voltage', //key
+              'HOUR',
+              1,
+              'MAX'
+            );
+            resVoltageData = resVoltageData.concat(voltageDataRaw);
           }
         }
 
@@ -4750,7 +4857,24 @@ export default class EnergyController {
 
         const resResult = await handleRawToCalculatedElectricDataInOneDay(resultTotalAll);
 
-        return HttpResponse.returnSuccessResponse(res, resResult);
+        resCurrentData = await fillNullForDataElectricEmptyInOneDay(resCurrentData);
+        resCurrentData = resCurrentData.map(item => item.value);
+
+        resVoltageData = await fillNullForDataElectricEmptyInOneDay(resVoltageData);
+        resVoltageData = resVoltageData.map(item => item.value);
+
+        const resDataS = {
+          totalkWhTime: resResult.totalkWhTime,
+          labelTime: resResult.labelTime,
+          kWhData: resResult.kWhData,
+          currentData: resCurrentData,
+          voltageData: resVoltageData,
+        }
+
+
+        console.log({resResult})
+
+        return HttpResponse.returnSuccessResponse(res, resDataS);
       }
 
       return HttpResponse.returnBadRequestResponse(
@@ -5613,6 +5737,8 @@ export default class EnergyController {
       
 
       resData = response.data;
+
+      console.log("resDataaaa", resData);
       return resData;
     } catch (error) {
         console.error(error);
@@ -6817,6 +6943,7 @@ async function getElementRawDataElectricForTimePointHaveManyTimeLineInOneDay(
   // console.log({kWhDataWithTime});
   return kWhDataWithTime;
 }
+
 
 async function getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
   startQuery: moment.Moment,
