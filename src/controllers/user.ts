@@ -1724,67 +1724,67 @@ export default class UserController {
       }
 
       let userData = await userModel.paginate(size, page, condition);
-      const userDataList = userData.data;
+      // const userDataList = userData.data;
 
-      // Duyệt qua từng người dùng để lấy thông tin doanh thu của từng tòa nhà
-      for (const element of userDataList) {
-        const motelId = element._id;
-        const currentDate = new Date();
-        const formattedStartDate = new Date(
-          currentDate.getFullYear(),
-          currentDate.getMonth(),
-          2
-        ).toISOString().slice(0, 10);
-        const formattedCurrentDate = currentDate.toISOString().slice(0, 10);
+      // // Duyệt qua từng người dùng để lấy thông tin doanh thu của từng tòa nhà
+      // for (const element of userDataList) {
+      //   const motelId = element._id;
+      //   const currentDate = new Date();
+      //   const formattedStartDate = new Date(
+      //     currentDate.getFullYear(),
+      //     currentDate.getMonth(),
+      //     2
+      //   ).toISOString().slice(0, 10);
+      //   const formattedCurrentDate = currentDate.toISOString().slice(0, 10);
 
-        try {
-          const buildingRevenueUrl = `http://localhost:5502/api/v1/homeKey/energy/device/buildingRevenue/${motelId}/${formattedStartDate}/${formattedCurrentDate}`;
-          const buildingRevenueResponse = await axios.get(buildingRevenueUrl);
-          if (buildingRevenueResponse) {
-            console.log("Response from the server", buildingRevenueResponse.data.data);
+      //   try {
+      //     const buildingRevenueUrl = `http://localhost:5502/api/v1/homeKey/energy/device/buildingRevenue/${motelId}/${formattedStartDate}/${formattedCurrentDate}`;
+      //     const buildingRevenueResponse = await axios.get(buildingRevenueUrl);
+      //     if (buildingRevenueResponse) {
+      //       console.log("Response from the server", buildingRevenueResponse.data.data);
 
-            const buildingRevenueData = buildingRevenueResponse.data.data;
-            let hostTotalRevenue = 0;
+      //       const buildingRevenueData = buildingRevenueResponse.data.data;
+      //       let hostTotalRevenue = 0;
 
-            if (buildingRevenueData === "Motel has no floors") {
-              console.log("Motel has no floors");
-              hostTotalRevenue = 0;
-            } else {
-              for (const motel in buildingRevenueData) {
-                const totalRevenue = buildingRevenueData[motel].totalRevenue;
-                // Tính tổng doanh thu của từng tòa nhà
-                hostTotalRevenue += totalRevenue;
-              }
-            }
+      //       if (buildingRevenueData === "Motel has no floors") {
+      //         console.log("Motel has no floors");
+      //         hostTotalRevenue = 0;
+      //       } else {
+      //         for (const motel in buildingRevenueData) {
+      //           const totalRevenue = buildingRevenueData[motel].totalRevenue;
+      //           // Tính tổng doanh thu của từng tòa nhà
+      //           hostTotalRevenue += totalRevenue;
+      //         }
+      //       }
 
-            // Thêm thuộc tính hostBuildingRevenue vào element
-            element.hostBuildingRevenue = hostTotalRevenue;
-          } else {
-            console.log("No response from the server");
-          }
-        } catch (error) {
-          console.error("Error while fetching building revenue:", error);
-        }
+      //       // Thêm thuộc tính hostBuildingRevenue vào element
+      //       element.hostBuildingRevenue = hostTotalRevenue;
+      //     } else {
+      //       console.log("No response from the server");
+      //     }
+      //   } catch (error) {
+      //     console.error("Error while fetching building revenue:", error);
+      //   }
 
-        // Thêm thông tin người dùng kèm doanh thu vào mảng userDataWithRevenue
-        userDataWithRevenue.push(element);
-      }
+      //   // Thêm thông tin người dùng kèm doanh thu vào mảng userDataWithRevenue
+      //   userDataWithRevenue.push(element);
+      // }
 
-      // Thêm avatar url
-      for (let i = 0; i < userDataWithRevenue.length; i++) {
-        if (userDataWithRevenue[i].avatar) {
-          userDataWithRevenue[i].avatar = await helpers.getImageUrl(
-            userDataWithRevenue[i].avatar
-          );
-        }
+      // // Thêm avatar url
+      // for (let i = 0; i < userDataWithRevenue.length; i++) {
+      //   if (userDataWithRevenue[i].avatar) {
+      //     userDataWithRevenue[i].avatar = await helpers.getImageUrl(
+      //       userDataWithRevenue[i].avatar
+      //     );
+      //   }
 
-        if (userDataWithRevenue[i].identityCards) {
-          userDataWithRevenue[i].identityCards = await helpers.getImageUrl(
-            userDataWithRevenue[i].identityCards,
-            true
-          );
-        }
-      }
+      //   if (userDataWithRevenue[i].identityCards) {
+      //     userDataWithRevenue[i].identityCards = await helpers.getImageUrl(
+      //       userDataWithRevenue[i].identityCards,
+      //       true
+      //     );
+      //   }
+      // }
 
       return HttpResponse.returnSuccessResponse(res, userData);
     } catch (e) {
