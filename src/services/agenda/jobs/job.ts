@@ -87,8 +87,12 @@ export default (agenda) => {
       let resData = await JobController.getJobNoImg(job.attrs.data.jobId);
 
       const timeCal = moment().subtract(1, "months"); 
-      const start = moment().subtract(1, 'months').startOf("months").format("YYYY-MM-DD"); // đầu tháng trước
-      const end = moment().subtract(1, 'months').endOf("months").format("YYYY-MM-DD");// cuối tháng trước
+      const startTime : moment.Moment = moment().subtract(1, 'months').startOf("months");
+      const start = startTime.format("YYYY-MM-DD"); // đầu tháng trước
+      const endTime: moment.Moment = moment().subtract(1, 'months').endOf("months");// cuối tháng trước
+      const end = endTime.format("YYYY-MM-DD");// cuối tháng trước
+
+      const expireTime = endTime.add(15, "days"); // note: để tạm 15 ngày, cần tính lại tất cả, cần set lại cuối ngày
 
       let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
       console.log({electricNumber});
@@ -131,6 +135,9 @@ export default (agenda) => {
             description: `Tiền phòng tháng ${ timeCal.month() + 1}/${ timeCal.year()}`, //đang ở đầu tháng để tạo order cho tháng trước
             amount: amount,
             type: "monthly",
+            startTime: startTime.toDate(),
+            endTime: endTime.toDate(),
+            expireTime: expireTime.toDate(),
           });
 
           resData = await jobModel.findOneAndUpdate(
@@ -194,8 +201,12 @@ export default (agenda) => {
       if (resData) {
         if (resData.isActived && !(resData.isDeleted)) {
           const checkInTime = resData.checkInTime;
-          const start = moment(checkInTime).format("YYYY-MM-DD");
-          const end = moment(checkInTime).endOf("month").format("YYYY-MM-DD");
+          const startTime = moment(checkInTime).startOf("day");
+          const start = startTime.format("YYYY-MM-DD");
+          const endTime = moment(checkInTime).endOf("month").endOf("day");
+          const end = endTime.format("YYYY-MM-DD");
+
+          const expireTime = endTime.add(15, "days");
   
           let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
           console.log({electricNumber});
@@ -233,6 +244,9 @@ export default (agenda) => {
             description: `Tiền phòng tháng ${moment(checkInTime).month() + 1}/${moment(checkInTime).year()}`, 
             amount: amount,
             type: "monthly",
+            startTime: startTime.toDate(),
+            endTime: endTime.toDate(),
+            expireTime: expireTime.toDate(),
           });
   
           resData = await jobModel.findOneAndUpdate(
@@ -992,11 +1006,13 @@ export default (agenda) => {
               amount: jobData.deposit + jobData.afterCheckInCost,
               //thêm hạn thanh toán: note
             });
-
-            const start = moment().startOf("months").format("YYYY-MM-DD");
+            const startTime = moment().startOf("months").startOf("day");
+            const start = startTime.format("YYYY-MM-DD");
             const monInEnd = (moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1);
             // const end = moment().year() + "-" + monInEnd + "-" + "04";
-            const end = checkOutTime.format("YYYY-MM-DD");
+            const endTime = checkOutTime.endOf("day");
+            const end = endTime.format("YYYY-MM-DD");
+            const expireTime = endTime.add(15, "days");
 
             let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
@@ -1034,6 +1050,9 @@ export default (agenda) => {
               description: `Tiền phòng tháng ${moment().month() + 1}/${moment().year()}`,
               amount: amount,
               type: "monthly",
+              startTime: startTime.toDate(),
+              endTime: endTime.toDate(),
+              expireTime: expireTime.toDate(),
             });
 
             const jobDataAfterUpdate = await jobModel.findOneAndUpdate(
@@ -1173,8 +1192,12 @@ export default (agenda) => {
           const rentalPeriod = resData.rentalPeriod;
           const checkOutDay = moment(checkInDay).add(rentalPeriod, "months").subtract(1, "days"); //  chính xác ngày ở cuối 
 
-          const start = checkOutDay.startOf("months").format("YYYY-MM-DD");
-          const end = checkOutDay.format("YYYY-MM-DD");
+          const startTime = checkOutDay.startOf("months").startOf("day");
+          const start = startTime.format("YYYY-MM-DD");
+          const endTime = checkOutDay.endOf("day");
+          const end = endTime.format("YYYY-MM-DD");
+
+          const expireTime = endTime.add(15, "days");
           
           let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
 
@@ -1212,6 +1235,9 @@ export default (agenda) => {
             description: `Tiền phòng tháng ${checkOutDay.month() + 1}/${checkOutDay.year()}`,
             amount: amount,
             type: "monthly",
+            startTime: startTime.toDate(),
+            endTime: endTime.toDate(),
+            expireTime: expireTime.toDate(),
           });
   
           resData = await jobModel.findOneAndUpdate(
@@ -1592,9 +1618,13 @@ export default (agenda) => {
               //thêm hạn thanh toán: note
             });
 
-            const start = moment().startOf("months").format("YYYY-MM-DD");
+            const startTime = moment().startOf("months").startOf("day");
+            const start = startTime.format("YYYY-MM-DD");
             const monInEnd = (moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1);
+            const endTime = moment(`${moment().year()}-${monInEnd}-15`).endOf("day");
             const end = moment().year() + "-" + monInEnd + "-" + "15";
+
+            const expireTime = endTime.add(15, "days");
 
             let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
@@ -1631,6 +1661,9 @@ export default (agenda) => {
               description: `Tiền phòng tháng ${moment().month() + 1}/${moment().year()}`,
               amount: amount,
               type: "monthly",
+              startTime: startTime.toDate(),
+              endTime: endTime.toDate(),
+              expireTime: expireTime.toDate(),
             });
 
             const jobDataAfterUpdate = await jobModel.findOneAndUpdate(
@@ -1833,8 +1866,12 @@ export default (agenda) => {
               //thêm hạn thanh toán: note
             });
 
-            const start = moment().startOf("months").format("YYYY-MM-DD");
-            const end = checkOutDay.format("YYYY-MM-DD");
+            const startTime =  moment().startOf("months").startOf("day");
+            const start = startTime.format("YYYY-MM-DD");
+            const endTime = checkOutDay.endOf("day");
+            const end = endTime.format("YYYY-MM-DD");
+
+            const expireTime = endTime.add(15, "days");
 
             let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
@@ -1871,6 +1908,9 @@ export default (agenda) => {
               description: `Tiền phòng tháng ${moment().month() + 1}/${moment().year()}`,
               amount: amount,
               type: "monthly",
+              startTime: startTime.toDate(),
+              endTime: endTime.toDate(),
+              expireTime: expireTime.toDate(),
             });
 
 
@@ -2084,9 +2124,13 @@ export default (agenda) => {
               //thêm hạn thanh toán: note
             });
 
+            const startTime = moment().startOf("months").startOf("day");
             const start = moment().startOf("months").format("YYYY-MM-DD");
             const monInEnd = (moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1);
+            const endTime = moment(`${moment().year()}-${monInEnd}-15`).endOf("day");
             const end = moment().year() + "-" + monInEnd + "-" + "15";
+
+            const expireTime = endTime.add(15, "days");
 
             let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
 
@@ -2123,6 +2167,9 @@ export default (agenda) => {
               description: `Tiền phòng tháng ${moment().month() + 1}/${moment().year()}`,
               amount: amount,
               type: "monthly",
+              startTime: startTime.toDate(),
+              endTime: endTime.toDate(),
+              expireTime: expireTime.toDate(),
             });
 
             const jobDataAfterUpdate = await jobModel.findOneAndUpdate(
@@ -2296,8 +2343,12 @@ export default (agenda) => {
           const rentalPeriod = resData.rentalPeriod;
           const checkOutDay = moment(checkInDay).add(rentalPeriod, "months").subtract(1, "days"); //  chính xác ngày ở cuối 
 
-          const start = checkOutDay.startOf("months").format("YYYY-MM-DD");
-          const end = checkOutDay.format("YYYY-MM-DD");
+          const startTime = checkOutDay.startOf("months").startOf("day");
+          const start = startTime.format("YYYY-MM-DD");
+          const endTime = checkOutDay.endOf("day");
+          const end = endTime.format("YYYY-MM-DD");
+
+          const expireTime = endTime.add(15, "days");
           
           let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
   
@@ -2336,6 +2387,9 @@ export default (agenda) => {
             description: `Tiền phòng tháng ${checkOutDay.month() + 1}/${checkOutDay.year()}`,
             amount: amount,
             type: "monthly",
+            startTime: startTime.toDate(),
+            endTime: endTime.toDate(),
+            expireTime: expireTime.toDate(),
           });
   
           resData = await jobModel.findOneAndUpdate(

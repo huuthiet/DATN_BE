@@ -54,19 +54,19 @@ export class Transactions extends Basic {
   @prop({ ref: Image })
   file?: Ref<Image>;
 
-  @prop()
+  @prop({ ref: Order })
   order?: Ref<Order>; //->job->room->floor->motel->
   
-  @prop()
+  @prop({ ref: Banking })
   banking?: Ref<Banking>; // tài khoản người nhận
 
   @prop({default: "none"})
   type: PaymentType;
 
-  @prop()
+  @prop({ ref: MotelRoom })
   motel: Ref<MotelRoom>; // để query theo tòa nhanh
 
-  @prop()
+  @prop({ ref: Room })
   room: Ref<Room>; // để query theo tòa nhanh
 }
 

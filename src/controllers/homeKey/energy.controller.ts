@@ -2238,6 +2238,374 @@ export default class EnergyController {
     }
   }
 
+  static async exportBillRoomByTransaction(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const idTransaction = req.params.id;
+
+      let dataEnergy: {
+        totalkWhTime: number;
+        labelTime: (string | null)[];
+        kWhData: (number | null)[];
+        totalKwhPerDay: (number | null)[];
+        dataBefore: any;
+        rawData: any[];
+      };
+
+      const getRandomInt = (min, max) =>
+        Math.floor(Math.random() * (max - min)) + min;
+        const getRandomString = (length, base) => {
+        let result = "";
+        const baseLength = base.length;
+
+        // eslint-disable-next-line no-plusplus
+        for (let i = 0; i < length; i++) {
+          const randomIndex = getRandomInt(0, baseLength);
+          result += base[randomIndex];
+        }
+
+        return result;
+      };
+
+      const getRandomHex2 = () => {
+        const baseString =
+          "0123456789QƯERTYUIOPASDFGHJKLZXCVBNMqưertyuiopasdfghjklzxcvbnm";
+        const ma = `${getRandomString(6, baseString)}`;
+        return ma;
+      };
+
+      const {
+        motelRoom: motelRoomModel,
+        room: roomModel,
+        address: addressModel,
+        user: userModel,
+        banking: BankingModel,
+        job: jobModel,
+        transactions: TransactionsModel,
+      } = global.mongoModel;
+
+      const transactionData = await TransactionsModel.findOne({_id: idTransaction}).populate("order motel user room").lean().exec();
+      console.log({idTransaction});
+      console.log({transactionData});
+
+      if(!transactionData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Giao dịch không tồn tại"
+        );
+      }
+
+      const motelOwner = await userModel
+        .findOne({ _id: transactionData.motel.owner })
+        .lean()
+        .exec();
+
+      const nameMotel = transactionData.motel.name;
+
+      const emailOwner = motelOwner.email;
+      const phoneOwner =
+        motelOwner.phoneNumber.countryCode + motelOwner.phoneNumber.number;
+      const addressOwner = motelOwner.address;
+
+      const banking = await BankingModel.findOne({ user: transactionData.motel.owner })
+        .lean()
+        .exec();
+
+      const motelAddress = await addressModel
+        .findOne({ _id: transactionData.motel.address })
+        .lean()
+        .exec();
+
+      const addressMotel = motelAddress.address;
+
+      const roomInfor = transactionData.room;
+
+      const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+        roomInfor._id,
+        moment().startOf("month").format("YYYY-MM-DD"),
+        moment().endOf("month").format("YYYY-MM-DD")
+      );
+
+      const nameRoom = roomInfor.name;
+
+      // //Thông số
+      const numberDayStay = transactionData.order.numberDayStay;
+
+      const unitPriceRoom = roomInfor.price;
+      const unitPriceElectricity = roomInfor.electricityPrice;
+      const unitPriceWater = roomInfor.waterPrice;
+      const unitPriceGarbage = roomInfor.garbagePrice; // dịch vụ
+      const unitPriceWifi = roomInfor.wifiPrice; // xe
+      const unitPriceOther = 0;
+
+      const typeRoom: number = transactionData.order.numberDayStay;
+      const typeWater: number = roomInfor.person;
+      const typeGarbage: number = transactionData.order.numberDayStay;
+      const typeWifi: number = roomInfor.vihicle;
+      const typeOther = 0;
+      let typeElectricity: number = transactionData.order.electricNumber;
+
+      const totalAll = parseInt(transactionData.order.amount);
+      const totalAndTaxAll = parseInt(transactionData.order.amount);
+      const totalRoom = parseInt(transactionData.order.roomPrice);
+      const totalWifi = parseInt(transactionData.order.vehiclePrice);
+      const totalGarbage = parseInt(transactionData.order.servicePrice); // service
+      const totalWater = parseInt(transactionData.order.waterPrice);
+      const totalElectricity = parseInt(transactionData.order.electricPrice);
+
+      // const timeExport = new Date();
+      // timeExport.setHours(timeExport.getHours() + 7);
+      // const parsedTime = moment(timeExport).format("DD/MM/YYYY");
+
+      const parsedTime = moment(transactionData.order.createdAt).format("DD/MM/YY");
+
+      // const expireTime = moment(new Date(endTime)).format("DD/MM/YYYY");
+      const expireTime = "Chưa biết";
+
+      let json = {};
+
+      if (roomInfor.rentedBy) {
+        const userId = roomInfor.rentedBy;
+        const userInfor = await userModel
+          .findOne({ _id: userId })
+          .lean()
+          .exec();
+
+        const nameUser = userInfor.lastName + userInfor.firstName;
+        const phoneUser =
+          userInfor.phoneNumber.countryCode +
+          " " +
+          userInfor.phoneNumber.number;
+        const addressUser = userInfor.address;
+        const emailUser = userInfor.email;
+
+        // if(roomInfor.listIdElectricMetter) {
+        //   if (roomInfor.listIdElectricMetter.length !== 0) {
+          
+        //   } else {
+        //     const data = "Room no id metter";
+        //     return HttpResponse.returnSuccessResponse(res, data);
+        //   }
+        // } else {
+        //   const data = "Room no id metter";
+        //   return HttpResponse.returnSuccessResponse(res, data);
+        // }
+        
+
+        json = {
+          // idBill: getRandomHex2(),
+          numberDayStay: numberDayStay,
+
+          idBill: transactionData.keyPayment,
+          phoneOwner,
+          expireTime: expireTime,
+          dateBill: parsedTime,
+          nameMotel: nameMotel,
+          addressMotel: addressMotel,
+          nameRoom: nameRoom,
+          nameUser: nameUser,
+          phoneUser: phoneUser,
+          addressUser: addressUser,
+          imgRoom: "",
+          addressOwner: addressOwner,
+          emailUser: emailUser,
+          emailOwner: emailOwner,
+
+          // totalAll:
+          //   unitPriceRoom +
+          //   typeElectricity * unitPriceElectricity +
+          //   typeWater * unitPriceWater +
+          //   typeGarbage * unitPriceGarbage +
+          //   typeWifi * unitPriceWifi +
+          //   typeOther * unitPriceOther,
+
+          totalAll: totalAll,
+
+          totalAndTaxAll: totalAndTaxAll,
+          // totalAndTaxAll:
+          //   unitPriceRoom +
+          //   typeElectricity * unitPriceElectricity +
+          //   typeWater * unitPriceWater +
+          //   typeGarbage * unitPriceGarbage +
+          //   typeWifi * unitPriceWifi +
+          //   typeOther * unitPriceOther,
+
+          totalTaxAll: 0,
+          typeTaxAll: 0,
+          expenseRoom: "Chi Phí Phòng",
+          typeRoom: typeRoom,
+          unitPriceRoom: unitPriceRoom,
+          totalRoom: totalRoom,
+
+          expenseElectricity: "Chi Phí Điện",
+          typeElectricity: typeElectricity,
+          unitPriceElectricity: unitPriceElectricity,
+          totalElectricity: totalElectricity,
+
+          expenseWater: "Chi Phí Nước",
+          typeWater: typeWater,
+          unitPriceWater: unitPriceWater,
+          totalWater: totalWater,
+
+          expenseGarbage: "Phí Dịch Vụ",
+          typeGarbage: typeGarbage,
+          unitPriceGarbage: unitPriceGarbage,
+          totalGarbage: totalGarbage,
+
+          expenseWifi: "Chi Phí Xe",
+          typeWifi: typeWifi,
+          unitPriceWifi: unitPriceWifi,
+          totalWifi: totalWifi,
+
+          expenseOther: "Tiện Ích Khác",
+          typeOther: typeOther,
+          unitPriceOther: unitPriceOther,
+          totalOther: typeOther * unitPriceOther,
+        };
+
+        const data = "exportBillSuccess";
+
+        const buffer = await generatePDF(json, banking, totalkWhTime);
+
+        // Export chartjs to pdf
+        const configuration: ChartConfiguration = {
+          type: "line",
+          data: {
+            labels: totalkWhTime.labelTime.map((item) =>
+              item ? item : "Chưa có dữ liệu"
+            ),
+            datasets: [
+              {
+                // label: `Tổng số điện từ ${startTime} đến ${endTime}`,
+                label: `Tổng số điện từ CHƯA BIẾT đến CHƯA BIẾT`,
+                data: totalkWhTime.kWhData,
+                backgroundColor: ["rgba(255, 99, 132, 0.2)"],
+                borderColor: ["rgba(255,99,132,1)"],
+                borderWidth: 1,
+                tension: 0.01,
+                fill: false,
+              },
+            ],
+          },
+          options: {
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: "Thời gian",
+                },
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: "Số KwH",
+                },
+              },
+            },
+          },
+          plugins: [
+            {
+              id: "background-colour",
+              beforeDraw: (chart) => {
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.fillStyle = "white";
+                ctx.fillRect(0, 0, width, height);
+                ctx.restore();
+              },
+            },
+            {
+              id: "chart-data-labels",
+              afterDatasetsDraw: (chart, args, options) => {
+                const { ctx } = chart;
+                ctx.save();
+
+                // Configure data labels here
+                chart.data.datasets.forEach((dataset, i) => {
+                  const meta = chart.getDatasetMeta(i);
+                  meta.data.forEach((element, index) => {
+                    const model = element;
+                    const x = model.x;
+                    const y = model.y;
+                    const text = dataset.data[index]
+                      ? (+dataset.data[index].toString()).toFixed(2)
+                      : ""; // You can customize this based on your data
+                    const font = "12px Arial"; // Example font setting
+                    const fillStyle = "black"; // Example color setting
+                    const textAlign = "center"; // Example alignment setting
+
+                    ctx.fillStyle = fillStyle;
+                    ctx.font = font;
+                    ctx.textAlign = textAlign;
+                    ctx.fillText(text, x, y);
+                  });
+                });
+
+                ctx.restore();
+              },
+            },
+          ],
+        };
+        const chartBufferPNG = await chartJSNodeCanvas.renderToBuffer(
+          configuration
+        );
+        const mergedBuffer = await mergeBuffer(buffer, chartBufferPNG);
+        console.log({ mergedBuffer: Buffer.from(mergedBuffer) });
+
+        const transporter = nodemailer.createTransport({
+          service: "gmail",
+          auth: {
+            user: "cr7ronadol12345@gmail.com",
+            pass: "wley oiaw yhpl oupy",
+          },
+          tls: {
+            rejectUnauthorized: false,
+          },
+        });
+
+        const files = ["a.txt", "b.pdf", "c.png"];
+        // thay email người nhận thành : emailOwner - chủ trọ
+        const mailOptions = {
+          from: "cr7ronadol12345@gmail.com",
+          // to: listHost[i].email,
+          // to: "quyetthangmarvel@gmail.com",
+          // to: emailOwner,
+          to: "nguyenhuuthiet01012002@gmail.com",
+          // subject: `[${nameMotel} - ${nameRoom}] HÓA ĐƠN TỪ ${startTime} ĐẾN ${endTime}`,
+          subject: `[${nameMotel} - ${nameRoom}] HÓA ĐƠN TỪ CHƯA BIẾT ĐẾN CHƯA BIẾT`,
+          text: `Phòng ${nameRoom}, dãy phòng ${nameMotel} địa chỉ ${motelAddress.address}`,
+          attachments: [
+            {
+              // filename: `Invoice - ${nameMotel} - ${nameRoom} from ${startTime} to ${endTime}.pdf`,
+              filename: `Invoice - ${nameMotel} - ${nameRoom} from CHƯA BIẾT to CHƯA BIẾT.pdf`,
+              content: Buffer.from(mergedBuffer),
+            },
+          ],
+        };
+
+        transporter.sendMail(mailOptions, function (error, info) {
+          if (error) {
+            console.error(error);
+          } else {
+            console.log("Email đã được gửi: " + info.response);
+          }
+        });
+      } else {
+        const data = "Empty room";
+        return HttpResponse.returnSuccessResponse(res, data);
+      }
+
+      const data = "exportBillSuccess";
+      return HttpResponse.returnSuccessResponse(res, transactionData);
+    } catch (e) {
+      console.log({ e });
+      next(e);
+    }
+  }
+
   static async exportBillAllRoom(
     req: Request,
     res: Response,
@@ -3907,6 +4275,16 @@ export default class EnergyController {
     next: NextFunction
   ): Promise<any> {
     try {
+      // const a : number = 3.123123;
+      // const b: number = parseFloat(a.toFixed(2));
+      // console.log({b});
+
+      // const a = moment();
+      // console.log({a});
+      // const b = a.toDate();
+      // console.log({b});
+      // const c = moment(b);
+      // console.log({c});
 
       // 663336dc2c01a43510a32ea1: test ngày
 //       -- CASE 1: 4 device
@@ -3938,13 +4316,24 @@ export default class EnergyController {
         job: jobModel,
         user: userModel,
         order: orderModel,
-        transactions: TransactionsModel
+        transactions: TransactionsModel,
+        bill: BillModel,
+        optionsType: OptionsTypeModel,
       } = global.mongoModel;
 
-      const a = await TransactionsModel.find({
-        motel: "663336dd2c01a43510a32ead"
-      })
+      const a = await OptionsTypeModel.create({
+        expense: "ákdjhfkajsh"
+      });
       console.log({a});
+
+      // const transactionData = await TransactionsModel.findOne({_id: "664a005edb40087178ce80ca"}).populate("order").lean().exec();
+      // console.log({transactionData});
+      // console.log(parseInt(transactionData.order.amount));
+
+      // const a = await TransactionsModel.find({
+      //   motel: "663336dd2c01a43510a32ead"
+      // })
+      // console.log({a});
       // // const newRoom = await roomModel.create()
 
       // // room: 663336db2c01a43510a32e9f
@@ -6127,7 +6516,7 @@ async function generatePDF(json, banking, energy): Promise<Buffer> {
                   alignment: "left",
                 },
                 {
-                  text: `${json.typeWater}`,
+                  text: `${json.numberDayStay} (ngày)/ ${json.typeWater} (người)`,
                 },
                 {
                   text: `${json.unitPriceWater} đ`,
@@ -6142,7 +6531,7 @@ async function generatePDF(json, banking, energy): Promise<Buffer> {
                   alignment: "left",
                 },
                 {
-                  text: `${json.typeWifi}`,
+                  text: `${json.numberDayStay} (ngày)/ ${json.typeWifi} (chiếc)`,
                 },
                 {
                   text: `${json.unitPriceWifi} đ`,

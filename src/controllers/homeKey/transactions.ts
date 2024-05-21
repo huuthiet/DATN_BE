@@ -12,6 +12,7 @@ import JobController from "./job.controller";
 import * as rn from "random-number";
 import * as bcrypt from "bcryptjs";
 import { TransactionModel } from "models/transaction";
+import { Bill } from "models/homeKey/bill";
 var optionsNumbeer = {
   // example input , yes negative values do work
   min: 1000,
@@ -477,7 +478,7 @@ export default class TransactionsController {
         paymentMethod: { $ne: "wallet" },
         isDeleted: false,
         status: "waiting",
-      }).populate("user").lean().exec();
+      }).populate("user room").lean().exec();
 
       console.log({transactionsData})
       if (transactionsData) {
@@ -498,12 +499,12 @@ export default class TransactionsController {
             //   }
             // }
 
-            if(transactionsData[i].room) {
-              const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
-              if(roomData) {
-                transactionsData[i].room = roomData;
-              }
-            }
+            // if(transactionsData[i].room) {
+            //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+            //   if(roomData) {
+            //     transactionsData[i].room = roomData;
+            //   }
+            // }
         }
       }
 
@@ -540,7 +541,7 @@ export default class TransactionsController {
         paymentMethod: { $ne: "wallet" },
         isDeleted: false,
         status: "waiting",
-      }).populate("user").lean().exec();
+      }).populate("user room").lean().exec();
 
       console.log({transactionsData})
       if (transactionsData) {
@@ -561,12 +562,12 @@ export default class TransactionsController {
             //   }
             // }
 
-            if(transactionsData[i].room) {
-              const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
-              if(roomData) {
-                transactionsData[i].room = roomData;
-              }
-            }
+            // if(transactionsData[i].room) {
+            //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+            //   if(roomData) {
+            //     transactionsData[i].room = roomData;
+            //   }
+            // }
         }
       }
 
@@ -602,7 +603,7 @@ export default class TransactionsController {
         paymentMethod: { $ne: "wallet" },
         isDeleted: false,
         status: "waiting",
-      }).populate("user").lean().exec();
+      }).populate("user room").lean().exec();
 
       console.log({transactionsData});
 
@@ -625,12 +626,12 @@ export default class TransactionsController {
             //   }
             // }
 
-            if(transactionsData[i].room) {
-              const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
-              if(roomData) {
-                transactionsData[i].room = roomData;
-              }
-            }
+            // if(transactionsData[i].room) {
+            //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+            //   if(roomData) {
+            //     transactionsData[i].room = roomData;
+            //   }
+            // }
         }
       }
 
@@ -676,32 +677,32 @@ export default class TransactionsController {
         type: { $ne: "recharge" },
         paymentMethod: { $ne: "wallet" },
         isDeleted: false,
-      }).lean().exec();
+      }).populate("motel room order").lean().exec();
 
       if (transactionsData) {
         for (let i = 0; i < transactionsData.length; i++) {
-            if (transactionsData[i].file) {
-              const dataimg = await imageModel.findOne({
-                _id: transactionsData[i].file,
-              });
-              if (dataimg) {
-                transactionsData[i].file = await helpers.getImageUrl(dataimg);
-              }
-            }     
-            
-            if(transactionsData[i].motel) {
-              const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
-              if(motelData) {
-                transactionsData[i].motel = motelData;
-              }
+          if (transactionsData[i].file) {
+            const dataimg = await imageModel.findOne({
+              _id: transactionsData[i].file,
+            });
+            if (dataimg) {
+              transactionsData[i].file = await helpers.getImageUrl(dataimg);
             }
+          }     
+          
+          // if(transactionsData[i].motel) {
+          //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+          //   if(motelData) {
+          //     transactionsData[i].motel = motelData;
+          //   }
+          // }
 
-            if(transactionsData[i].room) {
-              const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
-              if(roomData) {
-                transactionsData[i].room = roomData;
-              }
-            }
+          // if(transactionsData[i].room) {
+          //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+          //   if(roomData) {
+          //     transactionsData[i].room = roomData;
+          //   }
+          // }
         }
       }
 
@@ -767,6 +768,29 @@ export default class TransactionsController {
     res: Response,
     next: NextFunction
   ): Promise<any> {
+
+    const getRandomInt = (min, max) =>
+      Math.floor(Math.random() * (max - min)) + min;
+      const getRandomString = (length, base) => {
+      let result = "";
+      const baseLength = base.length;
+
+      // eslint-disable-next-line no-plusplus
+      for (let i = 0; i < length; i++) {
+        const randomIndex = getRandomInt(0, baseLength);
+        result += base[randomIndex];
+      }
+
+      return result;
+    };
+
+    const getRandomHex2 = () => {
+      const baseString =
+        "0123456789QƯERTYUIOPASDFGHJKLZXCVBNMqưertyuiopasdfghjklzxcvbnm";
+      const ma = `${getRandomString(6, baseString)}`;
+      return ma;
+    };
+
     try {
       // Init models
       const { 
@@ -777,6 +801,9 @@ export default class TransactionsController {
         room: roomModel,
         floor: floorModel,
         motelRoom: motelRoomModel,
+        bill: billModel,
+        banking: BankingModel,
+        optionsType: OptionsTypeModel,
       } = global.mongoModel;
 
       const id = req.params.id;
@@ -834,7 +861,7 @@ export default class TransactionsController {
             .populate("room")
             .lean()
             .exec();
-          const RoomData = await roomModel
+          const roomData = await roomModel
             .findOne({ _id: JobData.room._id })
             .lean()
             .exec();
@@ -843,12 +870,106 @@ export default class TransactionsController {
               { _id: orderData.job },
               {
                 isCompleted: true,
-                roomPassword: RoomData.roomPassword,
+                roomPassword: roomData.roomPassword,
                 // roomPassword: helpers.generateVerifyCode(),
                 status: "monthlyPaymentCompleted",
               }
             )
             .exec();
+
+          const electricity = await OptionsTypeModel.create({
+            expense: "Chi Phí Điện",
+            type: orderData.electricNumber.toString(),
+            unitPrice: roomData.electricityPrice.toFixed(2),
+            total: orderData.electricPrice.toFixed(2),
+          });
+          
+          const garbage = await OptionsTypeModel.create({
+            expense: "Chi Dịch Vụ",
+            type: "1",
+            unitPrice: roomData.garbagePrice.toFixed(2),
+            total: orderData.servicePrice.toFixed(2),
+          });
+
+          const water = await OptionsTypeModel.create({
+            expense: "Chi Phí Nước",
+            type: roomData.person.toString(),
+            unitPrice: roomData.waterPrice.toFixed(2),
+            total: orderData.waterPrice.toFixed(2),
+          });
+          const wifi = await OptionsTypeModel.create({
+            expense: "Chi Phí Xe",
+            type: roomData.vihicle.toString(),
+            unitPrice: roomData.wifiPrice.toFixed(2),
+            total: orderData.vehiclePrice.toFixed(2),
+          });
+
+          const other = await OptionsTypeModel.create({
+            expense: "Chi Phí Khác",
+            type: "1",
+            unitPrice: "0",
+            total: "0",
+          });
+
+          const room = await OptionsTypeModel.create({
+            expense: "Chi Phí Phòng",
+            type: orderData.numberDayStay.toString(),
+            unitPrice: roomData.price.toFixed(2),
+            total: orderData.roomPrice.toFixed(2),
+          });
+
+          const userData = await userModel.findOne({_id: JobData.user}).lean().exec();
+          console.log({userData});
+          const floorData = await floorModel.findOne({rooms: JobData.room._id}).lean().exec();
+          console.log({floorData});
+          const motelData = await motelRoomModel.findOne({floors: floorData._id})
+                                                                                .populate("owner address").lean().exec();
+
+          console.log({motelData})                                                                      
+          const bankData = await BankingModel.find({user: motelData.owner._id}).lean().exec();
+          console.log({bankData});
+
+          await billModel.create({
+            idBill: getRandomHex2(),
+            dateBill: moment().format("DD-MM-YYYY"),
+            nameMotel: motelData.name,
+            addressMotel: motelData.address.address,
+            nameRoom: roomData.name,
+
+            nameUser: userData.lastName + " " + userData.firstName,
+            phoneUser: userData.phoneNumber.countryCode + userData.phoneNumber.number,
+            addressUser: userData.address,
+
+            nameOwner: motelData.owner.lastName + motelData.owner.firstName,
+            emailOwner:  motelData.owner.email,
+            addressOwner: motelData.owner.address,
+            nameBankOwner: bankData ? bankData[0].nameTkLable : "Chưa thêm tài khoản",
+            numberBankOwner: bankData ? bankData[0].stk : "Chưa thêm tài khoản",
+            nameOwnerBankOwner: bankData ? bankData[0].nameTk : "Chưa thêm tài khoản",
+
+            totalAll: orderData.amount.toFixed(2),
+            totalAndTaxAll: orderData.amount.toFixed(2),
+            totalTaxAll: 0,
+            typeTaxAll: 0,
+
+            description: orderData.description,
+
+            electricity: electricity,
+            garbage: garbage,
+            water: water,
+            wifi: wifi,
+            other: other,
+            room: room,
+
+            startTime: orderData.startTime,
+            endTime: orderData.endTime,
+
+            user: JobData.user._id,
+            motel: motelData._id,
+            roomRented: roomData._id, 
+
+            type: "monthly",
+          });
         }
 
         // dặt cọc
@@ -858,6 +979,7 @@ export default class TransactionsController {
             .populate("room")
             .lean()
             .exec();
+
           if (jobData.room.status === "available") {
             await roomModel
               .findOneAndUpdate(
@@ -895,7 +1017,7 @@ export default class TransactionsController {
 
             let motelRoomData = await motelRoomModel
               .findOne({ floors: floorData._id })
-              .populate("floors")
+              .populate("floors owner address")
               .lean()
               .exec();
 
@@ -919,6 +1041,43 @@ export default class TransactionsController {
                 { new: true }
               )
               .exec();
+
+            const bankData = await BankingModel.find({user: motelRoomData.owner._id}).lean().exec();
+            const userData = await userModel.findOne({_id: jobData.user}).lean().exec();
+            
+            //create bill
+            await billModel.create({
+              idBill: getRandomHex2(),
+              dateBill: moment().format("DD-MM-YYYY"),
+              nameMotel: motelRoomData.name,
+              addressMotel: motelRoomData.address.address,
+              nameRoom: jobData.room.name,
+
+              nameUser: userData.lastName + " " + userData.firstName,
+              phoneUser: userData.phoneNumber.countryCode + userData.phoneNumber.number,
+              addressUser: userData.address,
+
+              nameOwner: motelRoomData.owner.lastName + motelRoomData.owner.firstName,
+              emailOwner:  motelRoomData.owner.email,
+              addressOwner: motelRoomData.owner.address,
+              nameBankOwner: bankData ? bankData[0].nameTkLable : "Chưa thêm tài khoản",
+              numberBankOwner: bankData ? bankData[0].stk : "Chưa thêm tài khoản",
+              nameOwnerBankOwner: bankData ? bankData[0].nameTk : "Chưa thêm tài khoản",
+
+              totalAll: orderData.amount.toFixed(2),
+              totalAndTaxAll: orderData.amount.toFixed(2),
+              totalTaxAll: 0,
+              typeTaxAll: 0,
+
+              description: orderData.orderData,
+
+              user: jobData.user,
+              motel: motelRoomData._id,
+              roomRented: jobData.room._id, 
+
+              type: "deposit",
+            });
+            
           }
         }
 
@@ -942,6 +1101,52 @@ export default class TransactionsController {
               }
             )
             .exec();
+
+            console.log({JobData});
+            
+            const userData = await userModel.findOne({_id: JobData.user}).lean().exec();
+            console.log({userData});
+            const floorData = await floorModel.findOne({rooms: JobData.room._id}).lean().exec();
+            console.log({floorData});
+            const motelData = await motelRoomModel.findOne({floors: floorData._id})
+                                                                                .populate("owner address").lean().exec();
+            console.log({motelData});
+            const bankData = await BankingModel.find({user: motelData.owner._id}).lean().exec();
+            console.log({bankData});
+            
+            
+            //create bill
+            await billModel.create({
+              idBill: getRandomHex2(),
+              dateBill: moment().format("DD-MM-YYYY"),
+              nameMotel: motelData.name,
+              addressMotel: motelData.address.address,
+              nameRoom: JobData.room.name,
+
+              nameUser: userData.lastName + " " + userData.firstName,
+              phoneUser: userData.phoneNumber.countryCode + userData.phoneNumber.number,
+              addressUser: userData.address,
+
+              nameOwner: motelData.owner.lastName + motelData.owner.firstName,
+              emailOwner:  motelData.owner.email,
+              addressOwner: motelData.owner.address,
+              nameBankOwner: bankData ? bankData[0].nameTkLable : "Chưa thêm tài khoản",
+              numberBankOwner: bankData ? bankData[0].stk : "Chưa thêm tài khoản",
+              nameOwnerBankOwner: bankData ? bankData[0].nameTk : "Chưa thêm tài khoản",
+
+              totalAll: orderData.amount.toFixed(2),
+              totalAndTaxAll: orderData.amount.toFixed(2),
+              totalTaxAll: 0,
+              typeTaxAll: 0,
+
+              description: orderData.orderData,
+
+              user: JobData.user._id,
+              motel: motelData._id,
+              roomRented: JobData.room._id, 
+
+              type: "afterCheckInCost",
+            });
   
           const jobData = await JobController.getJobNoImg(orderData.job);
   

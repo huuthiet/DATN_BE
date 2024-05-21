@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import * as mongoose from "mongoose";
 import * as lodash from "lodash";
 import { helpers, jwtHelper, normalizeError } from "../../utils";
 import ImageService from "../../services/image";
@@ -971,6 +972,150 @@ export default class OrderController {
       next(error);
     }
   }
+
+
+  //Dựa vào motel, chỉ áp dụng cho thanh toán tiền mặt có transaction,
+  // viết lại đối với các trường hợp thanh toán khác
+  static async getDepositAfterCheckInCostHistoryList(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      const id = req.params.id;
+      console.log({id});
+      const {
+        user: userModel,
+        transactions: TransactionsModel,
+        image: imageModel,
+        motelRoom: motelRoomModel,
+        room: roomModel,
+      } = global.mongoModel;
+
+      const transactionsData = await TransactionsModel.find({
+        motel: mongoose.Types.ObjectId(id),
+        type: { $in: ["deposit", "afterCheckInCost"] },
+        paymentMethod: { $ne: "wallet" },
+        isDeleted: false,
+      }).populate("user motel room").lean().exec();
+
+      console.log({transactionsData});
+
+      if (transactionsData) {
+        for (let i = 0; i < transactionsData.length; i++) {
+            if (transactionsData[i].file) {
+              const dataimg = await imageModel.findOne({
+                _id: transactionsData[i].file,
+              });
+              if (dataimg) {
+                transactionsData[i].file = await helpers.getImageUrl(dataimg);
+              }
+            }     
+            
+            // if(transactionsData[i].motel) {
+            //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+            //   if(motelData) {
+            //     transactionsData[i].motel = motelData;
+            //   }
+            // }
+
+            // if(transactionsData[i].room) {
+            //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+            //   if(roomData) {
+            //     transactionsData[i].room = roomData;
+            //   }
+            // }
+
+            // if(transactionsData[i].user) {
+            //   const userData = await userModel.findOne({_id: transactionsData[i].user}).lean().exec();
+            //   if(userData) {
+            //     transactionsData[i].user = userData;
+            //   }
+            // }
+        }
+      }
+
+      if (!transactionsData) {
+        return HttpResponse.returnBadRequestResponse(res, "logPayment");
+      }
+      // console.log({transactionsData});
+
+      return HttpResponse.returnSuccessResponse(res, transactionsData);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getMonthlyHistoryList(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      const id = req.params.id;
+      console.log({id});
+      const {
+        user: userModel,
+        transactions: TransactionsModel,
+        image: imageModel,
+        motelRoom: motelRoomModel,
+        room: roomModel,
+      } = global.mongoModel;
+
+      const transactionsData = await TransactionsModel.find({
+        motel: mongoose.Types.ObjectId(id),
+        type: "monthly",
+        paymentMethod: { $ne: "wallet" },
+        isDeleted: false,
+      }).populate("user motel room").lean().exec();
+
+      console.log({transactionsData});
+
+      if (transactionsData) {
+        for (let i = 0; i < transactionsData.length; i++) {
+            if (transactionsData[i].file) {
+              const dataimg = await imageModel.findOne({
+                _id: transactionsData[i].file,
+              });
+              if (dataimg) {
+                transactionsData[i].file = await helpers.getImageUrl(dataimg);
+              }
+            }     
+            
+            // if(transactionsData[i].motel) {
+            //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+            //   if(motelData) {
+            //     transactionsData[i].motel = motelData;
+            //   }
+            // }
+
+            // if(transactionsData[i].room) {
+            //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+            //   if(roomData) {
+            //     transactionsData[i].room = roomData;
+            //   }
+            // }
+
+            // if(transactionsData[i].user) {
+            //   const userData = await userModel.findOne({_id: transactionsData[i].user}).lean().exec();
+            //   if(userData) {
+            //     transactionsData[i].user = userData;
+            //   }
+            // }
+        }
+      }
+
+      if (!transactionsData) {
+        return HttpResponse.returnBadRequestResponse(res, "logPayment");
+      }
+      // console.log({transactionsData});
+
+      return HttpResponse.returnSuccessResponse(res, transactionsData);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getOrderDepositListByHostV2(
     req: Request,
     res: Response,

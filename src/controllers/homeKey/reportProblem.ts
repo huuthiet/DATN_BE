@@ -305,6 +305,7 @@ export default class ReportProblem {
     }
 
     const resData = await ReportProblemModel.paginate(size, page, condition);
+    console.log("dataa", resData.data);
     if (resData && resData.data) {
       const dataArr = [];
       for (let index = 0; index < resData.data.length; index++) {
