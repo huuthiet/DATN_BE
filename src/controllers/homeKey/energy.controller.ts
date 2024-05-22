@@ -286,124 +286,124 @@ export default class EnergyController {
    *       404:
    *         description: Resource not found
    */
-  static async getCurrentDayDataPerHourV1(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<any> {
-    const deviceId: string = req.params.id;
+  // static async getCurrentDayDataPerHourV1(
+  //   req: Request,
+  //   res: Response,
+  //   next: NextFunction
+  // ): Promise<any> {
+  //   const deviceId: string = req.params.id;
 
-    // Get YYYY-MM-DD
-    let currentDay: Date = new Date();
-    currentDay.setHours(currentDay.getHours() + 7);
-    let currentDayString = currentDay.toISOString().slice(0, -14);
-    console.log({ currentDay, currentDayString });
+  //   // Get YYYY-MM-DD
+  //   let currentDay: Date = new Date();
+  //   currentDay.setHours(currentDay.getHours() + 7);
+  //   let currentDayString = currentDay.toISOString().slice(0, -14);
+  //   console.log({ currentDay, currentDayString });
 
-    // CHÚ Ý: CHƯA SET NGÀY TRƯỚC ĐÓ KHÔNG CÓ DỮ LIỆU, ĐỢI CÓ DB THÌ DỄ SORT HƠN
-    try {
-      const url1 = `${env().homelandsBaseUrl
-        }/v1/devices/${deviceId}/data?from_time=${currentDayString}T00:00:00.000&to_time=${currentDayString}T23:59:59.999&limit=100&page=1`;
-      const res1: AxiosResponse = await axios.get(url1);
+  //   // CHÚ Ý: CHƯA SET NGÀY TRƯỚC ĐÓ KHÔNG CÓ DỮ LIỆU, ĐỢI CÓ DB THÌ DỄ SORT HƠN
+  //   try {
+  //     const url1 = `${env().homelandsBaseUrl
+  //       }/v1/devices/${deviceId}/data?from_time=${currentDayString}T00:00:00.000&to_time=${currentDayString}T23:59:59.999&limit=100&page=1`;
+  //     const res1: AxiosResponse = await axios.get(url1);
 
-      const rawData1 = res1.data.Records;
-      // const rawData1 = res1.data;
+  //     const rawData1 = res1.data.Records;
+  //     // const rawData1 = res1.data;
 
-      interface DataEntry {
-        Time: string;
-        Total_kWh: number;
-      }
+  //     interface DataEntry {
+  //       Time: string;
+  //       Total_kWh: number;
+  //     }
 
-      // LẤY MỖI GIỜ 1 LẦN
-      function getLastObjectPerHour(data: DataEntry[]): (DataEntry | null)[] {
-        const lastObjectPerHour: { [key: number]: DataEntry } = {};
+  //     // LẤY MỖI GIỜ 1 LẦN
+  //     function getLastObjectPerHour(data: DataEntry[]): (DataEntry | null)[] {
+  //       const lastObjectPerHour: { [key: number]: DataEntry } = {};
 
-        for (const entry of data) {
-          // Chuyển đổi chuỗi thời gian thành đối tượng Date
-          const time = new Date(entry.Time);
+  //       for (const entry of data) {
+  //         // Chuyển đổi chuỗi thời gian thành đối tượng Date
+  //         const time = new Date(entry.Time);
 
-          // Lấy giờ từ đối tượng Date
-          const hour = time.getHours();
+  //         // Lấy giờ từ đối tượng Date
+  //         const hour = time.getHours();
 
-          // Nếu đối tượng không tồn tại hoặc là đối tượng cuối cùng của giờ hiện tại
-          if (
-            !lastObjectPerHour[hour] ||
-            time > new Date(lastObjectPerHour[hour].Time)
-          ) {
-            lastObjectPerHour[hour] = entry;
-          }
-        }
+  //         // Nếu đối tượng không tồn tại hoặc là đối tượng cuối cùng của giờ hiện tại
+  //         if (
+  //           !lastObjectPerHour[hour] ||
+  //           time > new Date(lastObjectPerHour[hour].Time)
+  //         ) {
+  //           lastObjectPerHour[hour] = entry;
+  //         }
+  //       }
 
-        // Chuyển đổi dictionary thành mảng
-        const result: (DataEntry | null)[] = Array.from(
-          { length: 24 },
-          (_, hour) => lastObjectPerHour[hour] || null
-        );
+  //       // Chuyển đổi dictionary thành mảng
+  //       const result: (DataEntry | null)[] = Array.from(
+  //         { length: 24 },
+  //         (_, hour) => lastObjectPerHour[hour] || null
+  //       );
 
-        return result;
-      }
+  //       return result;
+  //     }
 
-      const latestDataDevice: (DataEntry | null)[] = getLastObjectPerHour(
-        rawData1
-      );
+  //     const latestDataDevice: (DataEntry | null)[] = getLastObjectPerHour(
+  //       rawData1
+  //     );
 
-      const url2 = `${env().homelandsBaseUrl
-        }/v1/devices/${deviceId}/lastedtotime?to_time=${currentDayString}T00:00:00.000`;
-      const res2: AxiosResponse = await axios.get(url2);
-      const lastDataBeforeDay = res2.data;
+  //     const url2 = `${env().homelandsBaseUrl
+  //       }/v1/devices/${deviceId}/lastedtotime?to_time=${currentDayString}T00:00:00.000`;
+  //     const res2: AxiosResponse = await axios.get(url2);
+  //     const lastDataBeforeDay = res2.data;
 
-      const kWhData = [];
-      let lastValue = 0;
-      let activePowerPerHour = [];
-      let electricPerHour = [];
+  //     const kWhData = [];
+  //     let lastValue = 0;
+  //     let activePowerPerHour = [];
+  //     let electricPerHour = [];
 
-      if (lastDataBeforeDay !== undefined) {
-        lastValue = lastDataBeforeDay.value.Total_kWh;
+  //     if (lastDataBeforeDay !== undefined) {
+  //       lastValue = lastDataBeforeDay.value.Total_kWh;
 
-        const kWhArr = latestDataDevice.map((item) =>
-          item !== null ? item.Value.Total_kWh : null
-        );
+  //       const kWhArr = latestDataDevice.map((item) =>
+  //         item !== null ? item.Total_kWh : null
+  //       );
 
-        activePowerPerHour = latestDataDevice.map((item) =>
-          item !== null ? item.Value.Active_Power * 1000 : null
-        );
-        electricPerHour = latestDataDevice.map((item) =>
-          item !== null ? item.Value.Current : null
-        );
+  //       activePowerPerHour = latestDataDevice.map((item) =>
+  //         item !== null ? item.value.Active_Power * 1000 : null
+  //       );
+  //       electricPerHour = latestDataDevice.map((item) =>
+  //         item !== null ? item.value.Current : null
+  //       );
 
-        for (let i = 0; i < kWhArr.length; i++) {
-          if (kWhArr[i] === null) {
-            kWhData.push(null);
-          } else {
-            let result = kWhArr[i] - lastValue;
-            // kWhData.push(result);
-            // lastValue = kWhArr[i];
-            if (result < 0) {
-              kWhData.push(null);
-              lastValue = kWhArr[i];
-            } else {
-              kWhData.push(result);
-              lastValue = kWhArr[i];
-            }
-          }
-        }
-      }
+  //       for (let i = 0; i < kWhArr.length; i++) {
+  //         if (kWhArr[i] === null) {
+  //           kWhData.push(null);
+  //         } else {
+  //           let result = kWhArr[i] - lastValue;
+  //           // kWhData.push(result);
+  //           // lastValue = kWhArr[i];
+  //           if (result < 0) {
+  //             kWhData.push(null);
+  //             lastValue = kWhArr[i];
+  //           } else {
+  //             kWhData.push(result);
+  //             lastValue = kWhArr[i];
+  //           }
+  //         }
+  //       }
+  //     }
 
-      let totalkWhDay = kWhData.reduce((acc, curr) => acc + curr, 0);
+  //     let totalkWhDay = kWhData.reduce((acc, curr) => acc + curr, 0);
 
-      const resultData = {
-        electricPerHour: electricPerHour,
-        activePowerPerHour: activePowerPerHour,
-        totalkWhDay: totalkWhDay,
-        kWhData: kWhData,
-        lastDataBeforeDay: lastDataBeforeDay,
-        latestDataDevice: latestDataDevice,
-      };
+  //     const resultData = {
+  //       electricPerHour: electricPerHour,
+  //       activePowerPerHour: activePowerPerHour,
+  //       totalkWhDay: totalkWhDay,
+  //       kWhData: kWhData,
+  //       lastDataBeforeDay: lastDataBeforeDay,
+  //       latestDataDevice: latestDataDevice,
+  //     };
 
-      return HttpResponse.returnSuccessResponse(res, resultData);
-    } catch (e) {
-      next(e);
-    }
-  }
+  //     return HttpResponse.returnSuccessResponse(res, resultData);
+  //   } catch (e) {
+  //     next(e);
+  //   }
+  // }
 
   /**
    * @swagger
@@ -436,114 +436,114 @@ export default class EnergyController {
    *       404:
    *         description: Resource not found
    */
-  static async getCurrentMonDataPerDayV1(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<any> {
-    try {
-      const deviceId = req.params.id;
+  // static async getCurrentMonDataPerDayV1(
+  //   req: Request,
+  //   res: Response,
+  //   next: NextFunction
+  // ): Promise<any> {
+  //   try {
+  //     const deviceId = req.params.id;
 
-      let currentTime = new Date();
+  //     let currentTime = new Date();
 
-      currentTime.setHours(currentTime.getHours() + 7);
+  //     currentTime.setHours(currentTime.getHours() + 7);
 
-      const nowYear = currentTime.getFullYear();
+  //     const nowYear = currentTime.getFullYear();
 
-      let nowMon = currentTime.getMonth() + 1;
-      let nowMonApi = "";
-      if (nowMon < 10) {
-        nowMonApi = "0" + nowMon.toString();
-      } else {
-        nowMonApi = nowMon.toString();
-      }
-      const nowDay = currentTime.getDate();
-      let nowDayApi = "";
-      if (nowDay < 10) {
-        nowDayApi = "0" + nowDay.toString();
-      } else {
-        nowDayApi = nowDay.toString();
-      }
-      const nowHour = currentTime.getHours() - 7;
-      const currentTimeViet = currentTime.toISOString().slice(0, -1);
-      console.log({
-        currentTimeViet,
-        nowDay,
-        nowMon,
-        nowHour,
-        nowYear,
-      });
+  //     let nowMon = currentTime.getMonth() + 1;
+  //     let nowMonApi = "";
+  //     if (nowMon < 10) {
+  //       nowMonApi = "0" + nowMon.toString();
+  //     } else {
+  //       nowMonApi = nowMon.toString();
+  //     }
+  //     const nowDay = currentTime.getDate();
+  //     let nowDayApi = "";
+  //     if (nowDay < 10) {
+  //       nowDayApi = "0" + nowDay.toString();
+  //     } else {
+  //       nowDayApi = nowDay.toString();
+  //     }
+  //     const nowHour = currentTime.getHours() - 7;
+  //     const currentTimeViet = currentTime.toISOString().slice(0, -1);
+  //     console.log({
+  //       currentTimeViet,
+  //       nowDay,
+  //       nowMon,
+  //       nowHour,
+  //       nowYear,
+  //     });
 
-      let resultDataPerDay = [];
+  //     let resultDataPerDay = [];
 
-      for (let i = nowDay; i > 0; i--) {
-        let nowDayApi = i.toString();
-        if (i < 10) {
-          nowDayApi = "0" + i.toString();
-        }
-        const url = `${env().homelandsBaseUrl
-          }/v1/devices/${deviceId}/data?from_time=${nowYear}-${nowMonApi}-${nowDayApi}T00:00:00.000&to_time=${nowYear}-${nowMonApi}-${nowDayApi}T23:59:59.999&limit=1`;
-        const respone: AxiosResponse = await axios.get(url);
-        if (respone.data.Records.length !== 0) {
-          resultDataPerDay.push(respone.data.Records[0]);
-        } else {
-          resultDataPerDay.push(null);
-        }
+  //     for (let i = nowDay; i > 0; i--) {
+  //       let nowDayApi = i.toString();
+  //       if (i < 10) {
+  //         nowDayApi = "0" + i.toString();
+  //       }
+  //       const url = `${env().homelandsBaseUrl
+  //         }/v1/devices/${deviceId}/data?from_time=${nowYear}-${nowMonApi}-${nowDayApi}T00:00:00.000&to_time=${nowYear}-${nowMonApi}-${nowDayApi}T23:59:59.999&limit=1`;
+  //       const respone: AxiosResponse = await axios.get(url);
+  //       if (respone.data.Records.length !== 0) {
+  //         resultDataPerDay.push(respone.data.Records[0]);
+  //       } else {
+  //         resultDataPerDay.push(null);
+  //       }
 
-        console.log("Day", i);
-      }
+  //       console.log("Day", i);
+  //     }
 
-      resultDataPerDay = resultDataPerDay.reverse();
+  //     resultDataPerDay = resultDataPerDay.reverse();
 
-      const url2 = `${env().homelandsBaseUrl
-        }/v1/devices/${deviceId}/lastedtotime?to_time=${nowYear}-${nowMonApi}-01T00:00:00.000`;
-      const res2: AxiosResponse = await axios.get(url2);
+  //     const url2 = `${env().homelandsBaseUrl
+  //       }/v1/devices/${deviceId}/lastedtotime?to_time=${nowYear}-${nowMonApi}-01T00:00:00.000`;
+  //     const res2: AxiosResponse = await axios.get(url2);
 
-      let lastDataBeforeMon = [];
-      const kWhData = [];
-      let lastValue = 0;
-      let activePowerPerHour = [];
-      let electricPerHour = [];
-      let totalkWhMon = -1;
+  //     let lastDataBeforeMon = [];
+  //     const kWhData = [];
+  //     let lastValue = 0;
+  //     let activePowerPerHour = [];
+  //     let electricPerHour = [];
+  //     let totalkWhMon = -1;
 
-      if (res2.status === 200) {
-        lastDataBeforeMon = res2.data;
-        lastValue = lastDataBeforeMon.value.Total_kWh;
+  //     if (res2.status === 200) {
+  //       lastDataBeforeMon = res2.data;
+  //       lastValue = lastDataBeforeMon.value.Total_kWh;
 
-        const kWhArr = resultDataPerDay.map((item) =>
-          item !== null ? item.Value.Total_kWh : null
-        );
-        for (let i = 0; i < kWhArr.length; i++) {
-          if (kWhArr[i] === null) {
-            kWhData.push(null);
-          } else {
-            let result = kWhArr[i] - lastValue;
-            // Trường hợp thay đồng hồ khác có chỉ số nhỏ hơn chỉ số cũ, nếu ngày đó thay đồng hồ thì chấp nhận mất dữ liệu của ngày đó
-            if (result < 0) {
-              kWhData.push(null);
-              lastValue = kWhArr[i];
-            } else {
-              kWhData.push(result);
-              lastValue = kWhArr[i];
-            }
-          }
-        }
+  //       const kWhArr = resultDataPerDay.map((item) =>
+  //         item !== null ? item.Value.Total_kWh : null
+  //       );
+  //       for (let i = 0; i < kWhArr.length; i++) {
+  //         if (kWhArr[i] === null) {
+  //           kWhData.push(null);
+  //         } else {
+  //           let result = kWhArr[i] - lastValue;
+  //           // Trường hợp thay đồng hồ khác có chỉ số nhỏ hơn chỉ số cũ, nếu ngày đó thay đồng hồ thì chấp nhận mất dữ liệu của ngày đó
+  //           if (result < 0) {
+  //             kWhData.push(null);
+  //             lastValue = kWhArr[i];
+  //           } else {
+  //             kWhData.push(result);
+  //             lastValue = kWhArr[i];
+  //           }
+  //         }
+  //       }
 
-        totalkWhMon = kWhData.reduce((acc, curr) => acc + curr, 0);
-      }
+  //       totalkWhMon = kWhData.reduce((acc, curr) => acc + curr, 0);
+  //     }
 
-      const resultData = {
-        totalkWhMon: totalkWhMon,
-        kWhData: kWhData,
-        lastDataBeforeMon: lastDataBeforeMon,
-        resultDataPerDay: resultDataPerDay,
-      };
+  //     const resultData = {
+  //       totalkWhMon: totalkWhMon,
+  //       kWhData: kWhData,
+  //       lastDataBeforeMon: lastDataBeforeMon,
+  //       resultDataPerDay: resultDataPerDay,
+  //     };
 
-      return HttpResponse.returnSuccessResponse(res, resultData);
-    } catch (e) {
-      next(e);
-    }
-  }
+  //     return HttpResponse.returnSuccessResponse(res, resultData);
+  //   } catch (e) {
+  //     next(e);
+  //   }
+  // }
 
   //////////////////////////////////////////////////////////////////////////
   /////////////////////////NEW////////////////////////////////////////////////
@@ -1202,6 +1202,7 @@ export default class EnergyController {
       interface DataEntry {
         Time: string;
         Total_kWh: number;
+
       }
 
       // // LẤY MỖI GIỜ 1 LẦN

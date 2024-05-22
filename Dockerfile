@@ -1,15 +1,28 @@
-FROM node:14 as base
+FROM node:14
 
-WORKDIR /home/node/app
+# Install build tools
+RUN apt-get update && \
+    apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-setuptools \
+    build-essential \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    librsvg2-dev
+
+
+WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm i
+RUN npm install
+ENV NODE_ENV=production
 
 COPY . .
 
-FROM base as production
+EXPOSE 5502
 
-ENV NODE_PATH=./build
-
-RUN npm run build
+CMD ["npm", "start"]
