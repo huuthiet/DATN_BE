@@ -39,6 +39,9 @@ export class Transactions extends Basic {
   @prop({ default: "Mã thanh toán" })
   keyPayment: string;
 
+  @prop() // lấy từ order
+  keyOrder: string;
+
   @prop()
   description?: string;
 

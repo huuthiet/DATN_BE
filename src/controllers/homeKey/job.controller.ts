@@ -232,7 +232,10 @@ export default class JobController {
           }`,
         amount: data.deposit,
         type: "deposit",
+        expireTime: moment(resData.checkInTime).endOf("day").toDate(),
       });
+
+      console.log("expireeee time", moment(resData.checkInTime).endOf("day").toDate());
 
       resData = await jobModel.findOneAndUpdate(
         { _id: resData._id },
@@ -247,7 +250,7 @@ export default class JobController {
       // Check 7 days after check in time
       await global.agendaInstance.agenda.schedule(
         moment(resData.checkInTime)
-          .add(7, "days")
+          .add(7, "days").endOf("day")
           .toDate(),
         "CheckJobStatus",
         { jobId: resData._id }
@@ -1166,6 +1169,7 @@ export default class JobController {
         description: `Tiền phòng tháng ${checkInTime.split("/")[0]}/${checkInTime.split("/")[2]}`,
         amount: resData.afterCheckInCost,
         type: "afterCheckInCost",
+        expireTime: moment(resData.checkInTime).endOf("day").toDate(),
       });
 
       resData = await jobModel
@@ -1225,7 +1229,7 @@ export default class JobController {
 
       await global.agendaInstance.agenda.schedule(
         moment(resData.checkInTime)
-          .add(7, "days")
+          .add(7, "days").endOf("day")
           .toDate(),
         "CheckOrderStatus",
         { orderId: orderData._id }

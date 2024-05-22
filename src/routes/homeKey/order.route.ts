@@ -8,8 +8,12 @@ import EnergyController from "../../controllers/homeKey/energy.controller";
 const orderRoute = express.Router();
 
 orderRoute
-    .route("/exportBillRoomByTransaction/:id")
-    .get(EnergyController.exportBillRoomByTransaction);
+    .route("/exportBillPaidBTransaction/:id")
+    .post(EnergyController.exportBillPaidByTransaction);
+
+orderRoute
+    .route("/exportBillRoomPendingPayByOrder/:id")
+    .post(EnergyController.exportBillRoomPendingPayByOrder);
 
 orderRoute
     .route("/getPayDepositList/:id")
@@ -30,11 +34,18 @@ orderRoute
 
 
 
+
+//-------------------------------------------------
 orderRoute.use(AuthMiddleware.isAuthenticated);
+
+orderRoute
+  .route("/orderPendingPaymentList/")
+  .get(TransactionsController.getOrderPendingPaymentList)
 
 orderRoute
   .route("/postTransactionAfterCheckInCostPendingBanking/")
   .post(TransactionsController.postTransactionAfterCheckInCostPendingBanking)
+
 
 //user
 orderRoute

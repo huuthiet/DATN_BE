@@ -211,6 +211,10 @@ export default (agenda) => {
           let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
           console.log({electricNumber});
 
+          console.log({startTime});
+          console.log({endTime});
+          console.log({expireTime});
+
           if (electricNumber === null) {
             electricNumber = 0;
           }
@@ -2820,3 +2824,5 @@ export default (agenda) => {
   // })();
 
 };
+
+

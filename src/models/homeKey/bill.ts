@@ -7,6 +7,7 @@ import { OptionsType } from "./optionsType";
 import { User } from "../user";
 import { MotelRoom } from "./motelRoom";
 import { Room } from "./room";
+import { Order } from "./order";
 
 enum PaymentType {
   deposit = "deposit",
@@ -38,10 +39,16 @@ export class Bill extends Basic {
   phoneUser?: string;
 
   @prop()
+  emailUser?: string;
+
+  @prop()
   addressUser?: string;
   //----------
   @prop()
   nameOwner?: string;
+
+  @prop()
+  phoneOwner?: string;
 
   @prop()
   emailOwner?: string;
@@ -103,6 +110,9 @@ export class Bill extends Basic {
 
   @prop({ ref: Room })
   roomRented: Ref<Room>;
+
+  @prop({ ref: Order })
+  order: Ref<Order>;
 
   @prop()
   startTime?: Date //order monthly

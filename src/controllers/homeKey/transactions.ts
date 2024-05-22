@@ -13,6 +13,8 @@ import * as rn from "random-number";
 import * as bcrypt from "bcryptjs";
 import { TransactionModel } from "models/transaction";
 import { Bill } from "models/homeKey/bill";
+import { OrderModel } from "models/homeKey/order";
+import { FloorModel } from "models/homeKey/floor";
 var optionsNumbeer = {
   // example input , yes negative values do work
   min: 1000,
@@ -289,6 +291,7 @@ export default class TransactionsController {
           }`,
         amount: formData.deposit,
         type: "deposit",
+        expireTime: moment(resData.checkInTime).endOf("day").toDate(),
       });
 
       resData = await jobModel.findOneAndUpdate(
@@ -318,6 +321,7 @@ export default class TransactionsController {
       const transactionsData = await TransactionsModel.create({
         user: req["userId"],
         keyPayment: formData.keyPayment,
+        keyOrder: orderData.keyOrder,
         description: `Tiền cọc phòng tháng ${myDateOld.split("/")[1]}/${myDateOld.split("/")[2]}`,
         amount: orderData.amount,
         status: "waiting",
@@ -347,21 +351,6 @@ export default class TransactionsController {
     next: NextFunction
   ): Promise<any> {
     try {
-      // Init models
-      // let requestData = {
-      //   order: job.currentOrder._id,
-      //   afterCheckInCost: job.afterCheckInCost,
-      //   deposit: job.deposit,
-      //   rentalPeriod: job.rentalPeriod,
-      //   user: job.user._id,
-      //   fullName: job.fullName,
-      //   job: job._id,
-      //   motel: job.motelRoom._id,
-      //   room:  job.room._id,
-      //   type: job.currentOrder.type,
-      //   keyPayment: keyPayment,
-      //   banking: banking,
-      // }
       const { 
         transactions: TransactionsModel,
         order: orderModel,
@@ -415,6 +404,7 @@ export default class TransactionsController {
         transactionsData = await TransactionsModel.create({
           user: req["userId"],
           keyPayment: formData.keyPayment,
+          keyOrder: orderData.keyOrder,
           description: `Tiền thanh toán khi nhận phòng`,
           amount: orderData.amount,
           status: "waiting",
@@ -429,6 +419,7 @@ export default class TransactionsController {
         transactionsData = await TransactionsModel.create({
           user: req["userId"],
           keyPayment: formData.keyPayment,
+          keyOrder: orderData.keyOrder,
           description: orderData.description,
           amount: orderData.amount,
           status: "waiting",
@@ -452,6 +443,100 @@ export default class TransactionsController {
       return HttpResponse.returnSuccessResponse(res, transactionsData);
     } catch (e) {
       next(e);
+    }
+  }
+
+  static async getOrderPendingPaymentList(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const userId = req["userId"];
+      // const userId = "66066c737dc6a346c59765a9";
+      console.log({userId});
+      const {
+        user: userModel,
+        motelRoom: motelRoomModel,
+        job: jobModel,
+        order: orderModel,
+        floor: floorModel,
+      } = global.mongoModel;
+
+      const userData = await userModel.findOne({_id: userId}).populate("jobs").lean().exec();
+      if(!userData) {
+        return HttpResponse.returnBadRequestResponse(res,
+          "Người dùng không tồn tại"
+        )
+      }
+      if(userData.jobs.lengh === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Người dùng chưa có hợp đồng thuê phòng nào"
+        )
+      }
+      const jobListCurrent = userData.jobs.filter(job => job.isDeleted === false);
+      console.log(jobListCurrent.length);
+
+      if(jobListCurrent.length === 0){
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Người dùng không có hợp đồng nào còn hiệu lực"
+        )
+      }
+
+      const currentOrderIdOfList = jobListCurrent.map(job => job.currentOrder);
+      console.log({currentOrderIdOfList});
+
+      const currentOrderIdOfListLength = currentOrderIdOfList.length;
+
+      let orderNoPaymentList = [];
+      for(let i: number = 0; i < currentOrderIdOfListLength; i++) {
+        let orderData = await orderModel.findOne({_id: currentOrderIdOfList[i]}).lean().exec();
+        if(orderData.isCompleted === false) {
+          orderNoPaymentList.push(orderData);
+        }
+      }
+
+      if(orderNoPaymentList.length === 0) {
+        return HttpResponse.returnBadRequestResponse(res,
+          "Người dùng hiện tại không có hóa đơn nào chưa thanh toán"
+        )
+      }
+
+      // for(let i: number = 0; i < orderNoPaymentList.length; i++) {
+      //   let jobData = await jobModel.findOne({_id: orderNoPaymentList[i].job}).populate("room").lean().exec();
+      //   if(jobData) {
+      //     orderNoPaymentList[i].job = jobData;
+      //     let floorData = await floorModel.findOne({rooms: jobData}).lean().exec();
+      //     if(floorData) {
+      //       let motelData = await motelRoomModel.find({floors: floorData._id}).lean().exec();
+      //       if(motelData) {
+      //         orderNoPaymentList[i].motel = motelData;
+      //       }
+      //     }
+      //   }
+      // }
+      async function enrichOrderData(order) {
+        let jobData = await jobModel.findOne({ _id: order.job }).populate("room").lean().exec();
+        if (jobData) {
+          order.job = jobData;
+          let floorData = await floorModel.findOne({ rooms: jobData.room._id }).lean().exec();
+          if (floorData) {
+            let motelData = await motelRoomModel.findOne({ floors: floorData._id }).lean().exec();
+            if (motelData) {
+              order.motel = motelData;
+            }
+          }
+        }
+        return order;
+      }
+      
+      orderNoPaymentList = await Promise.all(orderNoPaymentList.map(enrichOrderData));
+
+      return HttpResponse.returnSuccessResponse(res, orderNoPaymentList);
+    } catch (error) {
+      next(error);
     }
   }
 
@@ -930,8 +1015,9 @@ export default class TransactionsController {
           console.log({bankData});
 
           await billModel.create({
+            order: orderData._id,
             idBill: getRandomHex2(),
-            dateBill: moment().format("DD-MM-YYYY"),
+            dateBill: moment().format("DD/MM/YYYY"),
             nameMotel: motelData.name,
             addressMotel: motelData.address.address,
             nameRoom: roomData.name,
@@ -939,9 +1025,11 @@ export default class TransactionsController {
             nameUser: userData.lastName + " " + userData.firstName,
             phoneUser: userData.phoneNumber.countryCode + userData.phoneNumber.number,
             addressUser: userData.address,
+            emailUser: userData.email,
 
             nameOwner: motelData.owner.lastName + motelData.owner.firstName,
             emailOwner:  motelData.owner.email,
+            phoneOwner: motelData.owner.phoneNumber.countryCode + motelData.owner.phoneNumber.number,
             addressOwner: motelData.owner.address,
             nameBankOwner: bankData ? bankData[0].nameTkLable : "Chưa thêm tài khoản",
             numberBankOwner: bankData ? bankData[0].stk : "Chưa thêm tài khoản",
@@ -1047,8 +1135,9 @@ export default class TransactionsController {
             
             //create bill
             await billModel.create({
+              order: orderData._id,
               idBill: getRandomHex2(),
-              dateBill: moment().format("DD-MM-YYYY"),
+              dateBill: moment().format("DD/MM/YYYY"),
               nameMotel: motelRoomData.name,
               addressMotel: motelRoomData.address.address,
               nameRoom: jobData.room.name,
@@ -1056,9 +1145,11 @@ export default class TransactionsController {
               nameUser: userData.lastName + " " + userData.firstName,
               phoneUser: userData.phoneNumber.countryCode + userData.phoneNumber.number,
               addressUser: userData.address,
+              emailUser: userData.email,
 
               nameOwner: motelRoomData.owner.lastName + motelRoomData.owner.firstName,
               emailOwner:  motelRoomData.owner.email,
+              phoneOwner: motelRoomData.owner.phoneNumber.countryCode + motelRoomData.owner.phoneNumber.number,
               addressOwner: motelRoomData.owner.address,
               nameBankOwner: bankData ? bankData[0].nameTkLable : "Chưa thêm tài khoản",
               numberBankOwner: bankData ? bankData[0].stk : "Chưa thêm tài khoản",
@@ -1117,8 +1208,9 @@ export default class TransactionsController {
             
             //create bill
             await billModel.create({
+              order: orderData._id,
               idBill: getRandomHex2(),
-              dateBill: moment().format("DD-MM-YYYY"),
+              dateBill: moment().format("DD/MM/YYYY"),
               nameMotel: motelData.name,
               addressMotel: motelData.address.address,
               nameRoom: JobData.room.name,
@@ -1126,9 +1218,11 @@ export default class TransactionsController {
               nameUser: userData.lastName + " " + userData.firstName,
               phoneUser: userData.phoneNumber.countryCode + userData.phoneNumber.number,
               addressUser: userData.address,
+              emailUser: userData.email,
 
               nameOwner: motelData.owner.lastName + motelData.owner.firstName,
               emailOwner:  motelData.owner.email,
+              phoneOwner: motelData.owner.phoneNumber.countryCode + motelData.owner.phoneNumber.number,
               addressOwner: motelData.owner.address,
               nameBankOwner: bankData ? bankData[0].nameTkLable : "Chưa thêm tài khoản",
               numberBankOwner: bankData ? bankData[0].stk : "Chưa thêm tài khoản",

@@ -14,6 +14,7 @@ var nodemailer = require("nodemailer");
 import * as lodash from "lodash";
 import { start } from "repl";
 import room from "services/agenda/jobs/room";
+import { FloorModel } from "models/homeKey/floor";
 
 const width = 595;
 const height = 400;
@@ -2238,13 +2239,13 @@ export default class EnergyController {
     }
   }
 
-  static async exportBillRoomByTransaction(
+  static async exportBillRoomPendingPayByOrder(
     req: Request,
     res: Response,
     next: NextFunction
   ): Promise<any> {
     try {
-      const idTransaction = req.params.id;
+      const idOrder = req.params.id;
 
       let dataEnergy: {
         totalkWhTime: number;
@@ -2255,27 +2256,434 @@ export default class EnergyController {
         rawData: any[];
       };
 
-      const getRandomInt = (min, max) =>
-        Math.floor(Math.random() * (max - min)) + min;
-        const getRandomString = (length, base) => {
-        let result = "";
-        const baseLength = base.length;
+      const {
+        motelRoom: motelRoomModel,
+        room: roomModel,
+        address: addressModel,
+        user: userModel,
+        banking: BankingModel,
+        job: jobModel,
+        transactions: TransactionsModel,
+        order: orderModel,
+        floor: floorModel,
+      } = global.mongoModel;
 
-        // eslint-disable-next-line no-plusplus
-        for (let i = 0; i < length; i++) {
-          const randomIndex = getRandomInt(0, baseLength);
-          result += base[randomIndex];
+      const orderData = await orderModel.findOne({_id: idOrder}).lean().exec();
+      console.log({orderData});
+
+      if(!orderData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Hóa đơn không tồn tại"
+        );
+      }
+
+      const jobData = await jobModel.findOne({_id: orderData.job}).lean().exec();
+
+      if (!jobData) {
+        return HttpResponse.returnUnAuthorizeResponse(
+          res,
+          "Hợp đồng không tồn tại"
+        )
+      }
+
+      const roomData = await roomModel.findOne({_id: jobData.room}).lean().exec();
+      if(!roomData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng không tồn tại"
+        )
+      }
+
+      const floorData = await floorModel.findOne({rooms: roomData._id}).lean().exec();
+      if(!floorData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Lầu không tồn tại"
+        )
+      }
+      const motelData = await motelRoomModel.findOne({floors: floorData._id}).populate("owner address").lean().exec();
+      console.log({motelData});
+
+      const motelOwner = motelData.owner;
+      const emailOwner = motelOwner.email;
+      const phoneOwner =
+        motelOwner.phoneNumber.countryCode + motelOwner.phoneNumber.number;
+      const addressOwner = motelOwner.address;
+      const banking = await BankingModel.find({ user: motelOwner._id }) //trả về mảng
+        .lean()
+        .exec();
+
+      const nameMotel = motelData.name;
+      const motelAddress = motelData.address.address;
+      const nameRoom = roomData.name;
+
+      if(orderData.type === "monthly")  {
+        const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+          roomData._id,
+          moment(new Date(orderData.startTime)).format("YYYY-MM-DD"),
+          moment(new Date(orderData.endTime)).format("YYYY-MM-DD")
+        );
+  
+  
+        // // //Thông số
+        const idBill: string = orderData.keyOrder;
+        const numberDayStay = orderData.numberDayStay;
+  
+        const unitPriceRoom = roomData.price;
+        const unitPriceElectricity = roomData.electricityPrice;
+        const unitPriceWater = roomData.waterPrice;
+        const unitPriceGarbage = roomData.garbagePrice; // dịch vụ
+        const unitPriceWifi = roomData.wifiPrice; // xe
+        const unitPriceOther = 0;
+  
+        const typeRoom: number = orderData.numberDayStay;
+        const typeWater: number = roomData.person;
+        const typeGarbage: string = "1";
+        const typeWifi: number = roomData.vihicle;
+        const typeOther = 0;
+        let typeElectricity: number = orderData.electricNumber;
+  
+        const totalAll = parseInt(orderData.amount);
+        const totalAndTaxAll = parseInt(orderData.amount);
+        const totalRoom = parseInt(orderData.roomPrice);
+        const totalWifi = parseInt(orderData.vehiclePrice);
+        const totalGarbage = parseInt(orderData.servicePrice); // service
+        const totalWater = parseInt(orderData.waterPrice);
+        const totalElectricity = parseInt(orderData.electricPrice);
+  
+        const parsedTime = moment(new Date(orderData.createdAt)).format("DD/MM/YY"); //ngày tạo
+  
+        const expireTime = moment(new Date(orderData.expireTime)).format("DD/MM/YYYY");
+        const startTime = moment(new Date(orderData.createdAt)).format("DD/MM/YYYY");
+  
+        let json = {};
+  
+        if (roomData.rentedBy) {
+          const userId = roomData.rentedBy;
+          const userInfor = await userModel
+            .findOne({ _id: userId })
+            .lean()
+            .exec();
+  
+          const nameUser = userInfor.lastName + userInfor.firstName;
+          const phoneUser =
+            userInfor.phoneNumber.countryCode +
+            " " +
+            userInfor.phoneNumber.number;
+          const addressUser = userInfor.address;
+          const emailUser = userInfor.email;
+
+  
+          json = {
+            numberDayStay: numberDayStay,
+  
+            idBill: idBill, 
+            phoneOwner,
+            startTime: startTime,
+            expireTime: expireTime,
+            dateBill: parsedTime,
+            nameMotel: nameMotel,
+            addressMotel: motelAddress,
+            nameRoom: nameRoom,
+            nameUser: nameUser,
+            phoneUser: phoneUser,
+            addressUser: addressUser,
+            imgRoom: "",
+            addressOwner: addressOwner,
+            emailUser: emailUser,
+            emailOwner: emailOwner,
+  
+            totalAll: totalAll,
+  
+            totalAndTaxAll: totalAndTaxAll,
+  
+            totalTaxAll: 0,
+            typeTaxAll: 0,
+            expenseRoom: "Chi Phí Phòng",
+            typeRoom: typeRoom,
+            unitPriceRoom: unitPriceRoom,
+            totalRoom: totalRoom,
+  
+            expenseElectricity: "Chi Phí Điện",
+            typeElectricity: typeElectricity,
+            unitPriceElectricity: unitPriceElectricity,
+            totalElectricity: totalElectricity,
+  
+            expenseWater: "Chi Phí Nước",
+            typeWater: typeWater,
+            unitPriceWater: unitPriceWater,
+            totalWater: totalWater,
+  
+            expenseGarbage: "Phí Dịch Vụ",
+            typeGarbage: typeGarbage,
+            unitPriceGarbage: unitPriceGarbage,
+            totalGarbage: totalGarbage,
+  
+            expenseWifi: "Chi Phí Xe",
+            typeWifi: typeWifi,
+            unitPriceWifi: unitPriceWifi,
+            totalWifi: totalWifi,
+  
+            expenseOther: "Tiện Ích Khác",
+            typeOther: typeOther,
+            unitPriceOther: unitPriceOther,
+            totalOther: typeOther * unitPriceOther,
+          };
+  
+          const nameFile = `Invoice - ${nameMotel} - ${nameRoom} from ${moment(new Date(orderData.startTime)).format("DD-MM-YYYY")} to ${moment(new Date(orderData.endTime)).format("DD-MM-YYYY")}`;
+          let fileName = `${nameFile}.pdf`;
+  
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Dispsition", "attachment;filename=" + fileName);
+  
+          const buffer = await generateOrderMonthlyPendingPayPDF(json, banking[0], totalkWhTime);
+  
+          // Export chartjs to pdf
+          const configuration: ChartConfiguration = {
+            type: "line",
+            data: {
+              labels: totalkWhTime.labelTime.map((item) =>
+                item ? item : "Chưa có dữ liệu"
+              ),
+              datasets: [
+                {
+                  // label: `Tổng số điện từ ${startTime} đến ${endTime}`,
+                  label: `Tổng số điện từ ${moment(new Date(orderData.startTime)).format("DD-MM-YYYY")} đến ${moment(new Date(orderData.endTime)).format("DD-MM-YYYY")}`,
+                  data: totalkWhTime.kWhData,
+                  backgroundColor: ["rgba(255, 99, 132, 0.2)"],
+                  borderColor: ["rgba(255,99,132,1)"],
+                  borderWidth: 1,
+                  tension: 0.01,
+                  fill: false,
+                },
+              ],
+            },
+            options: {
+              scales: {
+                x: {
+                  title: {
+                    display: true,
+                    text: "Thời gian",
+                  },
+                },
+                y: {
+                  title: {
+                    display: true,
+                    text: "Số KwH",
+                  },
+                },
+              },
+            },
+            plugins: [
+              {
+                id: "background-colour",
+                beforeDraw: (chart) => {
+                  const ctx = chart.ctx;
+                  ctx.save();
+                  ctx.fillStyle = "white";
+                  ctx.fillRect(0, 0, width, height);
+                  ctx.restore();
+                },
+              },
+              {
+                id: "chart-data-labels",
+                afterDatasetsDraw: (chart, args, options) => {
+                  const { ctx } = chart;
+                  ctx.save();
+  
+                  // Configure data labels here
+                  chart.data.datasets.forEach((dataset, i) => {
+                    const meta = chart.getDatasetMeta(i);
+                    meta.data.forEach((element, index) => {
+                      const model = element;
+                      const x = model.x;
+                      const y = model.y;
+                      const text = dataset.data[index]
+                        ? (+dataset.data[index].toString()).toFixed(2)
+                        : ""; // You can customize this based on your data
+                      const font = "12px Arial"; // Example font setting
+                      const fillStyle = "black"; // Example color setting
+                      const textAlign = "center"; // Example alignment setting
+  
+                      ctx.fillStyle = fillStyle;
+                      ctx.font = font;
+                      ctx.textAlign = textAlign;
+                      ctx.fillText(text, x, y);
+                    });
+                  });
+  
+                  ctx.restore();
+                },
+              },
+            ],
+          };
+          const chartBufferPNG = await chartJSNodeCanvas.renderToBuffer(
+            configuration
+          );
+          const mergedBuffer = await mergeBuffer(buffer, chartBufferPNG);
+          // console.log({ mergedBuffer: Buffer.from(mergedBuffer) });
+  
+          
+          // res.send(mergedBuffer);
+          res.send(buffer);
+        } else {
+          const data = "Empty room";
+          return HttpResponse.returnSuccessResponse(res, data);
         }
+      } else if(orderData.type === "afterCheckInCost") {
+        const bankData = {
+          nameBankOwner: banking[0].nameTkLable,
+          nameOwnerBankOwner: banking[0].nameTk,
+          numberBankOwner: banking[0].stk,
+        };
+        const idBill: string = orderData.keyOrder;
 
-        return result;
-      };
+        const totalAll = parseInt(orderData.amount);
+        const totalAndTaxAll = parseInt(orderData.amount);
 
-      const getRandomHex2 = () => {
-        const baseString =
-          "0123456789QƯERTYUIOPASDFGHJKLZXCVBNMqưertyuiopasdfghjklzxcvbnm";
-        const ma = `${getRandomString(6, baseString)}`;
-        return ma;
-      };
+        const expireTime = moment(new Date(orderData.expireTime)).format("DD/MM/YYYY");
+        const startTime = moment(new Date(orderData.createdAt)).format("DD/MM/YYYY");
+
+        if (roomData.rentedBy) {
+          const userId = roomData.rentedBy;
+          const userInfor = await userModel
+            .findOne({ _id: userId })
+            .lean()
+            .exec();
+
+          const nameUser = userInfor.lastName + userInfor.firstName;
+          const phoneUser =
+            userInfor.phoneNumber.countryCode +
+            " " +
+            userInfor.phoneNumber.number;
+          const addressUser = userInfor.address;
+            const emailUser = userInfor.email;
+
+          let json = {};
+
+          json = {
+            idBill: idBill,
+            phoneOwner: phoneOwner,
+            expireTime: expireTime,
+            dateBill: startTime,
+            startTime: startTime,
+            nameMotel: nameMotel,
+            addressMotel: motelAddress,
+            nameRoom: nameRoom,
+
+            nameUser: nameUser,
+            phoneUser: phoneUser,
+            addressUser: addressUser,
+            imgRoom: "",
+
+            addressOwner: addressOwner,
+            emailUser: emailUser,
+            emailOwner: emailOwner,
+
+            totalAll: totalAll,
+            totalAndTaxAll: totalAndTaxAll,
+            totalTaxAll: 0,
+            typeTaxAll: 0,
+          };
+
+          console.log({json});
+
+          const nameFile = `Invoice - ${nameMotel} - ${nameRoom} deposit`;
+          let fileName = `${nameFile}.pdf`;
+
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Dispsition", "attachment;filename=" + fileName);
+
+          const buffer = await generateOrderDepositPendingPayPDF(json, bankData);
+          res.send(buffer);
+
+        } else {
+          const data = "Empty room";
+          return HttpResponse.returnSuccessResponse(res, data);
+        }
+      } else if(orderData.type === "deposit") {
+        const bankData = {
+          nameBankOwner: banking[0].nameTkLable,
+          nameOwnerBankOwner: banking[0].nameTk,
+          numberBankOwner: banking[0].stk,
+        };
+        const idBill: string = orderData.keyOrder;
+
+        const totalAll = parseInt(orderData.amount);
+        const totalAndTaxAll = parseInt(orderData.amount);
+
+        const expireTime = moment(new Date(orderData.expireTime)).format("DD/MM/YYYY");
+        const startTime = moment(new Date(orderData.createdAt)).format("DD/MM/YYYY");
+
+        const userId = orderData.user;
+          const userInfor = await userModel
+            .findOne({ _id: userId })
+            .lean()
+            .exec();
+
+        const nameUser = userInfor.lastName + userInfor.firstName;
+        const phoneUser =
+          userInfor.phoneNumber.countryCode +
+          " " +
+          userInfor.phoneNumber.number;
+        const addressUser = userInfor.address;
+          const emailUser = userInfor.email;
+
+        let json = {};
+
+        json = {
+          idBill: idBill,
+          phoneOwner: phoneOwner,
+          expireTime: expireTime,
+          dateBill: startTime,
+          startTime: startTime,
+          nameMotel: nameMotel,
+          addressMotel: motelAddress,
+          nameRoom: nameRoom,
+
+          nameUser: nameUser,
+          phoneUser: phoneUser,
+          addressUser: addressUser,
+          imgRoom: "",
+
+          addressOwner: addressOwner,
+          emailUser: emailUser,
+          emailOwner: emailOwner,
+
+          totalAll: totalAll,
+          totalAndTaxAll: totalAndTaxAll,
+          totalTaxAll: 0,
+          typeTaxAll: 0,
+        };
+
+        console.log({json});
+
+        const nameFile = `Invoice - ${nameMotel} - ${nameRoom} deposit`;
+        let fileName = `${nameFile}.pdf`;
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Dispsition", "attachment;filename=" + fileName);
+
+        const buffer = await generateOrderDepositPendingPayPDF(json, bankData);
+        res.send(buffer);
+      }
+      const data = "exportBillSuccess";
+      return HttpResponse.returnSuccessResponse(res, data);
+    } catch (e) {
+      console.log({ e });
+      next(e);
+    }
+  }
+
+  static async exportBillPaidByTransaction(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const idTransaction = req.params.id;
+      // const idTransaction = "664d29894a755b6434ac92c3";
 
       const {
         motelRoom: motelRoomModel,
@@ -2285,126 +2693,132 @@ export default class EnergyController {
         banking: BankingModel,
         job: jobModel,
         transactions: TransactionsModel,
+        order: orderModel,
+        floor: floorModel,
+        bill: billModel,
       } = global.mongoModel;
 
-      const transactionData = await TransactionsModel.findOne({_id: idTransaction}).populate("order motel user room").lean().exec();
-      console.log({idTransaction});
-      console.log({transactionData});
+      const transactionData = await TransactionsModel.findOne({_id: idTransaction}).populate("user order motel room").lean().exec();
 
       if(!transactionData) {
+        return HttpResponse.returnBadRequestResponse(res,
+          "Giao dịch không tồn tại"
+        )
+      }
+
+      // const orderData = await orderModel.findOne({_id: idOrder}).lean().exec();
+      // console.log({orderData});
+
+      if(!transactionData.order) {
         return HttpResponse.returnBadRequestResponse(
           res,
-          "Giao dịch không tồn tại"
+          "Hóa đơn không tồn tại"
         );
       }
 
-      const motelOwner = await userModel
-        .findOne({ _id: transactionData.motel.owner })
-        .lean()
-        .exec();
+      // const roomData = await roomModel.findOne({_id: jobData.room}).lean().exec();
+      if(!transactionData.room) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng không tồn tại"
+        )
+      }
 
-      const nameMotel = transactionData.motel.name;
+      if(!transactionData.motel) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Toàn nhà không tồn tại"
+        )
+      }
 
-      const emailOwner = motelOwner.email;
-      const phoneOwner =
-        motelOwner.phoneNumber.countryCode + motelOwner.phoneNumber.number;
-      const addressOwner = motelOwner.address;
+      if (transactionData.order.type === "monthly") {
+        const billData = await billModel.findOne({order: transactionData.order._id})
+                                                            .populate("electricity garbage water wifi other room").lean().exec();
+        if(!billData) {
+          return HttpResponse.returnBadRequestResponse(
+            res,
+            "Hóa đơn chưa tồn tại"
+          )
+        }
 
-      const banking = await BankingModel.findOne({ user: transactionData.motel.owner })
-        .lean()
-        .exec();
+        console.log("billDataaaa", billData);
+        // const motelData = await motelRoomModel.findOne({floors: transactionData.motel._id}).populate("owner address").lean().exec();
+        // console.log({motelData});
 
-      const motelAddress = await addressModel
-        .findOne({ _id: transactionData.motel.address })
-        .lean()
-        .exec();
+        const banking = {
+          nameBankOwner: billData.nameBankOwner,
+          nameOwnerBankOwner: billData.nameOwnerBankOwner,
+          numberBankOwner: billData.numberBankOwner,
+        };
 
-      const addressMotel = motelAddress.address;
-
-      const roomInfor = transactionData.room;
-
-      const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
-        roomInfor._id,
-        moment().startOf("month").format("YYYY-MM-DD"),
-        moment().endOf("month").format("YYYY-MM-DD")
-      );
-
-      const nameRoom = roomInfor.name;
-
-      // //Thông số
-      const numberDayStay = transactionData.order.numberDayStay;
-
-      const unitPriceRoom = roomInfor.price;
-      const unitPriceElectricity = roomInfor.electricityPrice;
-      const unitPriceWater = roomInfor.waterPrice;
-      const unitPriceGarbage = roomInfor.garbagePrice; // dịch vụ
-      const unitPriceWifi = roomInfor.wifiPrice; // xe
-      const unitPriceOther = 0;
-
-      const typeRoom: number = transactionData.order.numberDayStay;
-      const typeWater: number = roomInfor.person;
-      const typeGarbage: number = transactionData.order.numberDayStay;
-      const typeWifi: number = roomInfor.vihicle;
-      const typeOther = 0;
-      let typeElectricity: number = transactionData.order.electricNumber;
-
-      const totalAll = parseInt(transactionData.order.amount);
-      const totalAndTaxAll = parseInt(transactionData.order.amount);
-      const totalRoom = parseInt(transactionData.order.roomPrice);
-      const totalWifi = parseInt(transactionData.order.vehiclePrice);
-      const totalGarbage = parseInt(transactionData.order.servicePrice); // service
-      const totalWater = parseInt(transactionData.order.waterPrice);
-      const totalElectricity = parseInt(transactionData.order.electricPrice);
-
-      // const timeExport = new Date();
-      // timeExport.setHours(timeExport.getHours() + 7);
-      // const parsedTime = moment(timeExport).format("DD/MM/YYYY");
-
-      const parsedTime = moment(transactionData.order.createdAt).format("DD/MM/YY");
-
-      // const expireTime = moment(new Date(endTime)).format("DD/MM/YYYY");
-      const expireTime = "Chưa biết";
-
-      let json = {};
-
-      if (roomInfor.rentedBy) {
-        const userId = roomInfor.rentedBy;
-        const userInfor = await userModel
-          .findOne({ _id: userId })
-          .lean()
-          .exec();
-
-        const nameUser = userInfor.lastName + userInfor.firstName;
-        const phoneUser =
-          userInfor.phoneNumber.countryCode +
-          " " +
-          userInfor.phoneNumber.number;
-        const addressUser = userInfor.address;
-        const emailUser = userInfor.email;
-
-        // if(roomInfor.listIdElectricMetter) {
-        //   if (roomInfor.listIdElectricMetter.length !== 0) {
-          
-        //   } else {
-        //     const data = "Room no id metter";
-        //     return HttpResponse.returnSuccessResponse(res, data);
-        //   }
-        // } else {
-        //   const data = "Room no id metter";
-        //   return HttpResponse.returnSuccessResponse(res, data);
-        // }
+        const emailOwner = billData.emailOwner;
+        const phoneOwner = billData.phoneOwner;
         
+        const addressOwner = billData.addressOwner;
+
+        const nameMotel = billData.nameMotel;
+        const motelAddress = billData.addressMotel;
+
+        const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+          billData.roomRented,
+          moment(new Date(transactionData.order.startTime)).format("YYYY-MM-DD"),
+          moment(new Date(transactionData.order.endTime)).format("YYYY-MM-DD")
+        );
+
+        const nameRoom = billData.nameRoom;
+
+        // // // //Thông số
+        const idBill: string = billData.idBill;
+        const numberDayStay = billData.room.type;
+
+        const unitPriceRoom = billData.room.unitPrice;
+        const unitPriceElectricity = billData.electricity.unitPrice;
+        const unitPriceWater = billData.water.unitPrice;
+        const unitPriceGarbage = billData.garbage.unitPrice; // dịch vụ
+        const unitPriceWifi = billData.wifi.unitPrice; // xe
+        const unitPriceOther = billData.other.unitPrice;
+
+        const typeRoom: number =billData.room.type;
+        const typeWater: number =  billData.water.type;
+        const typeGarbage: string = billData.garbage.type;
+        const typeWifi: number = billData.wifi.type;
+        const typeOther = billData.other.type;
+        let typeElectricity: number =  billData.electricity.type;
+
+        const totalAll = parseInt(billData.totalAll);
+        const totalAndTaxAll = parseInt(billData.totalAndTaxAll);
+        const totalRoom = parseInt(billData.room.total);
+        const totalWifi = parseInt(billData.wifi.total);
+        const totalGarbage = parseInt(billData.garbage.total); // service
+        const totalWater = parseInt(billData.water.total);
+        const totalElectricity = parseInt(billData.electricity.total);
+
+        // // const timeExport = new Date();
+        // // timeExport.setHours(timeExport.getHours() + 7);
+        // // const parsedTime = moment(timeExport).format("DD/MM/YYYY");
+
+        // // const expireTime = moment(new Date(endTime)).format("DD/MM/YYYY");
+        const expireTime = moment(new Date(transactionData.order.expireTime)).format("DD/MM/YYYY");
+        const startTime = transactionData.order.startTime;
+        const dateBill = billData.dateBill;
+
+        let json = {};
+
+        const nameUser = billData.nameUser;
+        const phoneUser = billData.phoneUser;
+        const addressUser = billData.addressUser;
+        const emailUser = billData.emailUser;
 
         json = {
-          // idBill: getRandomHex2(),
           numberDayStay: numberDayStay,
 
-          idBill: transactionData.keyPayment,
-          phoneOwner,
+          idBill: idBill, 
+          phoneOwner: phoneOwner,
           expireTime: expireTime,
-          dateBill: parsedTime,
+          dateBill: dateBill,
+          startTime: startTime,
           nameMotel: nameMotel,
-          addressMotel: addressMotel,
+          addressMotel: motelAddress,
           nameRoom: nameRoom,
           nameUser: nameUser,
           phoneUser: phoneUser,
@@ -2466,9 +2880,15 @@ export default class EnergyController {
           totalOther: typeOther * unitPriceOther,
         };
 
-        const data = "exportBillSuccess";
+        console.log({totalkWhTime});
 
-        const buffer = await generatePDF(json, banking, totalkWhTime);
+        const nameFile = `Invoice - ${nameMotel} - ${nameRoom} from ${moment(new Date(transactionData.order.startTime)).format("DD-MM-YYYY")} to ${moment(new Date(transactionData.order.endTime)).format("DD-MM-YYYY")}`;
+        let fileName = `${nameFile}.pdf`;
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Dispsition", "attachment;filename=" + fileName);
+
+        const buffer = await generateBillMonthlyPDF(json, banking, totalkWhTime);
 
         // Export chartjs to pdf
         const configuration: ChartConfiguration = {
@@ -2480,7 +2900,7 @@ export default class EnergyController {
             datasets: [
               {
                 // label: `Tổng số điện từ ${startTime} đến ${endTime}`,
-                label: `Tổng số điện từ CHƯA BIẾT đến CHƯA BIẾT`,
+                label: `Tổng số điện từ ${moment(new Date(transactionData.order.startTime)).format("DD-MM-YYYY")} đến ${moment(new Date(transactionData.order.endTime)).format("DD-MM-YYYY")}`,
                 data: totalkWhTime.kWhData,
                 backgroundColor: ["rgba(255, 99, 132, 0.2)"],
                 borderColor: ["rgba(255,99,132,1)"],
@@ -2553,53 +2973,83 @@ export default class EnergyController {
           configuration
         );
         const mergedBuffer = await mergeBuffer(buffer, chartBufferPNG);
-        console.log({ mergedBuffer: Buffer.from(mergedBuffer) });
+        // console.log({ mergedBuffer: Buffer.from(mergedBuffer) });
 
-        const transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: {
-            user: "cr7ronadol12345@gmail.com",
-            pass: "wley oiaw yhpl oupy",
-          },
-          tls: {
-            rejectUnauthorized: false,
-          },
-        });
+        
+        // res.send(mergedBuffer);
+        res.send(buffer);
+      } else if( transactionData.order.type === "deposit" || transactionData.order.type === "afterCheckInCost") {
+        const billData = await billModel.findOne({order: transactionData.order._id})
+                                                            .populate("electricity garbage water wifi other room").lean().exec();
+        if(!billData) {
+          return HttpResponse.returnBadRequestResponse(
+            res,
+            "Hóa đơn chưa tồn tại"
+          )
+        }                
+        
+        const banking = {
+          nameBankOwner: billData.nameBankOwner,
+          nameOwnerBankOwner: billData.nameOwnerBankOwner,
+          numberBankOwner: billData.numberBankOwner,
+        };
+        const idBill: string = billData.idBill;
+        const emailOwner = billData.emailOwner;
+        const phoneOwner = billData.phoneOwner;
+        
+        const addressOwner = billData.addressOwner;
+        const nameMotel = billData.nameMotel;
+        const motelAddress = billData.addressMotel;
 
-        const files = ["a.txt", "b.pdf", "c.png"];
-        // thay email người nhận thành : emailOwner - chủ trọ
-        const mailOptions = {
-          from: "cr7ronadol12345@gmail.com",
-          // to: listHost[i].email,
-          // to: "quyetthangmarvel@gmail.com",
-          // to: emailOwner,
-          to: "nguyenhuuthiet01012002@gmail.com",
-          // subject: `[${nameMotel} - ${nameRoom}] HÓA ĐƠN TỪ ${startTime} ĐẾN ${endTime}`,
-          subject: `[${nameMotel} - ${nameRoom}] HÓA ĐƠN TỪ CHƯA BIẾT ĐẾN CHƯA BIẾT`,
-          text: `Phòng ${nameRoom}, dãy phòng ${nameMotel} địa chỉ ${motelAddress.address}`,
-          attachments: [
-            {
-              // filename: `Invoice - ${nameMotel} - ${nameRoom} from ${startTime} to ${endTime}.pdf`,
-              filename: `Invoice - ${nameMotel} - ${nameRoom} from CHƯA BIẾT to CHƯA BIẾT.pdf`,
-              content: Buffer.from(mergedBuffer),
-            },
-          ],
+        const nameRoom = billData.nameRoom;
+
+        const totalAll = parseInt(billData.totalAll);
+        const totalAndTaxAll = parseInt(billData.totalAndTaxAll);
+
+        const expireTime = moment(new Date(transactionData.order.expireTime)).format("DD/MM/YYYY");
+        const startTime = transactionData.order.startTime;
+        const dateBill = billData.dateBill;
+
+        const nameUser = billData.nameUser;
+        const phoneUser = billData.phoneUser;
+        const addressUser = billData.addressUser;
+        const emailUser = billData.emailUser;
+
+        let json = {};
+
+        json = {
+          idBill: idBill,
+          phoneOwner: phoneOwner,
+          expireTime: expireTime,
+          dateBill: dateBill,
+          startTime: startTime,
+          nameMotel: nameMotel,
+          addressMotel: motelAddress,
+          nameRoom: nameRoom,
+          nameUser: nameUser,
+          phoneUser: phoneUser,
+          addressUser: addressUser,
+          imgRoom: "",
+          addressOwner: addressOwner,
+          emailUser: emailUser,
+          emailOwner: emailOwner,
+
+          totalAll: totalAll,
+          totalAndTaxAll: totalAndTaxAll,
+          totalTaxAll: 0,
+          typeTaxAll: 0,
         };
 
-        transporter.sendMail(mailOptions, function (error, info) {
-          if (error) {
-            console.error(error);
-          } else {
-            console.log("Email đã được gửi: " + info.response);
-          }
-        });
-      } else {
-        const data = "Empty room";
-        return HttpResponse.returnSuccessResponse(res, data);
+        const nameFile = `Invoice - ${nameMotel} - ${nameRoom} deposit`;
+        let fileName = `${nameFile}.pdf`;
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Dispsition", "attachment;filename=" + fileName);
+
+        const buffer = await generateBillDepositPDF(json, banking);
+        res.send(buffer);
       }
 
-      const data = "exportBillSuccess";
-      return HttpResponse.returnSuccessResponse(res, transactionData);
     } catch (e) {
       console.log({ e });
       next(e);
@@ -4275,6 +4725,8 @@ export default class EnergyController {
     next: NextFunction
   ): Promise<any> {
     try {
+      // const a = moment(new Date("12/04/2024"));
+      // console.log({a})
       // const a : number = 3.123123;
       // const b: number = parseFloat(a.toFixed(2));
       // console.log({b});
@@ -4301,30 +4753,30 @@ export default class EnergyController {
 // -- device4: 'c6208e6d-b48a-462e-ba28-f05269d767bf'; "2024-02-23T23:00:00" - "2024-03-14T22:00:00"
 // -- device5: '1d84e187-fdd9-44be-960a-c473c42a6f00'; "2024-03-15T00:32:00" - "2024-04-02T21:32:00"
 
-// const a = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
-//   "663336dc2c01a43510a32ea0",
-//   "2024-01-03",
-//   "2024-02-22"
-// );
+const a = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+  "663336dc2c01a43510a32ea1",
+  "2024-05-04",
+  "2024-05-22"
+);
 
-// console.log({a});
+console.log({a});
 
-      const {
-        room: roomModel,
-        floor: floorModel,
-        motelRoom: motelRoomModel,
-        job: jobModel,
-        user: userModel,
-        order: orderModel,
-        transactions: TransactionsModel,
-        bill: BillModel,
-        optionsType: OptionsTypeModel,
-      } = global.mongoModel;
+      // const {
+      //   room: roomModel,
+      //   floor: floorModel,
+      //   motelRoom: motelRoomModel,
+      //   job: jobModel,
+      //   user: userModel,
+      //   order: orderModel,
+      //   transactions: TransactionsModel,
+      //   bill: BillModel,
+      //   optionsType: OptionsTypeModel,
+      // } = global.mongoModel;
 
-      const a = await OptionsTypeModel.create({
-        expense: "ákdjhfkajsh"
-      });
-      console.log({a});
+      // const a = await orderModel.create({
+      //   user: "66066c737dc6a346c59765a9"
+      // });
+      // console.log({a});
 
       // const transactionData = await TransactionsModel.findOne({_id: "664a005edb40087178ce80ca"}).populate("order").lean().exec();
       // console.log({transactionData});
@@ -6516,7 +6968,7 @@ async function generatePDF(json, banking, energy): Promise<Buffer> {
                   alignment: "left",
                 },
                 {
-                  text: `${json.numberDayStay} (ngày)/ ${json.typeWater} (người)`,
+                  text: `${json.typeWater}`,
                 },
                 {
                   text: `${json.unitPriceWater} đ`,
@@ -6531,7 +6983,7 @@ async function generatePDF(json, banking, energy): Promise<Buffer> {
                   alignment: "left",
                 },
                 {
-                  text: `${json.numberDayStay} (ngày)/ ${json.typeWifi} (chiếc)`,
+                  text: `${json.typeWifi}`,
                 },
                 {
                   text: `${json.unitPriceWifi} đ`,
@@ -6716,6 +7168,1573 @@ async function generatePDF(json, banking, energy): Promise<Buffer> {
               ...tableBody, // Thêm dữ liệu vào body của bảng
             ],
           },
+        },
+      ],
+
+      styles: {
+        header: {
+          fontSize: 30,
+          bold: true,
+          alignment: "justify",
+        },
+        margin10: {
+          margin: [10, 10, 10, 10],
+        },
+        tableExample: {
+          margin: [0, 5, 0, 15],
+        },
+      },
+    };
+
+    let printer = new PdfPrinter(fonts);
+    let pdfDoc = printer.createPdfKitDocument(docDefinition);
+    // buffer the output
+    let chunks = [];
+    pdfDoc.on("data", (chunk: any) => {
+      chunks.push(chunk);
+    });
+    pdfDoc.on("end", () => {
+      var result = Buffer.concat(chunks);
+      resolve(result);
+    });
+    pdfDoc.on("error", (error) => {
+      reject(error);
+    });
+    // close the stream
+    pdfDoc.end();
+  });
+}
+async function generateOrderMonthlyPendingPayPDF(json, banking, energy): Promise<Buffer> {
+  console.log({ banking });
+  return new Promise((resolve, reject) => {
+    let fontpathnormal = __dirname + "/fonts/roboto/Roboto-Regular.ttf";
+    let fontpathbold = __dirname + "/fonts/roboto/Roboto-Medium.ttf";
+    let fontpathitalics = __dirname + "/fonts/roboto/Roboto-Italic.ttf";
+    let fontpathbolditalics =
+      __dirname + "/fonts/roboto/Roboto-MediumItalic.ttf";
+    var fonts = {
+      Roboto: {
+        normal: fontpathnormal,
+        bold: fontpathbold,
+        italics: fontpathitalics,
+        bolditalics: fontpathbolditalics,
+      },
+    };
+    const parsedDate = moment(json.startTime, "DD/MM/YYYY");
+    const month = parsedDate.format("MM");
+    const year = parsedDate.format("YYYY");
+    const lastDayOfMonth = parsedDate.endOf("month").format("DD");
+    const tableBody = [];
+    for (let i = 0; i < energy.labelTime.length; i++) {
+      const time = energy.labelTime[i] || "Không có dữ liệu";
+      //check if time is valid and convert to DD/MM/YYYY format
+      const parsedTime = time ? moment(time).format("DD/MM/YYYY") : "0";
+      const kWh = energy.kWhData[i];
+      const formattedKWh = kWh ? kWh.toFixed(3) : "0";
+      const totalPrice = (kWh || 0) * 3900; // Tính giá tiền từ số kWh và giá điện (3900 đ/kWh)
+      //convert totalPrice to x.000
+      const formattedTotalPrice = totalPrice
+        .toFixed(0)
+        .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      tableBody.push([
+        parsedTime || "0",
+        formattedKWh || "0",
+        formattedTotalPrice,
+      ]); // Thêm dữ liệu vào mỗi hàng của bảng
+    }
+
+    var docDefinition = {
+      pageMargins: [40, 60, 40, 60],
+      content: [
+        {
+          columns: [
+            {
+              width: 80, // Cột này sẽ có độ rộng cố định là 100
+              image: __dirname + "/homeland-logo.jpg",
+              alignment: "left",
+            },
+            {
+              width: "auto", // Cột này sẽ co giãn để vừa với nội dung
+              stack: [
+                {
+                  text: `HÓA ĐƠN THÁNG ${month}`,
+                  style: "header",
+                  alignment: "center",
+                },
+              ],
+              alignment: "center",
+              margin: [40, 24, 0, 0], // Duy trì khoảng cách giữa cột này và cột tiếp theo
+            },
+          ],
+        },
+
+        {
+          alignment: "justify",
+          margin: [6, 0, 0, 0],
+          columns: [
+            {
+              text: [
+                {
+                  text: `HomeLand\n`,
+                  fontSize: 15,
+                  bold: true,
+                  color: "gray",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          text:
+            "_______________________________________________________________________________________________",
+          alignment: "center",
+          margin: [0, 10, 0, 10],
+        },
+
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: `KHÁCH SẠN ${json.nameMotel}\n`,
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Địa chỉ: ${json.addressMotel}\n\n`,
+                },
+                {
+                  text: `Tên khách hàng: ${json.nameUser}\n`,
+                },
+                {
+                  text: `Email: ${json.emailUser}\n`,
+                },
+                {
+                  text: `Số điện thoại khách hàng: ${json.phoneUser}\n`,
+                },
+                {
+                  text: `Địa chỉ: ${json.addressUser}`,
+                },
+              ],
+            },
+            {
+              alignment: "right",
+              text: [
+                {
+                  text: `Phòng ${json.nameRoom}\n`,
+                  fontSize: 12,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Mã Hóa Đơn: ${json.idBill}\n`,
+                },
+                {
+                  text: `Ngày: ${json.dateBill}\n`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          text:
+            "................................................................................",
+          alignment: "center",
+        },
+        {
+          style: "tableExample",
+          alignment: "center",
+          table: {
+            widths: [159, 100, "*", "*"],
+            body: [
+              [
+                {
+                  text: "Mục",
+                  bold: true,
+                  alignment: "left",
+                },
+                {
+                  text: "Số ngày/Đơn vị",
+                  bold: true,
+                },
+                {
+                  text: "Đơn Giá",
+                  bold: true,
+                },
+                {
+                  text: "Thành Tiền",
+                  bold: true,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseRoom}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeRoom}`,
+                },
+                {
+                  text: `${json.unitPriceRoom} đ`,
+                },
+                {
+                  text: `${json.totalRoom} đ`,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseElectricity}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeElectricity}`,
+                },
+                {
+                  text: `${json.unitPriceElectricity} đ`,
+                },
+                {
+                  text: `${json.totalElectricity} đ`,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseWater}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeWater}`,
+                },
+                {
+                  text: `${json.unitPriceWater} đ`,
+                },
+                {
+                  text: `${json.totalWater} đ`,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseWifi}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeWifi}`,
+                },
+                {
+                  text: `${json.unitPriceWifi} đ`,
+                },
+                {
+                  text: `${json.totalWifi} đ`,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseGarbage}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeGarbage}`,
+                },
+                {
+                  text: `${json.unitPriceGarbage} đ`,
+                },
+                {
+                  text: `${json.totalGarbage} đ`,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseOther}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeOther}`,
+                },
+                {
+                  text: `${json.unitPriceOther}`,
+                },
+                {
+                  text: `${json.totalOther}`,
+                },
+              ],
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: "Tổng cộng:",
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalAll} đ`,
+                },
+              ],
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: `Thuế (${json.typeTaxAll}):`,
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalTaxAll} đ`,
+                },
+              ],
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: `TỔNG TIỀN:`,
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalAndTaxAll} đ`,
+                },
+              ],
+            ],
+          },
+          layout: "noBorders",
+        },
+
+        {
+          text:
+            "................................................................................",
+          alignment: "center",
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Thông tin thanh toán\n",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `${banking.nameTkLable}\n`,
+                },
+                {
+                  text: `Tên Tài Khoản: ${banking.nameTk}\n`,
+                },
+                {
+                  text: `Số tài khoản: ${banking.stk}\n`,
+                },
+                {
+                  text: `Hạn thanh toán: ${json.expireTime}`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Thông tin liên hệ\n",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Email: ${json.emailOwner}\n`,
+                },
+                {
+                  text: `Địa chỉ: ${json.addressOwner}\n`,
+                },
+                {
+                  text: `Số điện thoại: ${json.phoneOwner}\n`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Trạng thái hóa đơn: ",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Chưa thanh toán`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          pageBreak: "before", // Thêm phân trang trước khi ghi bảng
+          columns: [
+            {
+              text: [
+                {
+                  text: "Thông tin chi tiết\n",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          style: "tableExample",
+          alignment: "center",
+          table: {
+            headerRows: 1,
+            widths: ["auto", "*", "auto"],
+            body: [
+              [
+                { text: "Thời gian", style: "tableHeader" },
+                { text: "Mức tiêu thụ điện (kWh)", style: "tableHeader" },
+                { text: "Thành tiền (VND)", style: "tableHeader" },
+              ],
+              ...tableBody, // Thêm dữ liệu vào body của bảng
+            ],
+          },
+        },
+      ],
+
+      styles: {
+        header: {
+          fontSize: 30,
+          bold: true,
+          alignment: "justify",
+        },
+        margin10: {
+          margin: [10, 10, 10, 10],
+        },
+        tableExample: {
+          margin: [0, 5, 0, 15],
+        },
+      },
+    };
+
+    let printer = new PdfPrinter(fonts);
+    let pdfDoc = printer.createPdfKitDocument(docDefinition);
+    // buffer the output
+    let chunks = [];
+    pdfDoc.on("data", (chunk: any) => {
+      chunks.push(chunk);
+    });
+    pdfDoc.on("end", () => {
+      var result = Buffer.concat(chunks);
+      resolve(result);
+    });
+    pdfDoc.on("error", (error) => {
+      reject(error);
+    });
+    // close the stream
+    pdfDoc.end();
+  });
+}
+
+async function generateBillMonthlyPDF(json, banking, energy): Promise<Buffer> {
+  console.log({ banking });
+  return new Promise((resolve, reject) => {
+    let fontpathnormal = __dirname + "/fonts/roboto/Roboto-Regular.ttf";
+    let fontpathbold = __dirname + "/fonts/roboto/Roboto-Medium.ttf";
+    let fontpathitalics = __dirname + "/fonts/roboto/Roboto-Italic.ttf";
+    let fontpathbolditalics =
+      __dirname + "/fonts/roboto/Roboto-MediumItalic.ttf";
+    var fonts = {
+      Roboto: {
+        normal: fontpathnormal,
+        bold: fontpathbold,
+        italics: fontpathitalics,
+        bolditalics: fontpathbolditalics,
+      },
+    };
+    const parsedDate = moment(new Date(json.startTime), "DD/MM/YYYY");
+    const month = parsedDate.format("MM");
+    const year = parsedDate.format("YYYY");
+    const lastDayOfMonth = parsedDate.endOf("month").format("DD");
+    const expireTime = moment(new Date(json.expireTime)).format("DD/MM/YYYY");
+    const tableBody = [];
+    for (let i = 0; i < energy.labelTime.length; i++) {
+      const time = energy.labelTime[i] || "Không có dữ liệu";
+      //check if time is valid and convert to DD/MM/YYYY format
+      const parsedTime = time ? moment(time).format("DD/MM/YYYY") : "0";
+      const kWh = energy.kWhData[i];
+      const formattedKWh = kWh ? kWh.toFixed(3) : "0";
+      const totalPrice = (kWh || 0) * 3900; // Tính giá tiền từ số kWh và giá điện (3900 đ/kWh)
+      //convert totalPrice to x.000
+      const formattedTotalPrice = totalPrice
+        .toFixed(0)
+        .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      tableBody.push([
+        parsedTime || "0",
+        formattedKWh || "0",
+        formattedTotalPrice,
+      ]); // Thêm dữ liệu vào mỗi hàng của bảng
+    }
+
+    var docDefinition = {
+      pageMargins: [40, 60, 40, 60],
+      content: [
+        {
+          columns: [
+            {
+              width: 80, // Cột này sẽ có độ rộng cố định là 100
+              image: __dirname + "/homeland-logo.jpg",
+              alignment: "left",
+            },
+            {
+              width: "auto", // Cột này sẽ co giãn để vừa với nội dung
+              stack: [
+                {
+                  text: `HÓA ĐƠN THÁNG ${month}`,
+                  style: "header",
+                  alignment: "center",
+                },
+              ],
+              alignment: "center",
+              margin: [40, 24, 0, 0], // Duy trì khoảng cách giữa cột này và cột tiếp theo
+            },
+          ],
+        },
+
+        {
+          alignment: "justify",
+          margin: [6, 0, 0, 0],
+          columns: [
+            {
+              text: [
+                {
+                  text: `HomeLand\n`,
+                  fontSize: 15,
+                  bold: true,
+                  color: "gray",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          text:
+            "_______________________________________________________________________________________________",
+          alignment: "center",
+          margin: [0, 10, 0, 10],
+        },
+
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: `KHÁCH SẠN ${json.nameMotel}\n`,
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Địa chỉ: ${json.addressMotel}\n\n`,
+                },
+                {
+                  text: `Tên khách hàng: ${json.nameUser}\n`,
+                },
+                {
+                  text: `Email: ${json.emailUser}\n`,
+                },
+                {
+                  text: `Số điện thoại khách hàng: ${json.phoneUser}\n`,
+                },
+                {
+                  text: `Địa chỉ: ${json.addressUser}`,
+                },
+              ],
+            },
+            {
+              alignment: "right",
+              text: [
+                {
+                  text: `Phòng ${json.nameRoom}\n`,
+                  fontSize: 12,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Mã Hóa Đơn: ${json.idBill}\n`,
+                },
+                {
+                  text: `Ngày: ${json.dateBill}\n`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          text:
+            "................................................................................",
+          alignment: "center",
+        },
+        {
+          style: "tableExample",
+          alignment: "center",
+          table: {
+            widths: [159, 100, "*", "*"],
+            body: [
+              [
+                {
+                  text: "Mục",
+                  bold: true,
+                  alignment: "left",
+                },
+                {
+                  text: "Số ngày/Đơn vị",
+                  bold: true,
+                },
+                {
+                  text: "Đơn Giá",
+                  bold: true,
+                },
+                {
+                  text: "Thành Tiền",
+                  bold: true,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseRoom}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeRoom}`,
+                },
+                {
+                  text: `${json.unitPriceRoom} đ`,
+                },
+                {
+                  text: `${json.totalRoom} đ`,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseElectricity}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeElectricity}`,
+                },
+                {
+                  text: `${json.unitPriceElectricity} đ`,
+                },
+                {
+                  text: `${json.totalElectricity} đ`,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseWater}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeWater}`,
+                },
+                {
+                  text: `${json.unitPriceWater} đ`,
+                },
+                {
+                  text: `${json.totalWater} đ`,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseWifi}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeWifi}`,
+                },
+                {
+                  text: `${json.unitPriceWifi} đ`,
+                },
+                {
+                  text: `${json.totalWifi} đ`,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseGarbage}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeGarbage}`,
+                },
+                {
+                  text: `${json.unitPriceGarbage} đ`,
+                },
+                {
+                  text: `${json.totalGarbage} đ`,
+                },
+              ],
+              [
+                {
+                  text: `${json.expenseOther}`,
+                  alignment: "left",
+                },
+                {
+                  text: `${json.typeOther}`,
+                },
+                {
+                  text: `${json.unitPriceOther}`,
+                },
+                {
+                  text: `${json.totalOther}`,
+                },
+              ],
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: "Tổng cộng:",
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalAll} đ`,
+                },
+              ],
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: `Thuế (${json.typeTaxAll}):`,
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalTaxAll} đ`,
+                },
+              ],
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: `TỔNG TIỀN:`,
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalAndTaxAll} đ`,
+                },
+              ],
+            ],
+          },
+          layout: "noBorders",
+        },
+
+        {
+          text:
+            "................................................................................",
+          alignment: "center",
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Thông tin thanh toán\n",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `${banking.nameBankOwner}\n`,
+                },
+                {
+                  text: `Tên Tài Khoản: ${banking.nameOwnerBankOwner}\n`,
+                },
+                {
+                  text: `Số tài khoản: ${banking.numberBankOwner}\n`,
+                },
+                {
+                  text: `Hạn thanh toán: ${json.expireTime}`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Thông tin liên hệ\n",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Email: ${json.emailOwner}\n`,
+                },
+                {
+                  text: `Địa chỉ: ${json.addressOwner}\n`,
+                },
+                {
+                  text: `Số điện thoại: ${json.phoneOwner}\n`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Trạng thái hóa đơn: ",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Đã thanh toán`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          pageBreak: "before", // Thêm phân trang trước khi ghi bảng
+          columns: [
+            {
+              text: [
+                {
+                  text: "Thông tin chi tiết\n",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          style: "tableExample",
+          alignment: "center",
+          table: {
+            headerRows: 1,
+            widths: ["auto", "*", "auto"],
+            body: [
+              [
+                { text: "Thời gian", style: "tableHeader" },
+                { text: "Mức tiêu thụ điện (kWh)", style: "tableHeader" },
+                { text: "Thành tiền (VND)", style: "tableHeader" },
+              ],
+              ...tableBody, // Thêm dữ liệu vào body của bảng
+            ],
+          },
+        },
+      ],
+
+      styles: {
+        header: {
+          fontSize: 30,
+          bold: true,
+          alignment: "justify",
+        },
+        margin10: {
+          margin: [10, 10, 10, 10],
+        },
+        tableExample: {
+          margin: [0, 5, 0, 15],
+        },
+      },
+    };
+
+    let printer = new PdfPrinter(fonts);
+    let pdfDoc = printer.createPdfKitDocument(docDefinition);
+    // buffer the output
+    let chunks = [];
+    pdfDoc.on("data", (chunk: any) => {
+      chunks.push(chunk);
+    });
+    pdfDoc.on("end", () => {
+      var result = Buffer.concat(chunks);
+      resolve(result);
+    });
+    pdfDoc.on("error", (error) => {
+      reject(error);
+    });
+    // close the stream
+    pdfDoc.end();
+  });
+}
+
+async function generateBillDepositPDF(json, banking): Promise<Buffer> {
+  console.log({ banking });
+  return new Promise((resolve, reject) => {
+    let fontpathnormal = __dirname + "/fonts/roboto/Roboto-Regular.ttf";
+    let fontpathbold = __dirname + "/fonts/roboto/Roboto-Medium.ttf";
+    let fontpathitalics = __dirname + "/fonts/roboto/Roboto-Italic.ttf";
+    let fontpathbolditalics =
+      __dirname + "/fonts/roboto/Roboto-MediumItalic.ttf";
+    var fonts = {
+      Roboto: {
+        normal: fontpathnormal,
+        bold: fontpathbold,
+        italics: fontpathitalics,
+        bolditalics: fontpathbolditalics,
+      },
+    };
+
+    var docDefinition = {
+      pageMargins: [40, 60, 40, 60],
+      content: [
+        {
+          columns: [
+            {
+              width: 80, // Cột này sẽ có độ rộng cố định là 100
+              image: __dirname + "/homeland-logo.jpg",
+              alignment: "left",
+            },
+            {
+              width: "auto", // Cột này sẽ co giãn để vừa với nội dung
+              stack: [
+                {
+                  text: `HÓA ĐƠN ĐẶT CỌC PHÒNG`,
+                  style: "header",
+                  alignment: "center",
+                },
+              ],
+              alignment: "center",
+              margin: [40, 24, 0, 0], // Duy trì khoảng cách giữa cột này và cột tiếp theo
+            },
+          ],
+        },
+
+        {
+          alignment: "justify",
+          margin: [6, 0, 0, 0],
+          columns: [
+            {
+              text: [
+                {
+                  text: `HomeLand\n`,
+                  fontSize: 15,
+                  bold: true,
+                  color: "gray",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          text:
+            "_______________________________________________________________________________________________",
+          alignment: "center",
+          margin: [0, 10, 0, 10],
+        },
+
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: `KHÁCH SẠN ${json.nameMotel}\n`,
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Địa chỉ: ${json.addressMotel}\n\n`,
+                },
+                {
+                  text: `Tên khách hàng: ${json.nameUser}\n`,
+                },
+                {
+                  text: `Email: ${json.emailUser}\n`,
+                },
+                {
+                  text: `Số điện thoại khách hàng: ${json.phoneUser}\n`,
+                },
+                {
+                  text: `Địa chỉ: ${json.addressUser}`,
+                },
+              ],
+            },
+            {
+              alignment: "right",
+              text: [
+                {
+                  text: `Phòng ${json.nameRoom}\n`,
+                  fontSize: 12,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Mã Hóa Đơn: ${json.idBill}\n`,
+                },
+                {
+                  text: `Ngày: ${json.dateBill}\n`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          text:
+            "................................................................................",
+          alignment: "center",
+        },
+        {
+          style: "tableExample",
+          alignment: "center",
+          table: {
+            widths: [159, 100, "*", "*"],
+            body: [
+              [
+                {
+                  text: "Mục",
+                  bold: true,
+                  alignment: "left",
+                },
+                {
+                  text: "Số ngày/Đơn vị",
+                  bold: true,
+                },
+                {
+                  text: "Đơn Giá",
+                  bold: true,
+                },
+                {
+                  text: "Thành Tiền",
+                  bold: true,
+                },
+              ],
+              [
+                {
+                  text: `Số tiền cọc`,
+                  alignment: "left",
+                },
+                {
+                  text: `1`,
+                },
+                {
+                  text: `${json.totalAll} đ`,
+                },
+                {
+                  text: `${json.totalAll} đ`,
+                },
+              ],             
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: "Tổng cộng:",
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalAll} đ`,
+                },
+              ],
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: `Thuế (${json.typeTaxAll}):`,
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalTaxAll} đ`,
+                },
+              ],
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: `TỔNG TIỀN:`,
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalAndTaxAll} đ`,
+                },
+              ],
+            ],
+          },
+          layout: "noBorders",
+        },
+
+        {
+          text:
+            "................................................................................",
+          alignment: "center",
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Thông tin thanh toán\n",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `${banking.nameBankOwner}\n`,
+                },
+                {
+                  text: `Tên Tài Khoản: ${banking.nameOwnerBankOwner}\n`,
+                },
+                {
+                  text: `Số tài khoản: ${banking.numberBankOwner}\n`,
+                },
+                {
+                  text: `Hạn thanh toán: ${json.expireTime}`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Thông tin liên hệ\n",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Email: ${json.emailOwner}\n`,
+                },
+                {
+                  text: `Địa chỉ: ${json.addressOwner}\n`,
+                },
+                {
+                  text: `Số điện thoại: ${json.phoneOwner}\n`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Trạng thái hóa đơn: ",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Đã thanh toán`,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+
+      styles: {
+        header: {
+          fontSize: 30,
+          bold: true,
+          alignment: "justify",
+        },
+        margin10: {
+          margin: [10, 10, 10, 10],
+        },
+        tableExample: {
+          margin: [0, 5, 0, 15],
+        },
+      },
+    };
+
+    let printer = new PdfPrinter(fonts);
+    let pdfDoc = printer.createPdfKitDocument(docDefinition);
+    // buffer the output
+    let chunks = [];
+    pdfDoc.on("data", (chunk: any) => {
+      chunks.push(chunk);
+    });
+    pdfDoc.on("end", () => {
+      var result = Buffer.concat(chunks);
+      resolve(result);
+    });
+    pdfDoc.on("error", (error) => {
+      reject(error);
+    });
+    // close the stream
+    pdfDoc.end();
+  });
+}
+async function generateOrderDepositPendingPayPDF(json, banking): Promise<Buffer> {
+  console.log({ banking });
+  return new Promise((resolve, reject) => {
+    let fontpathnormal = __dirname + "/fonts/roboto/Roboto-Regular.ttf";
+    let fontpathbold = __dirname + "/fonts/roboto/Roboto-Medium.ttf";
+    let fontpathitalics = __dirname + "/fonts/roboto/Roboto-Italic.ttf";
+    let fontpathbolditalics =
+      __dirname + "/fonts/roboto/Roboto-MediumItalic.ttf";
+    var fonts = {
+      Roboto: {
+        normal: fontpathnormal,
+        bold: fontpathbold,
+        italics: fontpathitalics,
+        bolditalics: fontpathbolditalics,
+      },
+    };
+
+    var docDefinition = {
+      pageMargins: [40, 60, 40, 60],
+      content: [
+        {
+          columns: [
+            {
+              width: 80, // Cột này sẽ có độ rộng cố định là 100
+              image: __dirname + "/homeland-logo.jpg",
+              alignment: "left",
+            },
+            {
+              width: "auto", // Cột này sẽ co giãn để vừa với nội dung
+              stack: [
+                {
+                  text: `HÓA ĐƠN ĐẶT CỌC PHÒNG`,
+                  style: "header",
+                  alignment: "center",
+                },
+              ],
+              alignment: "center",
+              margin: [40, 24, 0, 0], // Duy trì khoảng cách giữa cột này và cột tiếp theo
+            },
+          ],
+        },
+
+        {
+          alignment: "justify",
+          margin: [6, 0, 0, 0],
+          columns: [
+            {
+              text: [
+                {
+                  text: `HomeLand\n`,
+                  fontSize: 15,
+                  bold: true,
+                  color: "gray",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          text:
+            "_______________________________________________________________________________________________",
+          alignment: "center",
+          margin: [0, 10, 0, 10],
+        },
+
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: `KHÁCH SẠN ${json.nameMotel}\n`,
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Địa chỉ: ${json.addressMotel}\n\n`,
+                },
+                {
+                  text: `Tên khách hàng: ${json.nameUser}\n`,
+                },
+                {
+                  text: `Email: ${json.emailUser}\n`,
+                },
+                {
+                  text: `Số điện thoại khách hàng: ${json.phoneUser}\n`,
+                },
+                {
+                  text: `Địa chỉ: ${json.addressUser}`,
+                },
+              ],
+            },
+            {
+              alignment: "right",
+              text: [
+                {
+                  text: `Phòng ${json.nameRoom}\n`,
+                  fontSize: 12,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Mã Hóa Đơn: ${json.idBill}\n`,
+                },
+                {
+                  text: `Ngày: ${json.dateBill}\n`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          text:
+            "................................................................................",
+          alignment: "center",
+        },
+        {
+          style: "tableExample",
+          alignment: "center",
+          table: {
+            widths: [159, 100, "*", "*"],
+            body: [
+              [
+                {
+                  text: "Mục",
+                  bold: true,
+                  alignment: "left",
+                },
+                {
+                  text: "Số ngày/Đơn vị",
+                  bold: true,
+                },
+                {
+                  text: "Đơn Giá",
+                  bold: true,
+                },
+                {
+                  text: "Thành Tiền",
+                  bold: true,
+                },
+              ],
+              [
+                {
+                  text: `Số tiền cọc`,
+                  alignment: "left",
+                },
+                {
+                  text: `1`,
+                },
+                {
+                  text: `${json.totalAll} đ`,
+                },
+                {
+                  text: `${json.totalAll} đ`,
+                },
+              ],             
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: "Tổng cộng:",
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalAll} đ`,
+                },
+              ],
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: `Thuế (${json.typeTaxAll}):`,
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalTaxAll} đ`,
+                },
+              ],
+              [
+                {
+                  text: "",
+                  alignment: "left",
+                },
+                {
+                  text: "",
+                },
+                {
+                  text: `TỔNG TIỀN:`,
+                  fontSize: 12,
+                  bold: true,
+                },
+                {
+                  text: `${json.totalAndTaxAll} đ`,
+                },
+              ],
+            ],
+          },
+          layout: "noBorders",
+        },
+
+        {
+          text:
+            "................................................................................",
+          alignment: "center",
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Thông tin thanh toán\n",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `${banking.nameBankOwner}\n`,
+                },
+                {
+                  text: `Tên Tài Khoản: ${banking.nameOwnerBankOwner}\n`,
+                },
+                {
+                  text: `Số tài khoản: ${banking.numberBankOwner}\n`,
+                },
+                {
+                  text: `Hạn thanh toán: ${json.expireTime}`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Thông tin liên hệ\n",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Email: ${json.emailOwner}\n`,
+                },
+                {
+                  text: `Địa chỉ: ${json.addressOwner}\n`,
+                },
+                {
+                  text: `Số điện thoại: ${json.phoneOwner}\n`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          alignment: "justify",
+          style: "margin10",
+          columns: [
+            {
+              text: [
+                {
+                  text: "Trạng thái hóa đơn: ",
+                  fontSize: 15,
+                  bold: true,
+                  color: "red",
+                },
+                {
+                  text: `Chưa thanh toán`,
+                },
+              ],
+            },
+          ],
         },
       ],
 

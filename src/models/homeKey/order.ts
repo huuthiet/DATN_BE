@@ -26,7 +26,32 @@ enum PaymentMethod {
   internal = "internal",
 }
 
+const getRandomInt = (min, max) =>
+  Math.floor(Math.random() * (max - min)) + min;
+  const getRandomString = (length, base) => {
+  let result = "";
+  const baseLength = base.length;
+
+  // eslint-disable-next-line no-plusplus
+  for (let i = 0; i < length; i++) {
+    const randomIndex = getRandomInt(0, baseLength);
+    result += base[randomIndex];
+  }
+
+  return result;
+};
+
+const getRandomHex2 = () => {
+  const baseString =
+    "0123456789QƯERTYUIOPASDFGHJKLZXCVBNMqưertyuiopasdfghjklzxcvbnm";
+  const ma = `${getRandomString(6, baseString)}`;
+  return ma;
+};
+
 export class Order extends Basic {
+  @prop({default: getRandomHex2})
+  keyOrder: string;
+
   @prop({ ref: User })
   user: Ref<User>;
 
@@ -94,3 +119,4 @@ export const OrderModel = (connection) => {
     },
   });
 };
+
