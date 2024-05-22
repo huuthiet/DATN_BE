@@ -5,6 +5,15 @@ import { prop, Ref } from "../../libs/typegoose/typegoose";
 import { Basic } from "../basic";
 import { OptionsType } from "./optionsType";
 import { User } from "../user";
+import { MotelRoom } from "./motelRoom";
+import { Room } from "./room";
+
+enum PaymentType {
+  deposit = "deposit",
+  afterCheckInCost = "afterCheckInCost",
+  monthly = "monthly",
+  recharge = "recharge",
+}
 
 export class Bill extends Basic {
   @prop()
@@ -17,8 +26,11 @@ export class Bill extends Basic {
   nameMotel?: string;
 
   @prop()
-  nameRoom?: string;
+  addressMotel?: string;
 
+  @prop()
+  nameRoom?: string;
+  //-----------
   @prop()
   nameUser?: string;
 
@@ -26,13 +38,29 @@ export class Bill extends Basic {
   phoneUser?: string;
 
   @prop()
-  address?: string;
-
+  addressUser?: string;
+  //----------
   @prop()
-  imgRoom?: string;
+  nameOwner?: string;
 
   @prop()
   emailOwner?: string;
+
+  @prop()
+  addressOwner?: string;
+
+  @prop()
+  nameBankOwner?: string; // tên ngân hàng
+
+  @prop()
+  nameOwnerBankOwner?: string; // tên chủ tài khoản
+
+  @prop()
+  numberBankOwner?: string;
+  //-----------
+
+  @prop()
+  imgRoom?: string;
 
   @prop()
   totalAll?: string;
@@ -46,26 +74,44 @@ export class Bill extends Basic {
   @prop()
   typeTaxAll?: string;
 
-  @prop({ ref: OptionsType })
-  electricity: Ref<OptionsType>;
+  @prop()
+  description?: string;
 
   @prop({ ref: OptionsType })
-  garbage: Ref<OptionsType>;
+  electricity?: Ref<OptionsType>;
 
   @prop({ ref: OptionsType })
-  water: Ref<OptionsType>;
+  garbage?: Ref<OptionsType>;
 
   @prop({ ref: OptionsType })
-  wifi: Ref<OptionsType>;
+  water?: Ref<OptionsType>;
 
   @prop({ ref: OptionsType })
-  other: Ref<OptionsType>;
+  wifi?: Ref<OptionsType>;
+
+  @prop({ ref: OptionsType })
+  other?: Ref<OptionsType>;
 
   @prop({ ref: OptionsType })
   room: Ref<OptionsType>;
 
   @prop({ ref: User })
   user: Ref<User>;
+
+  @prop({ ref: MotelRoom })
+  motel: Ref<MotelRoom>;
+
+  @prop({ ref: Room })
+  roomRented: Ref<Room>;
+
+  @prop()
+  startTime?: Date //order monthly
+
+  @prop()
+  endTime?: Date // order monthly
+
+  @prop()
+  type: PaymentType;
 }
 
 export const BillModel = (connection) => {

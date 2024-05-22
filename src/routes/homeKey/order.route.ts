@@ -3,13 +3,24 @@ import * as express from "express";
 import AuthMiddleware from "../../middlewares/auth";
 import OrderController from "../../controllers/homeKey/order";
 import TransactionsController from "../../controllers/homeKey/transactions";
+import EnergyController from "../../controllers/homeKey/energy.controller";
 
 const orderRoute = express.Router();
 
+orderRoute
+    .route("/exportBillRoomByTransaction/:id")
+    .get(EnergyController.exportBillRoomByTransaction);
 
 orderRoute
     .route("/getPayDepositList/:id")
     .get(OrderController.getPayDepositList);
+orderRoute
+    .route("/getDepositAfterCheckInCostHistoryList/:id")
+    .get(OrderController.getDepositAfterCheckInCostHistoryList);
+
+orderRoute
+    .route("/getMonthlyHistoryList/:id")
+    .get(OrderController.getMonthlyHistoryList);
 
 //Phiên bản V1 là: getOrderListByHost
 orderRoute

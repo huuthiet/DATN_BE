@@ -55,13 +55,13 @@ export class Order extends Basic {
   electricPrice: number; // tổng tiền điện
 
   @prop({ default: 0 })
-  waterPrice: number;  // (price x person)/(số ngày của tháng) x (số ngày ở)
+  waterPrice: number;  // (price x person)
 
   @prop({ default: 0 })
-  servicePrice: number; // (price)/(số ngày của tháng) x (số ngày ở)
+  servicePrice: number; // (price)
 
   @prop({ default: 0 })
-  vehiclePrice: number; // (price x vihicle)/(số ngày của tháng) x (số ngày ở)
+  vehiclePrice: number; // (price x vihicle)
 
   @prop()
   type: PaymentType;
@@ -74,6 +74,15 @@ export class Order extends Basic {
 
   @prop({ ref: Image })
   UNC?: Ref<Image>;
+
+  @prop()
+  startTime?: Date //order monthly
+
+  @prop()
+  endTime?: Date // order monthly
+
+  @prop()
+  expireTime?: Date // order monthly
 }
 
 export const OrderModel = (connection) => {

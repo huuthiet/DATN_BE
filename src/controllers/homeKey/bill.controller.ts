@@ -15,7 +15,7 @@ export default class BillController {
 
   static async insertDb(data, userId): Promise<any> {
     const {
-      bill: billModel,
+      bill: billModel, 
       optionsType: OptionsTypeModel,
     } = global.mongoModel;
     // check trung ma hoa đơn
@@ -480,7 +480,7 @@ export default class BillController {
     res: Response,
     next: NextFunction
   ): Promise<any> {
-    const { user: UserModel, bill: BillModel } = global.mongoModel;
+    const { user: UserModel, bill: billModel } = global.mongoModel;
 
     // Get userId
     const userId: string = req["userId"];
@@ -498,7 +498,7 @@ export default class BillController {
       ]);
     console.log({ customer });
 
-    const bills = await BillModel.find({
+    const bills = await billModel.find({
       phoneUser: `0${customer.phoneNumber.number}`,
     }).exec();
     console.log({ bills });
