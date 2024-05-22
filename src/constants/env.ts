@@ -10,6 +10,7 @@ export interface IEnv {
   webBaseUrlUser: string;
   mode: string;
   homelandsBaseUrl: string;
+  baseApiUrl: string;
 }
 
 export default (): IEnv => {
@@ -25,5 +26,6 @@ export default (): IEnv => {
     webBaseUrlUser: process.env.WEB_BASE_URL_USER,
     mode: process.env.NODE_ENV,
     homelandsBaseUrl: process.env.HOMELANDS_BASE_URL,
+    baseApiUrl: process.env.BASE_API_URL,
   };
 };

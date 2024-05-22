@@ -98,7 +98,7 @@ export default class ImageService {
   }
 
   // Upload multiple file
-  public async uploads(files: any[]): Promise<any> {
+  public async uploads(files: any): Promise<any> {
     let resData = [];
     for (let i = 0; i < files.length; i++) {
       const image = await this.upload(files[i]);
@@ -112,9 +112,8 @@ export default class ImageService {
     let defer = q.defer();
 
 
-    const fileName = `${
-      path.basename(file.name).split(".")[0]
-    }-${new Date().getTime()}${path.extname(file.name)}`;
+    const fileName = `${path.basename(file.name).split(".")[0]
+      }-${new Date().getTime()}${path.extname(file.name)}`;
 
     const writeFilePath = `${this.localConfigs.localStoragePath}/${fileName}`;
     const saveFileUrl = `${global.env.protocol}://${global.env.basePath}images/${fileName}`;
