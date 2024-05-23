@@ -3057,6 +3057,363 @@ export default class EnergyController {
     }
   }
 
+  static async exportBillPaidByOrder(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const idOrder = req.params.id;
+      // const idTransaction = "664d29894a755b6434ac92c3";
+      console.log({idOrder});
+
+      const {
+        motelRoom: motelRoomModel,
+        room: roomModel,
+        address: addressModel,
+        user: userModel,
+        banking: BankingModel,
+        job: jobModel,
+        transactions: TransactionsModel,
+        order: orderModel,
+        floor: floorModel,
+        bill: billModel,
+      } = global.mongoModel;
+
+      const orderData = await orderModel.findOne({_id: idOrder}).populate("user order motel room").lean().exec();
+
+      if(!orderData) {
+        return HttpResponse.returnBadRequestResponse(res,
+          "Hóa đơn không tồn tại"
+        )
+      }
+
+
+      if (orderData.type === "monthly") {
+        const billData = await billModel.findOne({order: orderData._id})
+                                                            .populate("electricity garbage water wifi other room").lean().exec();
+        if(!billData) {
+          return HttpResponse.returnBadRequestResponse(
+            res,
+            "Hóa đơn chưa tồn tại"
+          )
+        }
+
+        console.log("billDataaaa", billData);
+        // const motelData = await motelRoomModel.findOne({floors: transactionData.motel._id}).populate("owner address").lean().exec();
+        // console.log({motelData});
+
+        const banking = {
+          nameBankOwner: billData.nameBankOwner,
+          nameOwnerBankOwner: billData.nameOwnerBankOwner,
+          numberBankOwner: billData.numberBankOwner,
+        };
+
+        const emailOwner = billData.emailOwner;
+        const phoneOwner = billData.phoneOwner;
+        
+        const addressOwner = billData.addressOwner;
+
+        const nameMotel = billData.nameMotel;
+        const motelAddress = billData.addressMotel;
+
+        const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+          billData.roomRented,
+          moment(new Date(orderData.startTime)).format("YYYY-MM-DD"),
+          moment(new Date(orderData.endTime)).format("YYYY-MM-DD")
+        );
+
+        const nameRoom = billData.nameRoom;
+
+        // // // //Thông số
+        const idBill: string = billData.idBill;
+        const numberDayStay = billData.room.type;
+
+        const unitPriceRoom = billData.room.unitPrice;
+        const unitPriceElectricity = billData.electricity.unitPrice;
+        const unitPriceWater = billData.water.unitPrice;
+        const unitPriceGarbage = billData.garbage.unitPrice; // dịch vụ
+        const unitPriceWifi = billData.wifi.unitPrice; // xe
+        const unitPriceOther = billData.other.unitPrice;
+
+        const typeRoom: number =billData.room.type;
+        const typeWater: number =  billData.water.type;
+        const typeGarbage: string = billData.garbage.type;
+        const typeWifi: number = billData.wifi.type;
+        const typeOther = billData.other.type;
+        let typeElectricity: number =  billData.electricity.type;
+
+        const totalAll = parseInt(billData.totalAll);
+        const totalAndTaxAll = parseInt(billData.totalAndTaxAll);
+        const totalRoom = parseInt(billData.room.total);
+        const totalWifi = parseInt(billData.wifi.total);
+        const totalGarbage = parseInt(billData.garbage.total); // service
+        const totalWater = parseInt(billData.water.total);
+        const totalElectricity = parseInt(billData.electricity.total);
+
+        // // const timeExport = new Date();
+        // // timeExport.setHours(timeExport.getHours() + 7);
+        // // const parsedTime = moment(timeExport).format("DD/MM/YYYY");
+
+        // // const expireTime = moment(new Date(endTime)).format("DD/MM/YYYY");
+        const expireTime = moment(new Date(orderData.expireTime)).format("DD/MM/YYYY");
+        const startTime = orderData.startTime;
+        const dateBill = billData.dateBill;
+
+        let json = {};
+
+        const nameUser = billData.nameUser;
+        const phoneUser = billData.phoneUser;
+        const addressUser = billData.addressUser;
+        const emailUser = billData.emailUser;
+
+        json = {
+          numberDayStay: numberDayStay,
+
+          idBill: idBill, 
+          phoneOwner: phoneOwner,
+          expireTime: expireTime,
+          dateBill: dateBill,
+          startTime: startTime,
+          nameMotel: nameMotel,
+          addressMotel: motelAddress,
+          nameRoom: nameRoom,
+          nameUser: nameUser,
+          phoneUser: phoneUser,
+          addressUser: addressUser,
+          imgRoom: "",
+          addressOwner: addressOwner,
+          emailUser: emailUser,
+          emailOwner: emailOwner,
+
+          // totalAll:
+          //   unitPriceRoom +
+          //   typeElectricity * unitPriceElectricity +
+          //   typeWater * unitPriceWater +
+          //   typeGarbage * unitPriceGarbage +
+          //   typeWifi * unitPriceWifi +
+          //   typeOther * unitPriceOther,
+
+          totalAll: totalAll,
+
+          totalAndTaxAll: totalAndTaxAll,
+          // totalAndTaxAll:
+          //   unitPriceRoom +
+          //   typeElectricity * unitPriceElectricity +
+          //   typeWater * unitPriceWater +
+          //   typeGarbage * unitPriceGarbage +
+          //   typeWifi * unitPriceWifi +
+          //   typeOther * unitPriceOther,
+
+          totalTaxAll: 0,
+          typeTaxAll: 0,
+          expenseRoom: "Chi Phí Phòng",
+          typeRoom: typeRoom,
+          unitPriceRoom: unitPriceRoom,
+          totalRoom: totalRoom,
+
+          expenseElectricity: "Chi Phí Điện",
+          typeElectricity: typeElectricity,
+          unitPriceElectricity: unitPriceElectricity,
+          totalElectricity: totalElectricity,
+
+          expenseWater: "Chi Phí Nước",
+          typeWater: typeWater,
+          unitPriceWater: unitPriceWater,
+          totalWater: totalWater,
+
+          expenseGarbage: "Phí Dịch Vụ",
+          typeGarbage: typeGarbage,
+          unitPriceGarbage: unitPriceGarbage,
+          totalGarbage: totalGarbage,
+
+          expenseWifi: "Chi Phí Xe",
+          typeWifi: typeWifi,
+          unitPriceWifi: unitPriceWifi,
+          totalWifi: totalWifi,
+
+          expenseOther: "Tiện Ích Khác",
+          typeOther: typeOther,
+          unitPriceOther: unitPriceOther,
+          totalOther: typeOther * unitPriceOther,
+        };
+
+        console.log({totalkWhTime});
+
+        const nameFile = `Invoice - ${nameMotel} - ${nameRoom} from ${moment(new Date(orderData.startTime)).format("DD-MM-YYYY")} to ${moment(new Date(orderData.endTime)).format("DD-MM-YYYY")}`;
+        let fileName = `${nameFile}.pdf`;
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Dispsition", "attachment;filename=" + fileName);
+
+        const buffer = await generateBillMonthlyPDF(json, banking, totalkWhTime);
+
+        // Export chartjs to pdf
+        const configuration: ChartConfiguration = {
+          type: "line",
+          data: {
+            labels: totalkWhTime.labelTime.map((item) =>
+              item ? item : "Chưa có dữ liệu"
+            ),
+            datasets: [
+              {
+                // label: `Tổng số điện từ ${startTime} đến ${endTime}`,
+                label: `Tổng số điện từ ${moment(new Date(orderData.startTime)).format("DD-MM-YYYY")} đến ${moment(new Date(orderData.endTime)).format("DD-MM-YYYY")}`,
+                data: totalkWhTime.kWhData,
+                backgroundColor: ["rgba(255, 99, 132, 0.2)"],
+                borderColor: ["rgba(255,99,132,1)"],
+                borderWidth: 1,
+                tension: 0.01,
+                fill: false,
+              },
+            ],
+          },
+          options: {
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: "Thời gian",
+                },
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: "Số KwH",
+                },
+              },
+            },
+          },
+          plugins: [
+            {
+              id: "background-colour",
+              beforeDraw: (chart) => {
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.fillStyle = "white";
+                ctx.fillRect(0, 0, width, height);
+                ctx.restore();
+              },
+            },
+            {
+              id: "chart-data-labels",
+              afterDatasetsDraw: (chart, args, options) => {
+                const { ctx } = chart;
+                ctx.save();
+
+                // Configure data labels here
+                chart.data.datasets.forEach((dataset, i) => {
+                  const meta = chart.getDatasetMeta(i);
+                  meta.data.forEach((element, index) => {
+                    const model = element;
+                    const x = model.x;
+                    const y = model.y;
+                    const text = dataset.data[index]
+                      ? (+dataset.data[index].toString()).toFixed(2)
+                      : ""; // You can customize this based on your data
+                    const font = "12px Arial"; // Example font setting
+                    const fillStyle = "black"; // Example color setting
+                    const textAlign = "center"; // Example alignment setting
+
+                    ctx.fillStyle = fillStyle;
+                    ctx.font = font;
+                    ctx.textAlign = textAlign;
+                    ctx.fillText(text, x, y);
+                  });
+                });
+
+                ctx.restore();
+              },
+            },
+          ],
+        };
+        const chartBufferPNG = await chartJSNodeCanvas.renderToBuffer(
+          configuration
+        );
+        const mergedBuffer = await mergeBuffer(buffer, chartBufferPNG);
+        // console.log({ mergedBuffer: Buffer.from(mergedBuffer) });
+
+        
+        // res.send(mergedBuffer);
+        res.send(buffer);
+      } else if( orderData.type === "deposit" || orderData.type === "afterCheckInCost") {
+        const billData = await billModel.findOne({order: orderData._id})
+                                                            .populate("electricity garbage water wifi other room").lean().exec();
+        if(!billData) {
+          return HttpResponse.returnBadRequestResponse(
+            res,
+            "Hóa đơn chưa tồn tại"
+          )
+        }                
+        
+        const banking = {
+          nameBankOwner: billData.nameBankOwner,
+          nameOwnerBankOwner: billData.nameOwnerBankOwner,
+          numberBankOwner: billData.numberBankOwner,
+        };
+        const idBill: string = billData.idBill;
+        const emailOwner = billData.emailOwner;
+        const phoneOwner = billData.phoneOwner;
+        
+        const addressOwner = billData.addressOwner;
+        const nameMotel = billData.nameMotel;
+        const motelAddress = billData.addressMotel;
+
+        const nameRoom = billData.nameRoom;
+
+        const totalAll = parseInt(billData.totalAll);
+        const totalAndTaxAll = parseInt(billData.totalAndTaxAll);
+
+        const expireTime = moment(new Date(orderData.expireTime)).format("DD/MM/YYYY");
+        const startTime = orderData.startTime;
+        const dateBill = billData.dateBill;
+
+        const nameUser = billData.nameUser;
+        const phoneUser = billData.phoneUser;
+        const addressUser = billData.addressUser;
+        const emailUser = billData.emailUser;
+
+        let json = {};
+
+        json = {
+          idBill: idBill,
+          phoneOwner: phoneOwner,
+          expireTime: expireTime,
+          dateBill: dateBill,
+          startTime: startTime,
+          nameMotel: nameMotel,
+          addressMotel: motelAddress,
+          nameRoom: nameRoom,
+          nameUser: nameUser,
+          phoneUser: phoneUser,
+          addressUser: addressUser,
+          imgRoom: "",
+          addressOwner: addressOwner,
+          emailUser: emailUser,
+          emailOwner: emailOwner,
+
+          totalAll: totalAll,
+          totalAndTaxAll: totalAndTaxAll,
+          totalTaxAll: 0,
+          typeTaxAll: 0,
+        };
+
+        const nameFile = `Invoice - ${nameMotel} - ${nameRoom} deposit`;
+        let fileName = `${nameFile}.pdf`;
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Dispsition", "attachment;filename=" + fileName);
+
+        const buffer = await generateBillDepositPDF(json, banking);
+        res.send(buffer);
+      }
+
+    } catch (e) {
+      console.log({ e });
+      next(e);
+    }
+  }
+
   static async exportBillAllRoom(
     req: Request,
     res: Response,

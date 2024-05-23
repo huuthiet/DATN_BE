@@ -5,6 +5,7 @@ import { helpers, jwtHelper, normalizeError } from "../../utils";
 import ImageService from "../../services/image";
 import HttpResponse from "../../services/response";
 import { payDepositList } from "models/homeKey/payDepositList";
+import { JobModel } from "models/homeKey/job";
 
 export default class OrderController {
   /**
@@ -976,71 +977,108 @@ export default class OrderController {
 
   //Dựa vào motel, chỉ áp dụng cho thanh toán tiền mặt có transaction,
   // viết lại đối với các trường hợp thanh toán khác
+
+  //Các order cọc đã được thanh toán
+  //motel -> room -> job -> order (paid): chia làm 2
   static async getDepositAfterCheckInCostHistoryList(
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<any> {
     try {
-      const id = req.params.id;
-      console.log({id});
+      const idRoom = req.params.id;
+      console.log({idRoom});
       const {
         user: userModel,
         transactions: TransactionsModel,
         image: imageModel,
         motelRoom: motelRoomModel,
         room: roomModel,
+        job: jobModel,
+        order: orderModel,
       } = global.mongoModel;
 
-      const transactionsData = await TransactionsModel.find({
-        motel: mongoose.Types.ObjectId(id),
-        type: { $in: ["deposit", "afterCheckInCost"] },
-        paymentMethod: { $ne: "wallet" },
-        isDeleted: false,
-      }).populate("user motel room").lean().exec();
+      const jobDataS = await jobModel.find({room: idRoom}).lean().exec();
+      console.log({jobDataS});
 
-      console.log({transactionsData});
+      if(jobDataS.length === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng chưa có bất hợp đồng nào từ trước tới nay"
+        )
+      }
 
-      if (transactionsData) {
-        for (let i = 0; i < transactionsData.length; i++) {
-            if (transactionsData[i].file) {
-              const dataimg = await imageModel.findOne({
-                _id: transactionsData[i].file,
-              });
-              if (dataimg) {
-                transactionsData[i].file = await helpers.getImageUrl(dataimg);
-              }
-            }     
-            
-            // if(transactionsData[i].motel) {
-            //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
-            //   if(motelData) {
-            //     transactionsData[i].motel = motelData;
-            //   }
-            // }
-
-            // if(transactionsData[i].room) {
-            //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
-            //   if(roomData) {
-            //     transactionsData[i].room = roomData;
-            //   }
-            // }
-
-            // if(transactionsData[i].user) {
-            //   const userData = await userModel.findOne({_id: transactionsData[i].user}).lean().exec();
-            //   if(userData) {
-            //     transactionsData[i].user = userData;
-            //   }
-            // }
+      let listOrderPaid = [];
+      const jobDataSLength = jobDataS.length;
+      for (let i: number = 0; i < jobDataSLength; i++) {
+        let ordersLength = jobDataS[i].orders.length;
+        for(let j: number = 0; j < ordersLength; j++) {
+          let orderData = await orderModel.findOne({_id:  jobDataS[i].orders[j]}).lean().exec();
+          let userData = await userModel.findOne({_id: orderData.user}).lean().exec();
+          if(userData) {
+            orderData.user = userData;
+          }
+          if(orderData.isCompleted === true && (orderData.type === "deposit" || orderData.type === "afterCheckInCost")) {
+            listOrderPaid.push(orderData);
+          }
         }
       }
+      
 
-      if (!transactionsData) {
-        return HttpResponse.returnBadRequestResponse(res, "logPayment");
-      }
+      // const transactionsData = await TransactionsModel.find({
+      //   motel: mongoose.Types.ObjectId(idMotel),
+      //   type: { $in: ["deposit", "afterCheckInCost"] },
+      //   paymentMethod: { $ne: "wallet" },
+      //   isDeleted: false,
+      // }).populate("user motel room").lean().exec();
+
       // console.log({transactionsData});
 
-      return HttpResponse.returnSuccessResponse(res, transactionsData);
+      // if (transactionsData) {
+      //   for (let i = 0; i < transactionsData.length; i++) {
+      //       if (transactionsData[i].file) {
+      //         const dataimg = await imageModel.findOne({
+      //           _id: transactionsData[i].file,
+      //         });
+      //         if (dataimg) {
+      //           transactionsData[i].file = await helpers.getImageUrl(dataimg);
+      //         }
+      //       }     
+            
+      //       // if(transactionsData[i].motel) {
+      //       //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+      //       //   if(motelData) {
+      //       //     transactionsData[i].motel = motelData;
+      //       //   }
+      //       // }
+
+      //       // if(transactionsData[i].room) {
+      //       //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+      //       //   if(roomData) {
+      //       //     transactionsData[i].room = roomData;
+      //       //   }
+      //       // }
+
+      //       // if(transactionsData[i].user) {
+      //       //   const userData = await userModel.findOne({_id: transactionsData[i].user}).lean().exec();
+      //       //   if(userData) {
+      //       //     transactionsData[i].user = userData;
+      //       //   }
+      //       // }
+      //   }
+      // }
+
+      // if (!transactionsData) {
+      //   return HttpResponse.returnBadRequestResponse(res, "logPayment");
+      // }
+      // console.log({transactionsData});
+      if(listOrderPaid.length === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng chưa có hóa đơn nào"
+        )
+      }
+      return HttpResponse.returnSuccessResponse(res, listOrderPaid);
     } catch (error) {
       next(error);
     }
@@ -1052,65 +1090,52 @@ export default class OrderController {
     next: NextFunction,
   ): Promise<any> {
     try {
-      const id = req.params.id;
-      console.log({id});
+      const idRoom = req.params.id;
+      console.log({idRoom});
       const {
         user: userModel,
         transactions: TransactionsModel,
         image: imageModel,
         motelRoom: motelRoomModel,
         room: roomModel,
+        job: jobModel,
+        order: orderModel,
       } = global.mongoModel;
 
-      const transactionsData = await TransactionsModel.find({
-        motel: mongoose.Types.ObjectId(id),
-        type: "monthly",
-        paymentMethod: { $ne: "wallet" },
-        isDeleted: false,
-      }).populate("user motel room").lean().exec();
+      const jobDataS = await jobModel.find({room: idRoom}).lean().exec();
+      console.log({jobDataS});
 
-      console.log({transactionsData});
+      if(jobDataS.length === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng chưa có bất hợp đồng nào từ trước tới nay"
+        )
+      }
 
-      if (transactionsData) {
-        for (let i = 0; i < transactionsData.length; i++) {
-            if (transactionsData[i].file) {
-              const dataimg = await imageModel.findOne({
-                _id: transactionsData[i].file,
-              });
-              if (dataimg) {
-                transactionsData[i].file = await helpers.getImageUrl(dataimg);
-              }
-            }     
-            
-            // if(transactionsData[i].motel) {
-            //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
-            //   if(motelData) {
-            //     transactionsData[i].motel = motelData;
-            //   }
-            // }
-
-            // if(transactionsData[i].room) {
-            //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
-            //   if(roomData) {
-            //     transactionsData[i].room = roomData;
-            //   }
-            // }
-
-            // if(transactionsData[i].user) {
-            //   const userData = await userModel.findOne({_id: transactionsData[i].user}).lean().exec();
-            //   if(userData) {
-            //     transactionsData[i].user = userData;
-            //   }
-            // }
+      let listOrderPaid = [];
+      const jobDataSLength = jobDataS.length;
+      for (let i: number = 0; i < jobDataSLength; i++) {
+        let ordersLength = jobDataS[i].orders.length;
+        for(let j: number = 0; j < ordersLength; j++) {
+          let orderData = await orderModel.findOne({_id:  jobDataS[i].orders[j]}).lean().exec();
+          let userData = await userModel.findOne({_id: orderData.user}).lean().exec();
+          if(userData) {
+            orderData.user = userData;
+          }
+          if(orderData.isCompleted === true && orderData.type === "monthly" ) {
+            listOrderPaid.push(orderData);
+          }
         }
       }
-
-      if (!transactionsData) {
-        return HttpResponse.returnBadRequestResponse(res, "logPayment");
+      
+      if(listOrderPaid.length === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng chưa có hóa đơn nào"
+        )
       }
-      // console.log({transactionsData});
 
-      return HttpResponse.returnSuccessResponse(res, transactionsData);
+      return HttpResponse.returnSuccessResponse(res, listOrderPaid);
     } catch (error) {
       next(error);
     }

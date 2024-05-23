@@ -15,6 +15,7 @@ import { TransactionModel } from "models/transaction";
 import { Bill } from "models/homeKey/bill";
 import { OrderModel } from "models/homeKey/order";
 import { FloorModel } from "models/homeKey/floor";
+import { RoomList } from "twilio/lib/rest/video/v1/room";
 var optionsNumbeer = {
   // example input , yes negative values do work
   min: 1000,
@@ -475,7 +476,7 @@ export default class TransactionsController {
           "Người dùng chưa có hợp đồng thuê phòng nào"
         )
       }
-      const jobListCurrent = userData.jobs.filter(job => job.isDeleted === false);
+      const jobListCurrent = userData.jobs.filter(job => job.isDeleted === false); //chưa bị xóa
       console.log(jobListCurrent.length);
 
       if(jobListCurrent.length === 0){
@@ -485,8 +486,9 @@ export default class TransactionsController {
         )
       }
 
-      const currentOrderIdOfList = jobListCurrent.map(job => job.currentOrder);
+      let currentOrderIdOfList = jobListCurrent.map(job => job.currentOrder);
       console.log({currentOrderIdOfList});
+      //sẽ có trường hợp user có 2 bill liên tiếp chưa thanh toán, kiểm tra order kế order current
 
       const currentOrderIdOfListLength = currentOrderIdOfList.length;
 
@@ -535,6 +537,206 @@ export default class TransactionsController {
       orderNoPaymentList = await Promise.all(orderNoPaymentList.map(enrichOrderData));
 
       return HttpResponse.returnSuccessResponse(res, orderNoPaymentList);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getOrderMonthlyPendingPaymentListByMotel(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const idMotel = req.params.id;
+      // const userId = "66066c737dc6a346c59765a9";
+      console.log({idMotel});
+      const {
+        user: userModel,
+        motelRoom: motelRoomModel,
+        job: jobModel,
+        order: orderModel,
+        floor: floorModel,
+      } = global.mongoModel;
+
+      const motelData = await motelRoomModel.findOne({_id: idMotel}).populate("floors").lean().exec();
+      if(!motelData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không tồn tại"
+        )
+      }
+      if(motelData.floors.length === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không có tầng nào"
+        )
+      }
+
+      console.log({motelData});
+
+      let roomIdList = [];
+      // roomIdList = roomIdList.concat(motelData.floors.filter((floor) => floor.rooms));
+      for (let i: number = 0; i<motelData.floors.length; i++) {
+        roomIdList = roomIdList.concat(motelData.floors[i].rooms);
+      }
+      console.log({roomIdList});
+
+      if(roomIdList.length === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà hiện không có phòng nào"
+        )
+      }
+      const roomIdListLength = roomIdList.length;
+
+      let listOrderPendingPay = [];
+      for(let i: number = 0; i<roomIdListLength; i++) {
+        let dataPush = {};
+        let jobData = await jobModel.findOne({
+          isDeleted: false,
+          room: roomIdList[i]
+        }).populate("currentOrder room").lean().exec();
+
+        if(jobData) {
+          if(jobData.currentOrder.isCompleted === false && jobData.currentOrder.type === "monthly") {
+            let userData = await userModel.findOne({_id: jobData.user}).lean().exec();
+            let data;
+            if(userData && jobData.room) {
+              data = {
+                userName: userData.lastName + " " + userData.firstName,
+                userPhone: userData.phoneNumber.countryCode + " " + userData.phoneNumber.number,
+                roomName: jobData.room.name,
+                ...jobData.currentOrder,
+              };
+            } else if(userData) {
+              data = {
+                userName: userData.lastName + " " + userData.firstName,
+                userPhone: userData.phoneNumber.countryCode + " " + userData.phoneNumber.number,
+                roomName: null,
+                ...jobData.currentOrder,
+              };
+            } else if(jobData.room) {
+              data = {
+                userName: null,
+                userPhone: null,
+                roomName: jobData.room.name,
+                ...jobData.currentOrder,
+              };
+            } else {
+              data = {
+                userName: null,
+                userPhone: null,
+                roomName: null,
+                ...jobData.currentOrder,
+              };
+            }
+            listOrderPendingPay.push(data);
+          }          
+        }
+      }
+
+      return HttpResponse.returnSuccessResponse(res, listOrderPendingPay);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getOrderDepositAfterCheckInCostPendingPaymentListByMotel(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const idMotel = req.params.id;
+      // const userId = "66066c737dc6a346c59765a9";
+      console.log({idMotel});
+      const {
+        user: userModel,
+        motelRoom: motelRoomModel,
+        job: jobModel,
+        order: orderModel,
+        floor: floorModel,
+      } = global.mongoModel;
+
+      const motelData = await motelRoomModel.findOne({_id: idMotel}).populate("floors").lean().exec();
+      if(!motelData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không tồn tại"
+        )
+      }
+      if(motelData.floors.length === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không có tầng nào"
+        )
+      }
+
+      console.log({motelData});
+
+      let roomIdList = [];
+      // roomIdList = roomIdList.concat(motelData.floors.filter((floor) => floor.rooms));
+      for (let i: number = 0; i<motelData.floors.length; i++) {
+        roomIdList = roomIdList.concat(motelData.floors[i].rooms);
+      }
+      console.log({roomIdList});
+
+      if(roomIdList.length === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà hiện không có phòng nào"
+        )
+      }
+      const roomIdListLength = roomIdList.length;
+
+      let listOrderPendingPay = [];
+      for(let i: number = 0; i<roomIdListLength; i++) {
+        let dataPush = {};
+        let jobData = await jobModel.findOne({
+          isDeleted: false,
+          room: roomIdList[i]
+        }).populate("currentOrder room").lean().exec();
+
+        if(jobData) {
+          if(jobData.currentOrder.isCompleted === false && (jobData.currentOrder.type === "deposit" || jobData.currentOrder.type === "afterCheckInCost")) {
+            let userData = await userModel.findOne({_id: jobData.user}).lean().exec();
+            let data;
+            if(userData && jobData.room) {
+              data = {
+                userName: userData.lastName + " " + userData.firstName,
+                userPhone: userData.phoneNumber.countryCode + " " + userData.phoneNumber.number,
+                roomName: jobData.room.name,
+                ...jobData.currentOrder,
+              };
+            } else if(userData) {
+              data = {
+                userName: userData.lastName + " " + userData.firstName,
+                userPhone: userData.phoneNumber.countryCode + " " + userData.phoneNumber.number,
+                roomName: null,
+                ...jobData.currentOrder,
+              };
+            } else if(jobData.room) {
+              data = {
+                userName: null,
+                userPhone: null,
+                roomName: jobData.room.name,
+                ...jobData.currentOrder,
+              };
+            } else {
+              data = {
+                userName: null,
+                userPhone: null,
+                roomName: null,
+                ...jobData.currentOrder,
+              };
+            }
+            listOrderPendingPay.push(data);
+          }          
+        }
+      }
+
+      return HttpResponse.returnSuccessResponse(res, listOrderPendingPay);
     } catch (error) {
       next(error);
     }
