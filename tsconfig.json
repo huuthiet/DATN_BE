@@ -13,7 +13,6 @@
       "baseUrl": "src",
       "rootDir": "src",
       "strict": false,
-      "noEmit": true,
       "noEmitOnError": true,
       "skipLibCheck": true,
       "paths": {

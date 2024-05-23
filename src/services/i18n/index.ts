@@ -6,7 +6,9 @@ export default class i18nService {
     private defaultLanguage: string;
 
     constructor(configs: i18nConfigs, mode?: string) {
-        this.availableLanguages = configs.availableLanguages.split(',');
+        // Kiểm tra nếu availableLanguages không được cung cấp hoặc rỗng
+        // this.availableLanguages = configs.availableLanguages.split(',');
+
         this.defaultLanguage = configs.defaultLanguage;
 
         // Configure multi language
@@ -17,8 +19,8 @@ export default class i18nService {
             autoReload: true, // Watch for changes in json files to reload locale on updates - defaults to false,
             updateFiles: false, // Whether to write new locale information to disk - defaults to true
         });
-
     }
+
 
     // Get language by request header
     static getLangFromRequest(res: any): string {
