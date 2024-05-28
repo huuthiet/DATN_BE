@@ -2267,6 +2267,7 @@ export default class EnergyController {
         transactions: TransactionsModel,
         order: orderModel,
         floor: floorModel,
+        totalKwh: totalKwhModel,
       } = global.mongoModel;
 
       const orderData = await orderModel.findOne({_id: idOrder}).lean().exec();
@@ -2320,11 +2321,15 @@ export default class EnergyController {
       const nameRoom = roomData.name;
 
       if(orderData.type === "monthly")  {
-        const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
-          roomData._id,
-          moment(new Date(orderData.startTime)).format("YYYY-MM-DD"),
-          moment(new Date(orderData.endTime)).format("YYYY-MM-DD")
-        );
+        // const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+        //   roomData._id,
+        //   moment(new Date(orderData.startTime)).format("YYYY-MM-DD"),
+        //   moment(new Date(orderData.endTime)).format("YYYY-MM-DD")
+        // );
+
+        const totalkWhTime = await totalKwhModel.findOne({
+          order: orderData._id,
+        }).lean().exec();
   
   
         // // //Thông số
@@ -2697,6 +2702,7 @@ export default class EnergyController {
         order: orderModel,
         floor: floorModel,
         bill: billModel,
+        totalKwh: totalKwhModel,
       } = global.mongoModel;
 
       const transactionData = await TransactionsModel.findOne({_id: idTransaction}).populate("user order motel room").lean().exec();
@@ -2760,11 +2766,15 @@ export default class EnergyController {
         const nameMotel = billData.nameMotel;
         const motelAddress = billData.addressMotel;
 
-        const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
-          billData.roomRented,
-          moment(new Date(transactionData.order.startTime)).format("YYYY-MM-DD"),
-          moment(new Date(transactionData.order.endTime)).format("YYYY-MM-DD")
-        );
+        // const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+        //   billData.roomRented,
+        //   moment(new Date(transactionData.order.startTime)).format("YYYY-MM-DD"),
+        //   moment(new Date(transactionData.order.endTime)).format("YYYY-MM-DD")
+        // );
+
+        const totalkWhTime = await totalKwhModel.findOne({
+          order: transactionData.order._id,
+        }).lean().exec();
 
         const nameRoom = billData.nameRoom;
 
@@ -3078,6 +3088,7 @@ export default class EnergyController {
         order: orderModel,
         floor: floorModel,
         bill: billModel,
+        totalKwh: totalKwhModel,
       } = global.mongoModel;
 
       const orderData = await orderModel.findOne({_id: idOrder}).populate("user order motel room").lean().exec();
@@ -3117,11 +3128,15 @@ export default class EnergyController {
         const nameMotel = billData.nameMotel;
         const motelAddress = billData.addressMotel;
 
-        const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
-          billData.roomRented,
-          moment(new Date(orderData.startTime)).format("YYYY-MM-DD"),
-          moment(new Date(orderData.endTime)).format("YYYY-MM-DD")
-        );
+        // const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+        //   billData.roomRented,
+        //   moment(new Date(orderData.startTime)).format("YYYY-MM-DD"),
+        //   moment(new Date(orderData.endTime)).format("YYYY-MM-DD")
+        // );
+
+        const totalkWhTime = await totalKwhModel.findOne({
+          order: orderData._id,
+        }).lean().exec();
 
         const nameRoom = billData.nameRoom;
 
@@ -5083,6 +5098,69 @@ export default class EnergyController {
     next: NextFunction
   ): Promise<any> {
     try {
+      const {room: roomModel, totalKwh: totalKwhModel, 
+        order: orderModel, job: jobModel,
+        bill: billModel, optionsType: optionsTypeModel,
+      } = global.mongoModel;
+      const orderId = '664d28ba4a755b6434ac92c1';
+      const orderData = await orderModel.findOne({_id: orderId}).lean().exec();
+      const jobData = await jobModel.findOne({orders: orderData._id}).lean().exec();
+      let dataElectricAll = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+        jobData.room, 
+        orderData.startTime, 
+        orderData.endTime,
+      );
+
+      const roomData = await roomModel.findOne({_id: jobData.room}).lean().exec();
+
+
+      let electricNumber = 0;
+      let labelTime: string[] = [];
+      let kWhData: number[] = [];
+      if (dataElectricAll === null) {
+        electricNumber = 0;
+      } else {
+        electricNumber = dataElectricAll.totalkWhTime;
+        labelTime = dataElectricAll.labelTime;
+        kWhData = dataElectricAll.kWhData;
+      }
+
+      await totalKwhModel.create({
+        order: orderData._id,
+        kWhData: kWhData,
+        labelTime: labelTime,
+      });
+
+      const electricPrice = roomData.electricityPrice * electricNumber;
+
+      await orderModel.findOneAndUpdate(
+        {_id: orderId},
+        {
+          electricPrice: electricPrice,
+          electricNumber: electricNumber,
+        },
+      )
+
+      const billData = await billModel.findOne({order: orderId}).lean().exec();
+      if(billData){
+        // const electricData = optionsTypeModel.findOne({_id: billData.electricity}).lean().exec();
+        await optionsTypeModel.findOneAndUpdate(
+          {_id: billData.electricity},
+          {
+            type: electricNumber.toString(),
+            total: electricPrice.toString(),
+          }
+        )
+      }
+
+
+
+      // let x = await JobController.getJobNoImg("664d27ea4a755b6434ac92b5");
+      // console.log({x});
+      // console.log(x.room);
+      // const a = await roomModel.findOne({_id: x.room}).lean().exec();
+      // console.log({a});
+
       // const a = moment(new Date("12/04/2024"));
       // console.log({a})
       // const a : number = 3.123123;
@@ -5111,13 +5189,16 @@ export default class EnergyController {
 // -- device4: 'c6208e6d-b48a-462e-ba28-f05269d767bf'; "2024-02-23T23:00:00" - "2024-03-14T22:00:00"
 // -- device5: '1d84e187-fdd9-44be-960a-c473c42a6f00'; "2024-03-15T00:32:00" - "2024-04-02T21:32:00"
 
-const a = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
-  "663336dc2c01a43510a32ea1",
-  "2024-05-04",
-  "2024-05-22"
-);
-
-console.log({a});
+// const a = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+//   "663336dc2c01a43510a32ea1",
+//   "2024-05-04",
+//   "2024-05-22"
+// );
+// const today = new Date();
+// const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+// const dateStay = Math.ceil(Math.abs(lastDay - today) / (24 * 3600 * 1000));
+// console.log({dateStay});
+// console.log({a});
 
       // const {
       //   room: roomModel,
@@ -5129,10 +5210,25 @@ console.log({a});
       //   transactions: TransactionsModel,
       //   bill: BillModel,
       //   optionsType: OptionsTypeModel,
+      //   totalKwh: totalKwhModel,
       // } = global.mongoModel;
 
-      // const a = await orderModel.create({
-      //   user: "66066c737dc6a346c59765a9"
+      // const a = await orderModel.findOne({
+      //   _id: "664d27ea4a755b6434ac92b6",
+      //   isDeleted: false
+      // }) .lean().exec();
+      // console.log({a});
+      // const a = new Date();
+      // const checkInTime = moment(a)
+      //   .utcOffset(420)
+      //   .format("MM/DD/YYYY");
+      // console.log({checkInTime});
+      // const b = moment(a)
+      //   .utcOffset(420)
+      // console.log({b});
+      // const a = await totalKwhModel.create({
+      //   totalKwh : [1, 3, 6],
+      //   // labelTime : ["hi", "hii"],
       // });
       // console.log({a});
 

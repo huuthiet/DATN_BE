@@ -1480,6 +1480,7 @@ export default class RoomController {
       const acreage = req.body.acreage;
       const roomPassword = req.body.roomPassword;
       const depositPrice = req.body.depositPrice;
+      const linkVideo = req.body.linkVideo;
 
       const wifiPrice = req.body.wifiPrice;
       const garbagePrice = req.body.garbagePrice;
@@ -1544,6 +1545,7 @@ export default class RoomController {
               depositPrice: depositPrice,
               vihicle: vihicle,
               person: person,
+              linkVideo: linkVideo,
             }
           )
           .lean()
@@ -1572,6 +1574,7 @@ export default class RoomController {
               depositPrice: depositPrice,
               vihicle: vihicle,
               person: person,
+              linkVideo: linkVideo,
             }
           )
           .lean()

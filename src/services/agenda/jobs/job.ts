@@ -6,7 +6,6 @@ var nodemailer = require('nodemailer');
 import JobController from "../../../controllers/homeKey/job.controller";
 import EnergyController from "../../../controllers/homeKey/energy.controller";
 import NotificationController from "../../../controllers/homeKey/notification";
-import electric from "./electric";
 
 export default (agenda) => {
   // create order
@@ -80,7 +79,12 @@ export default (agenda) => {
     try {
       console.log("CreateOrderForNextMonth");
       // Init models
-      const { order: orderModel, job: jobModel, room: roomModel } = global.mongoModel;
+      const { 
+        order: orderModel, 
+        job: jobModel, 
+        room: roomModel,
+        totalKwh: totalKwhModel,
+      } = global.mongoModel;
 
       let data = job.attrs.data;
 
@@ -94,14 +98,22 @@ export default (agenda) => {
 
       const expireTime = endTime.add(15, "days"); // note: để tạm 15 ngày, cần tính lại tất cả, cần set lại cuối ngày
 
-      let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
-      console.log({electricNumber});
+      // let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
+      const roomId = resData.room;
+      let dataElectricAll = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(roomId, start, end);
 
-      if (electricNumber === null) {
+      let electricNumber = 0;
+      let labelTime: string[] = [];
+      let kWhData: number[] = [];
+      if (dataElectricAll === null) {
         electricNumber = 0;
+      } else {
+        electricNumber = dataElectricAll.totalkWhTime;
+        labelTime = dataElectricAll.labelTimel;
+        kWhData = dataElectricAll.kWhData;
       }
 
-      const roomId = resData.room;
+      
       const roomData = await roomModel.findOne({_id: roomId})
                                                                   .lean()
                                                                   .exec();
@@ -138,6 +150,12 @@ export default (agenda) => {
             startTime: startTime.toDate(),
             endTime: endTime.toDate(),
             expireTime: expireTime.toDate(),
+          });
+
+          await totalKwhModel.create({
+            order: orderData._id,
+            kWhData: kWhData,
+            labelTime: labelTime,
           });
 
           resData = await jobModel.findOneAndUpdate(
@@ -192,7 +210,7 @@ export default (agenda) => {
 
       console.log("CreateFirstMonthOrder");
       // Init models
-      const { order: orderModel, job: jobModel, room: roomModel } = global.mongoModel;
+      const { order: orderModel, job: jobModel, room: roomModel, totalKwh: totalKwhModel } = global.mongoModel;
 
       let data = job.attrs.data;
 
@@ -208,18 +226,26 @@ export default (agenda) => {
 
           const expireTime = endTime.add(15, "days");
   
-          let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
+          // let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
+          const roomId = resData.room;
+          let dataElectricAll = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(roomId, start, end);
+
+          let electricNumber = 0;
+          let labelTime: string[] = [];
+          let kWhData: number[] = [];
+          if (dataElectricAll === null) {
+            electricNumber = 0;
+          } else {
+            electricNumber = dataElectricAll.totalkWhTime;
+            labelTime = dataElectricAll.labelTimel;
+            kWhData = dataElectricAll.kWhData;
+          }
           console.log({electricNumber});
 
           console.log({startTime});
           console.log({endTime});
           console.log({expireTime});
-
-          if (electricNumber === null) {
-            electricNumber = 0;
-          }
   
-          const roomId = resData.room;
           const roomData = await roomModel.findOne({_id: roomId})
                                                                       .lean()
                                                                       .exec();
@@ -251,6 +277,12 @@ export default (agenda) => {
             startTime: startTime.toDate(),
             endTime: endTime.toDate(),
             expireTime: expireTime.toDate(),
+          });
+
+          await totalKwhModel.create({
+            order: orderData._id,
+            kWhData: kWhData,
+            labelTime: labelTime,
           });
   
           resData = await jobModel.findOneAndUpdate(
@@ -325,12 +357,6 @@ export default (agenda) => {
 
       if (orderData) {
         if (!orderData.isCompleted) {
-          // await NotificationController.createNotification({
-          //   title: "Thông báo hết hạn đóng tiền phòng",
-          //   content: "Vui lòng liên hệ nhân viên để được hỗ trợ.",
-          //   user: orderData.user,
-          // });
-
           const jobData = await jobModel.findOne({ orders: orderData._id })
             .lean()
             .exec();
@@ -428,6 +454,85 @@ export default (agenda) => {
               .findOneAndUpdate({ _id: userId }, userUpdateData, { new: true })
               .exec();
           }
+        }
+      }
+
+      done();
+    } catch (err) {
+      done();
+    }
+  });
+
+  agenda.define("CheckAcceptOrder", async (job, done) => {
+    try {
+      // Init models
+      const {
+        order: orderModel,
+        job: jobModel,
+        room: roomModel,
+        floor: floorModel,
+        motelRoom: motelRoomModel,
+        user: userModel, 
+        payDepositList: payDepositListModel,
+        transactions: transactionsModel,
+      } = global.mongoModel;
+
+      let data = job.attrs.data;
+
+      let orderData = await orderModel.findOne({
+        _id: job.attrs.data.orderId,
+        isDeleted: false,
+      }).lean().exec(); // nếu order còn thì job còn, order bị xóa thì job cũng bị xóa và ngược lại
+
+      if (orderData) {
+        if (!orderData.isCompleted) {
+          const jobData = await jobModel.findOne({ orders: orderData._id })
+            .lean()
+            .exec();
+
+          if(moment() <= moment(new Date(orderData.expireTime))) {
+            const roomData = await roomModel.findOne({_id: jobData.room}).lean().exec();
+            const floorData = await floorModel.findOne({rooms: jobData.room}).lean().exec();
+
+            const motelData = await motelRoomModel.findOne({floors: floorData._id}).lean().exec();
+
+            const ownerData = await userModel.findOne({_id: motelData.owner}).lean().exec();
+
+            const transactionData = await transactionsModel.findOne({order: orderData._id}).lean().exec();
+
+            const transporter = nodemailer.createTransport({
+              service: 'gmail',
+              auth: {
+                user: 'cr7ronadol12345@gmail.com',
+                pass: 'wley oiaw yhpl oupy'
+              }
+            });
+
+            const mailOptions = {
+              from: 'cr7ronadol12345@gmail.com',
+              // to: 'quyetthangmarvel@gmail.com',
+              to: ownerData.email,
+              subject: `[${motelData.name}] - [${roomData.name}] NHẮC NHỞ DUYỆT THANH TOÁN CỌC`,
+              text: `Vui lòng duyệt giao dịch cọc mã ${transactionData.keyPayment} cho phòng ${roomData.name}, tòa ${motelData.name}. Nếu minh chứng chuyển tiền là sai, vui lòng liên hệ admin để xử lý!`,
+            };
+
+            transporter.sendMail(mailOptions, function (error, info) {
+              if (error) {
+                console.error(error);
+              } else {
+                console.log('Email đã được gửi: ' + info.response);
+              }
+            });
+
+            await global.agendaInstance.agenda.schedule(
+              moment().add("1", 'days').startOf("days").toDate(),
+              'CheckAcceptOrder',
+              { orderId: orderData._id }
+            );
+          } else {
+            //note: tìm cách xử lý
+          }
+
         }
       }
 
@@ -935,6 +1040,7 @@ export default (agenda) => {
         motelRoom: motelRoomModel,
         user: userModel,
         payDepositList: payDepositListModel,
+        totalKwh: totalKwhModel,
       } = global.mongoModel;
 
       
@@ -1018,13 +1124,21 @@ export default (agenda) => {
             const end = endTime.format("YYYY-MM-DD");
             const expireTime = endTime.add(15, "days");
 
-            let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
+            // let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
+            const roomId = jobData.room;
+            let dataElectricAll = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(roomId, start, end);
 
-            if (electricNumber === null) {
+            let electricNumber = 0;
+            let labelTime: string[] = [];
+            let kWhData: number[] = [];
+            if (dataElectricAll === null) {
               electricNumber = 0;
+            } else {
+              electricNumber = dataElectricAll.totalkWhTime;
+              labelTime = dataElectricAll.labelTimel;
+              kWhData = dataElectricAll.kWhData;
             }
 
-            const roomId = jobData.room;
             const roomData = await roomModel.findOne({_id: roomId})
                                                                         .lean()
                                                                         .exec();
@@ -1057,6 +1171,12 @@ export default (agenda) => {
               startTime: startTime.toDate(),
               endTime: endTime.toDate(),
               expireTime: expireTime.toDate(),
+            });
+
+            await totalKwhModel.create({
+              order: orderData._id,
+              kWhData: kWhData,
+              labelTime: labelTime,
             });
 
             const jobDataAfterUpdate = await jobModel.findOneAndUpdate(
@@ -1184,7 +1304,7 @@ export default (agenda) => {
     try {
       console.log("CreateOrderForRestDayInMonExpireContract_At1Or2Day");
       // Init models
-      const { order: orderModel, job: jobModel, room: roomModel } = global.mongoModel;
+      const { order: orderModel, job: jobModel, room: roomModel, totalKwh: totalKwhModel } = global.mongoModel;
 
       let data = job.attrs.data;
 
@@ -1203,13 +1323,21 @@ export default (agenda) => {
 
           const expireTime = endTime.add(15, "days");
           
-          let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
+          // let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
+          const roomId = resData.room;
+          let dataElectricAll = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(roomId, start, end);
 
-          if (electricNumber === null) {
+          let electricNumber = 0;
+          let labelTime: string[] = [];
+          let kWhData: number[] = [];
+          if (dataElectricAll === null) {
             electricNumber = 0;
+          } else {
+            electricNumber = dataElectricAll.totalkWhTime;
+            labelTime = dataElectricAll.labelTimel;
+            kWhData = dataElectricAll.kWhData;
           }
   
-          const roomId = resData.room;
           const roomData = await roomModel.findOne({_id: roomId})
                                                                       .lean()
                                                                       .exec();
@@ -1242,6 +1370,12 @@ export default (agenda) => {
             startTime: startTime.toDate(),
             endTime: endTime.toDate(),
             expireTime: expireTime.toDate(),
+          });
+
+          await totalKwhModel.create({
+            order: orderData._id,
+            kWhData: kWhData,
+            labelTime: labelTime,
           });
   
           resData = await jobModel.findOneAndUpdate(
@@ -1551,7 +1685,8 @@ export default (agenda) => {
         floor: floorModel,
         motelRoom: motelRoomModel,
         user: userModel, 
-        payDepositList: payDepositListModel
+        payDepositList: payDepositListModel,
+        totalKwh: totalKwhModel,
       } = global.mongoModel;
 
       const orderData = await orderModel.findOne({ _id: job.attrs.data.orderId })
@@ -1630,12 +1765,21 @@ export default (agenda) => {
 
             const expireTime = endTime.add(15, "days");
 
-            let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
-
-            if (electricNumber === null) {
-              electricNumber = 0;
-            }
+            // let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
             const roomId = jobData.room;
+            let dataElectricAll = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(roomId, start, end);
+
+            let electricNumber = 0;
+            let labelTime: string[] = [];
+            let kWhData: number[] = [];
+            if (dataElectricAll === null) {
+              electricNumber = 0;
+            } else {
+              electricNumber = dataElectricAll.totalkWhTime;
+              labelTime = dataElectricAll.labelTimel;
+              kWhData = dataElectricAll.kWhData;
+            }
+            
             const roomData = await roomModel.findOne({_id: roomId})
                                                                         .lean()
                                                                         .exec();
@@ -1668,6 +1812,12 @@ export default (agenda) => {
               startTime: startTime.toDate(),
               endTime: endTime.toDate(),
               expireTime: expireTime.toDate(),
+            });
+
+            await totalKwhModel.create({
+              order: orderData._id,
+              kWhData: kWhData,
+              labelTime: labelTime,
             });
 
             const jobDataAfterUpdate = await jobModel.findOneAndUpdate(
@@ -1789,7 +1939,8 @@ export default (agenda) => {
         floor: floorModel,
         motelRoom: motelRoomModel,
         user: userModel, 
-        payDepositList: payDepositListModel
+        payDepositList: payDepositListModel,
+        totalKwh: totalKwhModel,
       } = global.mongoModel;
 
       const orderData = await orderModel.findOne({ _id: job.attrs.data.orderId })
@@ -1877,12 +2028,21 @@ export default (agenda) => {
 
             const expireTime = endTime.add(15, "days");
 
-            let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
-
-            if (electricNumber === null) {
-              electricNumber = 0;
-            }
+            // let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
             const roomId = jobData.room;
+            let dataElectricAll = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(roomId, start, end);
+
+            let electricNumber = 0;
+            let labelTime: string[] = [];
+            let kWhData: number[] = [];
+            if (dataElectricAll === null) {
+              electricNumber = 0;
+            } else {
+              electricNumber = dataElectricAll.totalkWhTime;
+              labelTime = dataElectricAll.labelTimel;
+              kWhData = dataElectricAll.kWhData;
+            }
+
             const roomData = await roomModel.findOne({_id: roomId})
                                                                         .lean()
                                                                         .exec();
@@ -1917,7 +2077,11 @@ export default (agenda) => {
               expireTime: expireTime.toDate(),
             });
 
-
+            await totalKwhModel.create({
+              order: orderData._id,
+              kWhData: kWhData,
+              labelTime: labelTime,
+            });
 
             const jobDataAfterUpdate = await jobModel.findOneAndUpdate(
               { orders: orderData._id },
@@ -2054,6 +2218,7 @@ export default (agenda) => {
         motelRoom: motelRoomModel,
         user: userModel, 
         payDepositList: payDepositListModel,
+        totalKwh: totalKwhModel,
       } = global.mongoModel;
 
       const orderData = await orderModel.findOne({ _id: job.attrs.data.orderId })
@@ -2136,12 +2301,21 @@ export default (agenda) => {
 
             const expireTime = endTime.add(15, "days");
 
-            let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
-
-            if (electricNumber === null) {
-              electricNumber = 0;
-            }
+            // let electricNumber = await EnergyController.countElectricV2(jobData._id, start, end);
             const roomId = jobData.room;
+            let dataElectricAll = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(roomId, start, end);
+
+            let electricNumber = 0;
+            let labelTime: string[] = [];
+            let kWhData: number[] = [];
+            if (dataElectricAll === null) {
+              electricNumber = 0;
+            } else {
+              electricNumber = dataElectricAll.totalkWhTime;
+              labelTime = dataElectricAll.labelTimel;
+              kWhData = dataElectricAll.kWhData;
+            }
+                  
             const roomData = await roomModel.findOne({_id: roomId})
                                                                         .lean()
                                                                         .exec();
@@ -2174,6 +2348,12 @@ export default (agenda) => {
               startTime: startTime.toDate(),
               endTime: endTime.toDate(),
               expireTime: expireTime.toDate(),
+            });
+
+            await totalKwhModel.create({
+              order: orderData._id,
+              kWhData: kWhData,
+              labelTime: labelTime,
             });
 
             const jobDataAfterUpdate = await jobModel.findOneAndUpdate(
@@ -2335,7 +2515,7 @@ export default (agenda) => {
     try {
       console.log("CreateOrderForRestDayInMonBeforeExpireContract");
       // Init models
-      const { order: orderModel, job: jobModel, room: roomModel } = global.mongoModel;
+      const { order: orderModel, job: jobModel, room: roomModel, totalKwh: totalKwhModel } = global.mongoModel;
 
       let data = job.attrs.data;
 
@@ -2354,13 +2534,22 @@ export default (agenda) => {
 
           const expireTime = endTime.add(15, "days");
           
-          let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
-  
-          if (electricNumber === null) {
-            electricNumber = 0;
-          }
-          
+          // let electricNumber = await EnergyController.countElectricV2(job.attrs.data.jobId, start, end);
           const roomId = resData.room;
+          let dataElectricAll = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(roomId, start, end);
+
+          let electricNumber = 0;
+          let labelTime: string[] = [];
+          let kWhData: number[] = [];
+          if (dataElectricAll === null) {
+            electricNumber = 0;
+          } else {
+            electricNumber = dataElectricAll.totalkWhTime;
+            labelTime = dataElectricAll.labelTimel;
+            kWhData = dataElectricAll.kWhData;
+          }
+  
+          
           const roomData = await roomModel.findOne({_id: roomId})
                                                                       .lean()
                                                                       .exec();
@@ -2394,6 +2583,12 @@ export default (agenda) => {
             startTime: startTime.toDate(),
             endTime: endTime.toDate(),
             expireTime: expireTime.toDate(),
+          });
+
+          await totalKwhModel.create({
+            order: orderData._id,
+            kWhData: kWhData,
+            labelTime: labelTime,
           });
   
           resData = await jobModel.findOneAndUpdate(

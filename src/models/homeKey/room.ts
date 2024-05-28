@@ -118,6 +118,9 @@ export class Room extends Basic {
 
   @prop({default: []})
   listIdElectricMetter: [];
+
+  @prop({default: ''})
+  linkVideo: string;
 }
 
 export const RoomModel = (connection) => {

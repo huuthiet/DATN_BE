@@ -172,6 +172,29 @@ export default class TransactionsController {
 
       let { body: formData } = req;
 
+      //note: kiểm tra phòng này đã được cọc trước chưa: kể cả các cọc đang chờ phê duyệt
+      //cân nhắc: transaction được duyệt xong thì chuyển về isDeleted: true
+
+      //tìm transaction: 
+      //isDeleted: false
+      //room: roomId
+      //type: deposit
+      //status: waiting
+
+      const transactionDataRes = await TransactionsModel.findOne({
+        room: formData.roomId,
+        type: "deposit",
+        isDeleted: false,
+        status: "waiting",
+      }).lean().exec();
+
+      if(transactionDataRes) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Phòng đã được đặt cọc trước đó, giao dịch đang chờ phê duyệt. Vui lòng quay lại sau!"
+        )
+      }
+
       const roomData = await RoomController.getRoomById(formData.roomId);
 
       if (roomData && roomData.error) {
@@ -240,7 +263,7 @@ export default class TransactionsController {
       if (!motelRoomData) {
         return HttpResponse.returnBadRequestResponse(res, "Phòng không hợp lệ");
       }
-      let resData = await jobModel.create(formData);
+      let resData = await jobModel.create(formData);``
       let userUpdateData = {
         $addToSet: {
           jobs: resData._id,
@@ -282,8 +305,7 @@ export default class TransactionsController {
         )
         .exec();
 
-
-
+      //note: hóa đơn này phụ thuộc vào chủ trọ accept, 
       const orderData = await orderModel.create({
         user: req["userId"],
         job: resData._id,
@@ -292,7 +314,7 @@ export default class TransactionsController {
           }`,
         amount: formData.deposit,
         type: "deposit",
-        expireTime: moment(resData.checkInTime).endOf("day").toDate(),
+        expireTime: moment(resData.checkInTime).add(2, "days").endOf("day").toDate(),
       });
 
       resData = await jobModel.findOneAndUpdate(
@@ -305,20 +327,13 @@ export default class TransactionsController {
         { new: true }
       );
 
-      // let resData = await userModel
-      //   .findOne(
-      //     { _id: req["userId"], isDeleted: false },
-      //     { password: 0, token: 0 }
-      //   )
-      //   .populate("avatar identityCards")
-      //   .lean()
-      //   .exec();
-      // if (!resData) {
-      //   return HttpResponse.returnBadRequestResponse(
-      //     res,
-      //     "Tài khoản không tồn tại"
-      //   );
-      // }
+      //kiểm tra đã được duyệt cọc chưa, mail chủ trọ nhắc duyệt
+      await global.agendaInstance.agenda.schedule(
+        moment().add("2", 'minutes').toDate(),
+        'CheckAcceptOrder',
+        { orderId: orderData._id }
+      );
+
       const transactionsData = await TransactionsModel.create({
         user: req["userId"],
         keyPayment: formData.keyPayment,
@@ -333,12 +348,6 @@ export default class TransactionsController {
         motel: motelRoomData._id,
         room: roomData._id,
       });
-      // Get ip
-      // formData["ipAddr"] =
-      //   req.headers["x-forwarded-for"] ||
-      //   req.connection.remoteAddress ||
-      //   req.socket.remoteAddress ||
-      //   req.socket.remoteAddress;
 
       return HttpResponse.returnSuccessResponse(res, transactionsData);
     } catch (e) {
@@ -561,16 +570,18 @@ export default class TransactionsController {
 
       const motelData = await motelRoomModel.findOne({_id: idMotel}).populate("floors").lean().exec();
       if(!motelData) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Tòa nhà không tồn tại"
-        )
+        // return HttpResponse.returnBadRequestResponse(
+        //   res,
+        //   "Tòa nhà không tồn tại"
+        // )
+        return HttpResponse.returnSuccessResponse(res, []);
       }
       if(motelData.floors.length === 0) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Tòa nhà không có tầng nào"
-        )
+        // return HttpResponse.returnBadRequestResponse(
+        //   res,
+        //   "Tòa nhà không có tầng nào"
+        // )
+        return HttpResponse.returnSuccessResponse(res, []);
       }
 
       console.log({motelData});
@@ -583,10 +594,11 @@ export default class TransactionsController {
       console.log({roomIdList});
 
       if(roomIdList.length === 0) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Tòa nhà hiện không có phòng nào"
-        )
+        // return HttpResponse.returnBadRequestResponse(
+        //   res,
+        //   "Tòa nhà hiện không có phòng nào"
+        // )
+        return HttpResponse.returnSuccessResponse(res, []);
       }
       const roomIdListLength = roomIdList.length;
 
@@ -649,6 +661,7 @@ export default class TransactionsController {
   ): Promise<any> {
     try {
       const idMotel = req.params.id;
+      // const idMotel = "65d426786415bc4a8ced1afd";
       // const userId = "66066c737dc6a346c59765a9";
       console.log({idMotel});
       const {
@@ -661,16 +674,18 @@ export default class TransactionsController {
 
       const motelData = await motelRoomModel.findOne({_id: idMotel}).populate("floors").lean().exec();
       if(!motelData) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Tòa nhà không tồn tại"
-        )
+        // return HttpResponse.returnBadRequestResponse(
+        //   res,
+        //   "Tòa nhà không tồn tại"
+        // )
+        return HttpResponse.returnSuccessResponse(res, []);
       }
       if(motelData.floors.length === 0) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Tòa nhà không có tầng nào"
-        )
+        // return HttpResponse.returnBadRequestResponse(
+        //   res,
+        //   "Tòa nhà không có tầng nào"
+        // )
+        return HttpResponse.returnSuccessResponse(res, []);
       }
 
       console.log({motelData});
@@ -683,10 +698,11 @@ export default class TransactionsController {
       console.log({roomIdList});
 
       if(roomIdList.length === 0) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Tòa nhà hiện không có phòng nào"
-        )
+        // return HttpResponse.returnBadRequestResponse(
+        //   res,
+        //   "Tòa nhà hiện không có phòng nào"
+        // )
+        return HttpResponse.returnSuccessResponse(res, []);
       }
       const roomIdListLength = roomIdList.length;
 
@@ -796,7 +812,7 @@ export default class TransactionsController {
       }
 
       if (!transactionsData) {
-        return HttpResponse.returnBadRequestResponse(res, "logPayment");
+        return HttpResponse.returnBadRequestResponse(res, []);
       }
 
       return HttpResponse.returnSuccessResponse(res, transactionsData);
@@ -859,7 +875,7 @@ export default class TransactionsController {
       }
 
       if (!transactionsData) {
-        return HttpResponse.returnBadRequestResponse(res, "logPayment");
+        return HttpResponse.returnBadRequestResponse(res, []);
       }
 
       return HttpResponse.returnSuccessResponse(res, transactionsData);
@@ -923,7 +939,7 @@ export default class TransactionsController {
       }
 
       if (!transactionsData) {
-        return HttpResponse.returnBadRequestResponse(res, "logPayment");
+        return HttpResponse.returnBadRequestResponse(res, []);
       }
 
       return HttpResponse.returnSuccessResponse(res, transactionsData);
@@ -963,7 +979,7 @@ export default class TransactionsController {
         user: id,
         type: { $ne: "recharge" },
         paymentMethod: { $ne: "wallet" },
-        isDeleted: false,
+        // isDeleted: false,
       }).populate("motel room order").lean().exec();
 
       if (transactionsData) {
@@ -1116,7 +1132,10 @@ export default class TransactionsController {
       //TRƯỜNG HỢP HỦY VÀ TRƯỜNG HỢP ĐỒNG Ý
       const resDataS = await TransactionsModel.findOneAndUpdate(
         { _id: id },
-        { status: data.status },
+        { 
+          status: data.status,
+          isDeleted: true,
+         },
         {new: true}
       )
         .lean()
