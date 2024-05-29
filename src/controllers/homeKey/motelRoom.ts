@@ -9,6 +9,7 @@ import * as PdfPrinter from "pdfmake";
 import moment = require("moment");
 import BillController from "./bill.controller";
 import { roomStatus } from "../../enums";
+import { index } from "libs/typegoose";
 const ObjectId = mongoose.Types.ObjectId;
 
 export default class MotelRoomController {
@@ -852,67 +853,41 @@ export default class MotelRoomController {
         motelRoom: motelRoomModel,
       } = global.mongoModel;
       let { id: motelRoomId, floor } = req.params;
+      const indexFloor : number = parseInt(floor);
       console.log({floor});
-      console.log(117);
 
-      const motelData = await MotelRoomController.getMotelRoom(motelRoomId);
-      let availableRoom = 0;
-      let rentedRoom = 0;
-      let depositedRoom = 0;
-
-      if (motelData && motelData.floors) {
-        for (let index = 0; index < motelData.floors.length; index++) {
-          const element = motelData.floors[index];
-          let availableRoomFloors = 0;
-          let rentedRoomFloors = 0;
-          let depositedRoomFloors = 0;
-          if (element.rooms) {
-            for (let indexK = 0; indexK < element.rooms.length; indexK++) {
-              const elementK = element.rooms[indexK];
-              if (elementK.status === roomStatus.DEPOSITED) {
-                depositedRoomFloors++;
-              } else if (
-                elementK.status === roomStatus.AVAILABLE ||
-                elementK.status === roomStatus.UNKNOWN
-              ) {
-                availableRoomFloors++;
-              } else {
-                rentedRoomFloors++;
-              }
-            }
-            // update floors
-            await floorModel
-              .findOneAndUpdate(
-                { _id: element._id },
-                {
-                  rentedRoom: rentedRoomFloors,
-                  availableRoom: availableRoomFloors,
-                  depositedRoom: depositedRoomFloors,
-                },
-                { new: true }
-              )
-              .exec();
-            availableRoom = availableRoom + availableRoomFloors;
-            rentedRoom = rentedRoom + rentedRoomFloors;
-            depositedRoom = depositedRoom + depositedRoomFloors;
-          }
-        }
-        // update mptel
-        await motelRoomModel
-          .findOneAndUpdate(
-            { _id: motelData._id },
-            {
-              rentedRoom: rentedRoom,
-              availableRoom: availableRoom,
-              depositedRoom: depositedRoom,
-            }
-          )
-          .exec();
+      const motelData = await motelRoomModel.findOne({_id: motelRoomId}).lean().exec();
+      if(!motelData) {
+        return HttpResponse.returnSuccessResponse(res, []);
       }
-      return HttpResponse.returnSuccessResponse(
-        res,
-        await MotelRoomController.getMotelRoom(motelRoomId)
-      );
+
+      if(!motelData.floors) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      if(motelData.floors.length === 0) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      if(motelData.floors.length < (indexFloor + 1)) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      const floorData = await floorModel.findOne({_id: motelData.floors[indexFloor]}).populate("rooms").lean().exec();
+
+      if(!floorData) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      if(!floorData.rooms) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      if(floorData.rooms.length === 0) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      return HttpResponse.returnSuccessResponse(res, floorData.rooms);
     } catch (e) {
       next(e);
     }
@@ -935,12 +910,16 @@ export default class MotelRoomController {
 
       if(motelRoomData) {
         if (motelRoomData.images && (motelRoomData.images.length > 0)) {
-          const dataimg = await imageModel.findOne({
-            _id: motelRoomData.images[0],
-          });
-          if (dataimg) {
-            motelRoomData.images = await helpers.getImageUrl(dataimg);
-          }   
+          let images = [];
+          for(let i = 0; i < motelRoomData.images.length; i++) {
+            const dataimg = await imageModel.findOne({
+              _id: motelRoomData.images[i],
+            });
+            if (dataimg) {
+              images.push(await helpers.getImageUrl(dataimg));
+            } 
+          }
+          motelRoomData.images = images;
         }
       }
 
@@ -1651,8 +1630,13 @@ export default class MotelRoomController {
         const resData = await motelRoomModel
           .findOneAndUpdate(
             { _id: motelRoomId },
+            // {
+            //   images: imageArr,
+            // },
             {
-              images: imageArr,
+              $addToSet: {
+                images: uploadResults.imageId
+              },
             },
             {
               new: true,
