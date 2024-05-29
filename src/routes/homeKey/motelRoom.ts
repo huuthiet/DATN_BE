@@ -30,6 +30,8 @@ motelRoomRoute
 
 motelRoomRoute.route("/:id").get(MotelRoomController.getMotelRoomById);
 
+motelRoomRoute.route("/getMotelByIdAndFloor/:id/:floor").get(MotelRoomController.getMotelRoomByIdAndFloor);
+
 motelRoomRoute.route("/getMotelByIdV2/:id").get(MotelRoomController.getMotelRoomByIdV2);
 
 // Post search Find MotelRoom from Address

@@ -1724,6 +1724,7 @@ export default class UserController {
       }
 
       let userData = await userModel.paginate(size, page, condition);
+
       // const userDataList = userData.data;
 
       // // Duyệt qua từng người dùng để lấy thông tin doanh thu của từng tòa nhà
@@ -1785,6 +1786,16 @@ export default class UserController {
       //     );
       //   }
       // }
+
+      console.log(userData);
+      if(userData) {
+        if(userData.totalRow > 0) {
+          for(let i = 0; i < userData.totalRow; i++) {
+            let motelDatas = await motelRoomModel.find({owner: userData.data[i]._id}).lean().exec();
+            userData.data[i].numberBuilding = motelDatas.length;
+          }
+        }
+      }
 
       return HttpResponse.returnSuccessResponse(res, userData);
     } catch (e) {

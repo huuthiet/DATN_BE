@@ -1506,7 +1506,9 @@ export default class RoomController {
             const pathLocal = await helpers.getImageUrl(dataImgRemove);
             for (let j = 0; j < arrayRemoveImg.length; j++) {
               if (pathLocal === arrayRemoveImg[j]) {
-                RoomData.images.splice(i);
+                RoomData.images.splice(i, 1);
+                i--; //lùi lại để kiểm tra được ảnh phòng tiếp theo liền kề với ảnh đã bị xóa, ảnh sau đã dồn vào ảnh bị xóa
+                break;
               }
             }
           }

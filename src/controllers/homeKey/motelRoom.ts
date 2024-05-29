@@ -204,6 +204,25 @@ export default class MotelRoomController {
       let resData = [];
 
       resData = await motelRoomModel.find({owner: idOwner}).populate("address").lean().exec();
+
+      if(resData) {
+        if(resData.length > 0) {
+          for(let i = 0; i < resData.length; i++) {
+            if (resData[i].images && (resData[i].images.length > 0)) {
+              const dataimg = await imageModel.findOne({
+                _id: resData[i].images[0],
+              });
+              if (dataimg) {
+                resData[i].file = await helpers.getImageUrl(dataimg);
+              } else {
+                resData[i].file = null;
+              }
+            } else {
+              resData[i].file = null;
+            }
+          }
+        }
+      }
       console.log({resData});
 
       if(!resData) {
@@ -778,6 +797,83 @@ export default class MotelRoomController {
     }
   }
 
+  static async getMotelRoomByIdAndFloor(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const {
+        floor: floorModel,
+        motelRoom: motelRoomModel,
+      } = global.mongoModel;
+      let { id: motelRoomId, floor } = req.params;
+      console.log({floor});
+      console.log(117);
+
+      const motelData = await MotelRoomController.getMotelRoom(motelRoomId);
+      let availableRoom = 0;
+      let rentedRoom = 0;
+      let depositedRoom = 0;
+
+      if (motelData && motelData.floors) {
+        for (let index = 0; index < motelData.floors.length; index++) {
+          const element = motelData.floors[index];
+          let availableRoomFloors = 0;
+          let rentedRoomFloors = 0;
+          let depositedRoomFloors = 0;
+          if (element.rooms) {
+            for (let indexK = 0; indexK < element.rooms.length; indexK++) {
+              const elementK = element.rooms[indexK];
+              if (elementK.status === roomStatus.DEPOSITED) {
+                depositedRoomFloors++;
+              } else if (
+                elementK.status === roomStatus.AVAILABLE ||
+                elementK.status === roomStatus.UNKNOWN
+              ) {
+                availableRoomFloors++;
+              } else {
+                rentedRoomFloors++;
+              }
+            }
+            // update floors
+            await floorModel
+              .findOneAndUpdate(
+                { _id: element._id },
+                {
+                  rentedRoom: rentedRoomFloors,
+                  availableRoom: availableRoomFloors,
+                  depositedRoom: depositedRoomFloors,
+                },
+                { new: true }
+              )
+              .exec();
+            availableRoom = availableRoom + availableRoomFloors;
+            rentedRoom = rentedRoom + rentedRoomFloors;
+            depositedRoom = depositedRoom + depositedRoomFloors;
+          }
+        }
+        // update mptel
+        await motelRoomModel
+          .findOneAndUpdate(
+            { _id: motelData._id },
+            {
+              rentedRoom: rentedRoom,
+              availableRoom: availableRoom,
+              depositedRoom: depositedRoom,
+            }
+          )
+          .exec();
+      }
+      return HttpResponse.returnSuccessResponse(
+        res,
+        await MotelRoomController.getMotelRoom(motelRoomId)
+      );
+    } catch (e) {
+      next(e);
+    }
+  }
+
   static async getMotelRoomByIdV2(
     req: Request,
     res: Response,
@@ -801,7 +897,7 @@ export default class MotelRoomController {
           if (dataimg) {
             motelRoomData.images = await helpers.getImageUrl(dataimg);
           }   
-      }
+        }
       }
 
       console.log({motelRoomData});
@@ -1567,6 +1663,7 @@ export default class MotelRoomController {
       let resData = resDataOld;
       // Upload image
       if (req["files"]) {
+        console.log("fillleeee", req["files"]);
         const uploadResults = await imageService.upload(req["files"].file);
         if (uploadResults.error) {
           return HttpResponse.returnInternalServerResponseWithMessage(
@@ -1575,14 +1672,22 @@ export default class MotelRoomController {
           );
         }
 
+        console.log({uploadResults});
+
         const dataIMG = resDataOld.images || [];
         dataIMG.push(uploadResults.imageId);
+        console.log({dataIMG});
 
         resData = await roomModel
           .findOneAndUpdate(
             { _id: roomId },
+            // {
+            //   images: dataIMG,
+            // },
             {
-              images: dataIMG,
+              $addToSet: {
+                images: uploadResults.imageId
+              },
             },
             {
               new: true,
