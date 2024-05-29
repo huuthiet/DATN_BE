@@ -926,26 +926,32 @@ export default class OrderController {
         floor: floorModel,
       } = global.mongoModel;
 
-      const idMotel: string = req.params.id;
+      // const idMotel: string = req.params.id;
+      const idMotel: string = "65d426786415bc4a8ced1afd"
 
       console.log({ idMotel });
 
       const motelData = await motelRoomModel.findOne({ _id: idMotel }).lean().exec();
 
-      console.log("motelData", motelData);
-
+      let payDeposits = [];
       if (!motelData) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Tòa nhà không tồn tại!"
-        );
+        // return HttpResponse.returnBadRequestResponse(
+        //   res,
+        //   "Tòa nhà không tồn tại!"
+        // );
+        return HttpResponse.returnSuccessResponse(res, payDeposits);
+      }
+
+      if(!motelData.floors) {
+        return HttpResponse.returnSuccessResponse(res, payDeposits);
       }
 
       const floors = motelData.floors;
       if (floors.length === 0) {
-        return HttpResponse.returnBadRequestResponse(res,
-          "Tòa nhà chưa có tầng nào"
-        )
+        // return HttpResponse.returnBadRequestResponse(res,
+        //   "Tòa nhà chưa có tầng nào"
+        // )
+        return HttpResponse.returnSuccessResponse(res, payDeposits);
       }
       let roomList: string[] = [];
       for (let i = 0; i < floors.length; i++) {
@@ -956,7 +962,7 @@ export default class OrderController {
         }
       }
       const roomListLength = roomList.length;
-      let payDeposits = [];
+      
       for (let i = 0; i < roomListLength; i++) {
         const payDepositData = await PayDepositListModel.find({ room: roomList[i] })
           .populate("user room")
@@ -1002,10 +1008,15 @@ export default class OrderController {
       console.log({jobDataS});
 
       if(jobDataS.length === 0) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Phòng chưa có bất hợp đồng nào từ trước tới nay"
-        )
+        return HttpResponse.returnSuccessResponse(res, []);
+        // return HttpResponse.returnBadRequestResponse(
+        //   res,
+        //   "Phòng chưa có bất hợp đồng nào từ trước tới nay"
+        // )
+        // return HttpResponse.returnNotFoundResponse(
+        //   res, 
+        //   "Phòng chưa có bất hợp đồng nào từ trước tới nay"
+        // )
       }
 
       let listOrderPaid = [];
@@ -1023,61 +1034,7 @@ export default class OrderController {
           }
         }
       }
-      
 
-      // const transactionsData = await TransactionsModel.find({
-      //   motel: mongoose.Types.ObjectId(idMotel),
-      //   type: { $in: ["deposit", "afterCheckInCost"] },
-      //   paymentMethod: { $ne: "wallet" },
-      //   isDeleted: false,
-      // }).populate("user motel room").lean().exec();
-
-      // console.log({transactionsData});
-
-      // if (transactionsData) {
-      //   for (let i = 0; i < transactionsData.length; i++) {
-      //       if (transactionsData[i].file) {
-      //         const dataimg = await imageModel.findOne({
-      //           _id: transactionsData[i].file,
-      //         });
-      //         if (dataimg) {
-      //           transactionsData[i].file = await helpers.getImageUrl(dataimg);
-      //         }
-      //       }     
-            
-      //       // if(transactionsData[i].motel) {
-      //       //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
-      //       //   if(motelData) {
-      //       //     transactionsData[i].motel = motelData;
-      //       //   }
-      //       // }
-
-      //       // if(transactionsData[i].room) {
-      //       //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
-      //       //   if(roomData) {
-      //       //     transactionsData[i].room = roomData;
-      //       //   }
-      //       // }
-
-      //       // if(transactionsData[i].user) {
-      //       //   const userData = await userModel.findOne({_id: transactionsData[i].user}).lean().exec();
-      //       //   if(userData) {
-      //       //     transactionsData[i].user = userData;
-      //       //   }
-      //       // }
-      //   }
-      // }
-
-      // if (!transactionsData) {
-      //   return HttpResponse.returnBadRequestResponse(res, "logPayment");
-      // }
-      // console.log({transactionsData});
-      if(listOrderPaid.length === 0) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Phòng chưa có hóa đơn nào"
-        )
-      }
       return HttpResponse.returnSuccessResponse(res, listOrderPaid);
     } catch (error) {
       next(error);
@@ -1106,10 +1063,11 @@ export default class OrderController {
       console.log({jobDataS});
 
       if(jobDataS.length === 0) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Phòng chưa có bất hợp đồng nào từ trước tới nay"
-        )
+        return HttpResponse.returnSuccessResponse(res, []);
+        // return HttpResponse.returnBadRequestResponse(
+        //   res,
+        //   "Phòng chưa có bất hợp đồng nào từ trước tới nay"
+        // )
       }
 
       let listOrderPaid = [];
@@ -1126,13 +1084,6 @@ export default class OrderController {
             listOrderPaid.push(orderData);
           }
         }
-      }
-      
-      if(listOrderPaid.length === 0) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Phòng chưa có hóa đơn nào"
-        )
       }
 
       return HttpResponse.returnSuccessResponse(res, listOrderPaid);

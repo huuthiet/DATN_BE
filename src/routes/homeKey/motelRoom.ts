@@ -18,6 +18,7 @@ const motelRoomRoute = express.Router();
 
 // Get list of motel room
 motelRoomRoute.route("/list").get(MotelRoomController.getMotelRoomList);
+motelRoomRoute.route("/getMotelByOwner/:id").get(MotelRoomController.getMotelRoomListByOwner);
 
 // Get motel room detail
 motelRoomRoute
@@ -26,7 +27,10 @@ motelRoomRoute
 motelRoomRoute
   .route("/:id/room/:idroom/user/:idUser")
   .get(MotelRoomController.getMotelRoomByIdRoom);
+
 motelRoomRoute.route("/:id").get(MotelRoomController.getMotelRoomById);
+
+motelRoomRoute.route("/getMotelByIdV2/:id").get(MotelRoomController.getMotelRoomByIdV2);
 
 // Post search Find MotelRoom from Address
 motelRoomRoute

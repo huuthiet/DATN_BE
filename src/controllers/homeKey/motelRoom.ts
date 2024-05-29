@@ -185,6 +185,35 @@ export default class MotelRoomController {
       next(e);
     }
   }
+
+  static async getMotelRoomListByOwner(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init user model`
+      const idOwner = req.params.id;
+      console.log({idOwner});
+
+      const {
+        motelRoom: motelRoomModel,
+        image: imageModel,
+      } = global.mongoModel;
+
+      let resData = [];
+
+      resData = await motelRoomModel.find({owner: idOwner}).populate("address").lean().exec();
+      console.log({resData});
+
+      if(!resData) {
+        resData = [];
+      }
+      return HttpResponse.returnSuccessResponse(res, resData);
+    } catch (e) {
+      next(e);
+    }
+  }
   static async getMotelRoomListAdmin(
     req: Request,
     res: Response,
@@ -744,6 +773,39 @@ export default class MotelRoomController {
         res,
         await MotelRoomController.getMotelRoom(motelRoomId)
       );
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async getMotelRoomByIdV2(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const {
+        floor: floorModel,
+        motelRoom: motelRoomModel,
+        image: imageModel,
+      } = global.mongoModel;
+      let { id: motelRoomId } = req.params;
+
+      const motelRoomData = await motelRoomModel.findOne({_id: motelRoomId}).populate("address").lean().exec();
+
+      if(motelRoomData) {
+        if (motelRoomData.images && (motelRoomData.images.length > 0)) {
+          const dataimg = await imageModel.findOne({
+            _id: motelRoomData.images[0],
+          });
+          if (dataimg) {
+            motelRoomData.images = await helpers.getImageUrl(dataimg);
+          }   
+      }
+      }
+
+      console.log({motelRoomData});
+      return HttpResponse.returnSuccessResponse(res, motelRoomData);
     } catch (e) {
       next(e);
     }

@@ -1166,10 +1166,10 @@ export default class JobController {
         user: resData.user,
         job: resData._id,
         isCompleted: false,
-        description: `Tiền phòng tháng ${checkInTime.split("/")[0]}/${checkInTime.split("/")[2]}`,
+        description: `Tiền thanh toán khi nhận phòng tháng ${checkInTime.split("/")[0]}/${checkInTime.split("/")[2]}`,
         amount: resData.afterCheckInCost,
         type: "afterCheckInCost",
-        expireTime: moment(resData.checkInTime).endOf("day").toDate(),
+        expireTime: moment(resData.checkInTime).add(7, "days").endOf("day").toDate(),
       });
 
       resData = await jobModel
@@ -1179,7 +1179,7 @@ export default class JobController {
             $addToSet: { orders: orderData._id },
             currentOrder: orderData._id,
             isActived: true,
-            status: "afterCheckInCostPaymentCompleted",
+            status: "pendingAfterCheckInCostPayment",
           },
           { new: true }
         )

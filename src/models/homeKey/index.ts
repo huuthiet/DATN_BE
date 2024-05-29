@@ -16,6 +16,7 @@ import { ElectricsModel } from "./electric";
 import { RequestWithdrawsModel } from "./requestWithdraws";
 import { HistoryEnergyModel } from "./historyEnergy";
 import { PayDepositListModel } from "./payDepositList";
+import { TotalKwhModel } from "./totalKwh";
 export default (connection: any) => {
   return {
     room: RoomModel(connection),
@@ -34,5 +35,6 @@ export default (connection: any) => {
     requestWithdraws: RequestWithdrawsModel(connection),
     historyEnergy: HistoryEnergyModel(connection),
     payDepositList : PayDepositListModel(connection),
+    totalKwh : TotalKwhModel(connection),
   };
 };
