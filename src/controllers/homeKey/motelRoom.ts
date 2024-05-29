@@ -9,6 +9,7 @@ import * as PdfPrinter from "pdfmake";
 import moment = require("moment");
 import BillController from "./bill.controller";
 import { roomStatus } from "../../enums";
+import { index } from "libs/typegoose";
 const ObjectId = mongoose.Types.ObjectId;
 
 export default class MotelRoomController {
@@ -204,6 +205,25 @@ export default class MotelRoomController {
       let resData = [];
 
       resData = await motelRoomModel.find({owner: idOwner}).populate("address").lean().exec();
+
+      if(resData) {
+        if(resData.length > 0) {
+          for(let i = 0; i < resData.length; i++) {
+            if (resData[i].images && (resData[i].images.length > 0)) {
+              const dataimg = await imageModel.findOne({
+                _id: resData[i].images[0],
+              });
+              if (dataimg) {
+                resData[i].file = await helpers.getImageUrl(dataimg);
+              } else {
+                resData[i].file = null;
+              }
+            } else {
+              resData[i].file = null;
+            }
+          }
+        }
+      }
       console.log({resData});
 
       if(!resData) {
@@ -778,6 +798,101 @@ export default class MotelRoomController {
     }
   }
 
+  static async getMotelRoomVisualDataById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const {
+        floor: floorModel,
+        motelRoom: motelRoomModel,
+      } = global.mongoModel;
+      let { id: motelRoomId } = req.params;
+
+      const motelData = await motelRoomModel.findOne({_id: motelRoomId}).lean().exec();
+
+      if(!motelData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không tồn tại"
+        )
+      }
+
+      if(!motelData.floors) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không có tầng nào"
+        )
+      }
+      let floorData = [];
+      const floors = motelData.floors;
+      for(let i = 0; i<floors.length; i ++) {
+        let floor = await floorModel.findOne({_id: floors[i]}).populate("rooms").lean().exec();
+        if(floor) {
+          floorData.push(floor);
+        }
+      }
+
+      // motelData.floors = floorData;
+
+      return HttpResponse.returnSuccessResponse(res, floorData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async getMotelRoomByIdAndFloor(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const {
+        floor: floorModel,
+        motelRoom: motelRoomModel,
+      } = global.mongoModel;
+      let { id: motelRoomId, floor } = req.params;
+      const indexFloor : number = parseInt(floor);
+      console.log({floor});
+
+      const motelData = await motelRoomModel.findOne({_id: motelRoomId}).lean().exec();
+      if(!motelData) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      if(!motelData.floors) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      if(motelData.floors.length === 0) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      if(motelData.floors.length < (indexFloor + 1)) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      const floorData = await floorModel.findOne({_id: motelData.floors[indexFloor]}).populate("rooms").lean().exec();
+
+      if(!floorData) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      if(!floorData.rooms) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      if(floorData.rooms.length === 0) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      return HttpResponse.returnSuccessResponse(res, floorData.rooms);
+    } catch (e) {
+      next(e);
+    }
+  }
+
   static async getMotelRoomByIdV2(
     req: Request,
     res: Response,
@@ -795,13 +910,17 @@ export default class MotelRoomController {
 
       if(motelRoomData) {
         if (motelRoomData.images && (motelRoomData.images.length > 0)) {
-          const dataimg = await imageModel.findOne({
-            _id: motelRoomData.images[0],
-          });
-          if (dataimg) {
-            motelRoomData.images = await helpers.getImageUrl(dataimg);
-          }   
-      }
+          let images = [];
+          for(let i = 0; i < motelRoomData.images.length; i++) {
+            const dataimg = await imageModel.findOne({
+              _id: motelRoomData.images[i],
+            });
+            if (dataimg) {
+              images.push(await helpers.getImageUrl(dataimg));
+            } 
+          }
+          motelRoomData.images = images;
+        }
       }
 
       console.log({motelRoomData});
@@ -1511,8 +1630,13 @@ export default class MotelRoomController {
         const resData = await motelRoomModel
           .findOneAndUpdate(
             { _id: motelRoomId },
+            // {
+            //   images: imageArr,
+            // },
             {
-              images: imageArr,
+              $addToSet: {
+                images: uploadResults.imageId
+              },
             },
             {
               new: true,
@@ -1567,6 +1691,7 @@ export default class MotelRoomController {
       let resData = resDataOld;
       // Upload image
       if (req["files"]) {
+        console.log("fillleeee", req["files"]);
         const uploadResults = await imageService.upload(req["files"].file);
         if (uploadResults.error) {
           return HttpResponse.returnInternalServerResponseWithMessage(
@@ -1575,14 +1700,22 @@ export default class MotelRoomController {
           );
         }
 
+        console.log({uploadResults});
+
         const dataIMG = resDataOld.images || [];
         dataIMG.push(uploadResults.imageId);
+        console.log({dataIMG});
 
         resData = await roomModel
           .findOneAndUpdate(
             { _id: roomId },
+            // {
+            //   images: dataIMG,
+            // },
             {
-              images: dataIMG,
+              $addToSet: {
+                images: uploadResults.imageId
+              },
             },
             {
               new: true,

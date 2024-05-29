@@ -28,9 +28,13 @@ motelRoomRoute
   .route("/:id/room/:idroom/user/:idUser")
   .get(MotelRoomController.getMotelRoomByIdRoom);
 
-motelRoomRoute.route("/:id").get(MotelRoomController.getMotelRoomById);
+motelRoomRoute.route("/:id").get(MotelRoomController.getMotelRoomById); // data all room of motel
 
-motelRoomRoute.route("/getMotelByIdV2/:id").get(MotelRoomController.getMotelRoomByIdV2);
+motelRoomRoute.route("/roomsOfMotel/:id").get(MotelRoomController.getMotelRoomVisualDataById); // only visual data room for energy
+
+motelRoomRoute.route("/getMotelByIdAndFloor/:id/:floor").get(MotelRoomController.getMotelRoomByIdAndFloor);//data all of a floor
+
+motelRoomRoute.route("/getMotelByIdV2/:id").get(MotelRoomController.getMotelRoomByIdV2);//only data motel, no data room
 
 // Post search Find MotelRoom from Address
 motelRoomRoute
