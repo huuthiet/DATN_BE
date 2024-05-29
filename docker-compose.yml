@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: backend
     restart: unless-stopped
-    ports:
-      - '8080:5502'
+    # ports:
+    #   - '8080:5502'
     command: npm start
     env_file:
       - .env

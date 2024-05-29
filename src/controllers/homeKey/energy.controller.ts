@@ -15,6 +15,8 @@ import * as lodash from "lodash";
 import { start } from "repl";
 import room from "services/agenda/jobs/room";
 import { FloorModel } from "models/homeKey/floor";
+import { time } from "console";
+import electric from "services/agenda/jobs/electric";
 
 const width = 595;
 const height = 400;
@@ -4812,19 +4814,13 @@ export default class EnergyController {
     }
   }
 
-  static async buildingRevenue(
+  static async hostBuildingList(
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<any> {
-    const idMotel = req.params.idMotel;
-    console.log("idMotellllll", idMotel);
-
-    const startTime = req.params.startTime;
-    console.log("startTime", startTime);
-
-    const endTime = req.params.endTime;
-    console.log("endTime", endTime);
+    const idUser = req.params.idOwner;
+    console.log("id User: ", idUser);
 
     const totalJson = {}; // Object chứa thông tin tất cả các motel
 
@@ -4838,243 +4834,97 @@ export default class EnergyController {
       user: userModel,
       job: jobModel,
       order: orderModel,
+      bill: billModel,
     } = global.mongoModel;
 
     try {
       const motelInfor = await motelRoomModel
-        .find({ owner: idMotel })
+        .find({ owner: idUser })
         .lean()
         .exec();
-      if (motelInfor.length === 0) {
-        const data = "Motel has no floors";
-        return HttpResponse.returnSuccessResponse(res, data);
-      } else {
-        for (const motel of motelInfor) {
-          const motelId = motel._id; // ID của motel
-          const motelName = motel.name; // Tên của motel
-          const motelAddress = await addressModel
-            .findOne({ _id: motel.address })
-            .lean()
-            .exec(); // Địa chỉ của motel
+      console.log("motelInfor", motelInfor);
+      
+      motelInfor.forEach((motel) => {
+        const idMotel = motel._id;
+        const nameMotel = motel.name;
+        console.log("motelInfor", motel);
+      
+        // Push idMotel into jsonMotel using nameMotel as the key
+        jsonMotel[nameMotel] = idMotel;
+      });
+      
+      console.log(jsonMotel); // This will show the final jsonMotel object
 
-          // Lấy thông tin của chủ motel
-          const motelOwner = await userModel
-            .findOne({ _id: motel.owner })
-            .lean()
-            .exec();
-          
-          console.log("Check address: ", motelOwner.address);
-
-          jsonMotel = {
-            idMotel: motelId,
-            name: motelName,
-            owner: motelOwner.lastName + motelOwner.firstName,
-            phone: motelOwner.phoneNumber.countryCode + motelOwner.phoneNumber.number,
-            address: motelAddress ? motelAddress.address : "Chưa có dữ liệu",
-            email: motelOwner.email,
-          };
-
-          const floors = motel.floors; // Danh sách các tầng của motel
-          let totalRevenue = 0;
-
-          // Duyệt qua từng tầng của motel
-          for (const floorId of floors) {
-            const floor = await floorModel
-              .findOne({ _id: floorId })
-              .lean()
-              .exec();
-            
-            if (floor && floor.rooms) {
-              const rooms = floor.rooms; // Danh sách các phòng trên tầng
-              // Duyệt qua từng phòng trên tầng
-              for (const roomId of rooms) {
-
-                // console.log("Check roomInfor: ", roomInfor);
-                const jobData = await jobModel.findOne({ room: roomId })
-                  .lean()
-                  .exec();
-                if (jobData) {
-                  //orders in jobData is array
-                  const orders = jobData.orders;
-                  // console.log("Check orders: ", orders);
-                  let totalRevenueRoom = 0;
-                  for (const orderId of orders) {
-                    const currentMonth = new Date().getMonth() + 1;
-                    const currentYear = new Date().getFullYear();
-                    console.log(`Tiền phòng tháng ${currentMonth}/${currentYear}`);
-                    console.log("Check orderId: ", orderId);
-                  
-                  
-                    const order = await orderModel
-                      .findOne({ _id: orderId, type: "monthly" })
-                      .lean()
-                      .exec();
-                    if (order && order.amount) {
-                      console.log("Check order: ", order.amount);
-                    
-                      totalRevenueRoom += order.amount;
-                    } else {
-                      console.log("No order found");
-                    
-                    }
-                  }
-                  totalRevenue += totalRevenueRoom;
-                
-                }
-
-                const timeExport = new Date();
-                timeExport.setHours(timeExport.getHours() + 7);
-                let json = {};
-
-
-                // if (roomInfor.rentedBy) {
-                //   const userId = roomInfor.rentedBy;
-                //   const userInfor = await userModel
-                //     .findOne({ _id: userId })
-                //     .lean()
-                //     .exec();
-
-                //   // if (roomInfor.idElectricMetter) {
-                //   //   //idElectricMetterNumber là string
-                //   //   let idElectricMetterNumber = +roomInfor.idElectricMetter;
-                  
-
-                //   //   // input: 2024-01-24/2024-01-24: không cần giờ
-                //   //   const lastStartDay = startTimeQuery;
-
-                //   //   const lastEndDay = endTimeQuery;
-
-                //   //   const { electrics: ElectricsModel } = global.mongoModel;
-
-                //   //   if (lastStartDay > lastEndDay) {
-                //   //     console.log("Thời gian bắt đầu lớn hơn thời gian kết thúc");
-                //   //   } else {
-                //   //     const datesInRange: Date[] = [];
-                //   //     let currentDate = new Date(lastStartDay);
-
-                //   //     while (currentDate <= lastEndDay) {
-                //   //       datesInRange.push(new Date(currentDate));
-                //   //       currentDate.setDate(currentDate.getDate() + 1);
-                //   //     }
-
-                //   //     const resultData = [];
-                //   //     for (const date of datesInRange) {
-                //   //       const endOfDay = new Date(date);
-                //   //       endOfDay.setHours(30, 59, 59, 999);
-
-                //   //       const query = {
-                //   //         IdDevice: roomInfor.idElectricMetter,
-                //   //         Time: {
-                //   //           $gte: date,
-                //   //           $lte: endOfDay,
-                //   //         },
-                //   //       };
-
-                //   //       const result = await ElectricsModel.findOne(query)
-                //   //         .sort({ Time: -1 })
-                //   //         .lean()
-                //   //         .exec();
-                //   //       resultData.push(result);
-                //   //     }
-
-                //   //     const totalKwhPerDay = resultData.map((item) =>
-                //   //       item !== null ? item.Total_kWh : null
-                //   //     );
-
-                //   //     const query = {
-                //   //       IdDevice: roomInfor.idElectricMetter,
-                //   //       Time: {
-                //   //         $lte: lastStartDay,
-                //   //       },
-                //   //     };
-
-                //   //     const dataBefore = await ElectricsModel.findOne(query)
-                //   //       .sort({ Time: -1 })
-                //   //       .lean()
-                //   //       .exec();
-
-                //   //     let kWhData = [];
-                //   //     let lastValue = 0;
-                //   //     if (dataBefore !== null) {
-                //   //       lastValue = dataBefore.Total_kWh;
-                //   //     }
-
-                //   //     for (let i = 0; i < totalKwhPerDay.length; i++) {
-                //   //       if (totalKwhPerDay[i] === null) {
-                //   //         kWhData.push(null);
-                //   //       } else {
-                //   //         let result = totalKwhPerDay[i] - lastValue;
-                //   //         // Trường hợp thay đồng hồ khác có chỉ số nhỏ hơn chỉ số cũ, nếu ngày đó thay đồng hồ thì chấp nhận mất dữ liệu của ngày đó
-                //   //         if (result < 0) {
-                //   //           kWhData.push(null);
-                //   //           lastValue = totalKwhPerDay[i];
-                //   //         } else {
-                //   //           kWhData.push(result);
-                //   //           lastValue = totalKwhPerDay[i];
-                //   //         }
-                //   //       }
-                //   //     }
-                //   //   }
-                //   //   const lastedValueElectric = await ElectricsModel.findOne({
-                //   //     IdDevice: idElectricMetterNumber,
-                //   //     Time: { $lt: endTimeQuery },
-                //   //   })
-                //   //     .sort({ Time: -1 })
-                //   //     .lean()
-                //   //     .exec();
-
-                //   //   const beforeValueElectric = await ElectricsModel.findOne({
-                //   //     IdDevice: idElectricMetterNumber,
-                //   //     Time: { $lt: startTimeQuery },
-                //   //   })
-                //   //     .sort({ Time: -1 })
-                //   //     .lean()
-                //   //     .exec();
-                //   //   //note: CẦN XEM SUY NGHĨ THÊM VỀ CÁC CASE
-                //   //   if (beforeValueElectric) {
-                //   //     typeElectricity = parseFloat(
-                //   //       (
-                //   //         lastedValueElectric.Total_kWh -
-                //   //         beforeValueElectric.Total_kWh
-                //   //       ).toFixed(3)
-                //   //     );
-                //   //   } else {
-                //   //     typeElectricity = parseFloat(lastedValueElectric);
-                //   //   }
-
-                //   //   const totalAll = unitPriceRoom + typeElectricity * unitPriceElectricity + typeWater * unitPriceWater + typeGarbage * unitPriceGarbage + typeWifi * unitPriceWifi + typeOther * unitPriceOther;
-                //   //   const totalAndTaxAll = unitPriceRoom + typeElectricity * unitPriceElectricity + typeWater * unitPriceWater + typeGarbage * unitPriceGarbage + typeWifi * unitPriceWifi + typeOther * unitPriceOther;
-                //   //   totalRevenue += totalAndTaxAll;
-                //   // } else {
-                //   //   //không có id metter
-                //   // }
-                // } else {
-                //   //phòng chưa được thuê
-                // }
-              }
-            } else {
-              //không có id metter
-            }
-          }
-
-          // Thêm thông tin của motel vào totalJson
-          totalJson[motelName] = {
-            jsonMotel,
-            totalRevenue: totalRevenue,
-          };
-        }
-      }
-
-
-
-      // console.log("totalJson", totalJson);
-      return HttpResponse.returnSuccessResponse(res, totalJson);
+      return HttpResponse.returnSuccessResponse(res, jsonMotel);
     } catch (e) {
       console.log({ e });
       next(e);
     }
   }
-  
+
+  static async buildingRevenue(req: Request, res: Response, next: NextFunction): Promise<any> {
+    const idMotel = req.params.idMotel;
+    const year = req.params.year;
+
+    console.log("idMotel", idMotel);
+    console.log("year", year);
+
+    let jsonMotel = [];
+
+    const {
+        order: orderModel,
+        bill: billModel,
+    } = global.mongoModel;
+
+    try {
+        const billData = await billModel.find({ motel: idMotel, type: "monthly" }).lean().exec();
+        console.log("billData", billData);
+        
+        let motelName = "";
+        if (billData.length > 0) {
+            motelName = billData[0].nameMotel;
+        }
+
+        // Initialize revenue data for each month
+        let monthlyRevenue = Array.from({ length: 12 }, (_, index) => ({ 
+            name: motelName, 
+          revenue: 0, 
+          electricNumber: 0,
+          electricPrice: 0,
+            time: `${index + 1}/${year !== "All Years" ? year : ""}` 
+        }));
+
+        // Loop through each bill and find corresponding order
+        for (const bill of billData) {
+            const orderId = bill.order;
+            const orderData = await orderModel.findOne({ _id: orderId, type: "monthly" }).lean().exec();
+            console.log("orderData", orderData);
+            
+            if (orderData) {
+                const orderStartTime = new Date(orderData.startTime);
+                const orderYear = orderStartTime.getFullYear();
+                const orderMonth = orderStartTime.getMonth(); // 0-indexed (0 = January, 11 = December)
+
+                if (year === "All Years" || orderYear === parseInt(year, 10)) {
+                  monthlyRevenue[orderMonth].revenue += orderData.amount || 0;
+                  monthlyRevenue[orderMonth].electricNumber += orderData.electricNumber || 0;
+                  monthlyRevenue[orderMonth].electricPrice += orderData.electricPrice || 0;
+                }
+            }
+        }
+
+        // Remove months with no revenue
+        jsonMotel = monthlyRevenue;
+
+        res.status(200).json({ success: true, data: jsonMotel });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+}
+
+
+
   
 
   static async testFunction(

@@ -82,9 +82,22 @@ energyRoute
   .route("/device/exportBillBuilding/:idMotel/:startTime/:endTime")
   .get(EnergyController.exportBillBuilding);
 
+// energyRoute
+//   .route("/device/buildingRevenue/:idMotel/:startTime/:endTime")
+//   .get(EnergyController.buildingRevenue);
+
+// energyRoute
+//   .route("/device/buildingRevenue/:idMotel")
+//   .get(EnergyController.buildingRevenue);
+
 energyRoute
-  .route("/device/buildingRevenue/:idMotel/:startTime/:endTime")
+  .route("/device/hostBuildingList/:idOwner")
+  .get(EnergyController.hostBuildingList);
+
+energyRoute
+  .route("/device/buildingRevenue/:idMotel/:year")
   .get(EnergyController.buildingRevenue);
+
 
 energyRoute
   .route("/device/getLastRecordsOfPreviousMonth/:year/:month")
