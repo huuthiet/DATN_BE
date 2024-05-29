@@ -797,6 +797,50 @@ export default class MotelRoomController {
     }
   }
 
+  static async getMotelRoomVisualDataById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const {
+        floor: floorModel,
+        motelRoom: motelRoomModel,
+      } = global.mongoModel;
+      let { id: motelRoomId } = req.params;
+
+      const motelData = await motelRoomModel.findOne({_id: motelRoomId}).lean().exec();
+
+      if(!motelData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không tồn tại"
+        )
+      }
+
+      if(!motelData.floors) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không có tầng nào"
+        )
+      }
+      let floorData = [];
+      const floors = motelData.floors;
+      for(let i = 0; i<floors.length; i ++) {
+        let floor = await floorModel.findOne({_id: floors[i]}).populate("rooms").lean().exec();
+        if(floor) {
+          floorData.push(floor);
+        }
+      }
+
+      // motelData.floors = floorData;
+
+      return HttpResponse.returnSuccessResponse(res, floorData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
   static async getMotelRoomByIdAndFloor(
     req: Request,
     res: Response,
