@@ -926,8 +926,8 @@ export default class OrderController {
         floor: floorModel,
       } = global.mongoModel;
 
-      // const idMotel: string = req.params.id;
-      const idMotel: string = "65d426786415bc4a8ced1afd"
+      const idMotel: string = req.params.id;
+      // const idMotel: string = "65d426786415bc4a8ced1afd"
 
       console.log({ idMotel });
 
@@ -972,7 +972,7 @@ export default class OrderController {
         payDeposits = payDeposits.concat(payDepositData);
       }
 
-      console.log({ payDeposits });
+      payDeposits = payDeposits.reverse();
 
       return HttpResponse.returnSuccessResponse(res, payDeposits);
     } catch (error) {
@@ -1034,6 +1034,7 @@ export default class OrderController {
           }
         }
       }
+      listOrderPaid = listOrderPaid.reverse();
 
       return HttpResponse.returnSuccessResponse(res, listOrderPaid);
     } catch (error) {
@@ -1085,6 +1086,8 @@ export default class OrderController {
           }
         }
       }
+
+      listOrderPaid = listOrderPaid.reverse();
 
       return HttpResponse.returnSuccessResponse(res, listOrderPaid);
     } catch (error) {

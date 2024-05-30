@@ -544,6 +544,7 @@ export default class TransactionsController {
       }
       
       orderNoPaymentList = await Promise.all(orderNoPaymentList.map(enrichOrderData));
+      orderNoPaymentList = orderNoPaymentList.reverse();
 
       return HttpResponse.returnSuccessResponse(res, orderNoPaymentList);
     } catch (error) {
@@ -647,6 +648,7 @@ export default class TransactionsController {
           }          
         }
       }
+      listOrderPendingPay = listOrderPendingPay.reverse();
 
       return HttpResponse.returnSuccessResponse(res, listOrderPendingPay);
     } catch (error) {
@@ -751,6 +753,7 @@ export default class TransactionsController {
           }          
         }
       }
+      listOrderPendingPay = listOrderPendingPay.reverse();
 
       return HttpResponse.returnSuccessResponse(res, listOrderPendingPay);
     } catch (error) {
@@ -775,7 +778,7 @@ export default class TransactionsController {
         room: roomModel,
       } = global.mongoModel;
 
-      const transactionsData = await TransactionsModel.find({
+      let transactionsData = await TransactionsModel.find({
         motel: ObjectId(idMotel),
         type: "deposit",
         paymentMethod: { $ne: "wallet" },
@@ -783,7 +786,6 @@ export default class TransactionsController {
         status: "waiting",
       }).populate("user room").lean().exec();
 
-      console.log({transactionsData})
       if (transactionsData) {
         for (let i = 0; i < transactionsData.length; i++) {
             if (transactionsData[i].file) {
@@ -810,6 +812,7 @@ export default class TransactionsController {
             // }
         }
       }
+      transactionsData = transactionsData.reverse();
 
       if (!transactionsData) {
         return HttpResponse.returnBadRequestResponse(res, []);
@@ -829,8 +832,10 @@ export default class TransactionsController {
     try {
       // const id = req.params.id;
       const idMotel = req.params.id;
+      console.log("user", req);
+      console.log("user", req["userProfile"]);
+      console.log("rôle", req["userProfile"].role);
 
-      console.log({idMotel});
       const {
         user: userModel,
         transactions: TransactionsModel,
@@ -838,7 +843,7 @@ export default class TransactionsController {
         room: roomModel,
       } = global.mongoModel;
 
-      const transactionsData = await TransactionsModel.find({
+      let transactionsData = await TransactionsModel.find({
         motel: ObjectId(idMotel),
         type: "afterCheckInCost",
         paymentMethod: { $ne: "wallet" },
@@ -846,7 +851,6 @@ export default class TransactionsController {
         status: "waiting",
       }).populate("user room").lean().exec();
 
-      console.log({transactionsData})
       if (transactionsData) {
         for (let i = 0; i < transactionsData.length; i++) {
             if (transactionsData[i].file) {
@@ -873,7 +877,7 @@ export default class TransactionsController {
             // }
         }
       }
-
+      transactionsData = transactionsData.reverse();
       if (!transactionsData) {
         return HttpResponse.returnBadRequestResponse(res, []);
       }
@@ -900,7 +904,7 @@ export default class TransactionsController {
         room: roomModel,
       } = global.mongoModel;
 
-      const transactionsData = await TransactionsModel.find({
+      let transactionsData = await TransactionsModel.find({
         motel: ObjectId(idMotel),
         type: "monthly",
         paymentMethod: { $ne: "wallet" },
@@ -908,9 +912,6 @@ export default class TransactionsController {
         status: "waiting",
       }).populate("user room").lean().exec();
 
-      console.log({transactionsData});
-
-      console.log({transactionsData})
       if (transactionsData) {
         for (let i = 0; i < transactionsData.length; i++) {
             if (transactionsData[i].file) {
@@ -937,6 +938,8 @@ export default class TransactionsController {
             // }
         }
       }
+
+      transactionsData = transactionsData.reverse();
 
       if (!transactionsData) {
         return HttpResponse.returnBadRequestResponse(res, []);
@@ -975,7 +978,7 @@ export default class TransactionsController {
         );
       }
 
-      const transactionsData = await TransactionsModel.find({
+      let transactionsData = await TransactionsModel.find({
         user: id,
         type: { $ne: "recharge" },
         paymentMethod: { $ne: "wallet" },
@@ -1008,6 +1011,9 @@ export default class TransactionsController {
           // }
         }
       }
+
+      //SẮP XẾP
+      transactionsData = transactionsData.reverse();
 
       if (!transactionsData) {
         return HttpResponse.returnBadRequestResponse(res, "logPayment");
@@ -1071,7 +1077,6 @@ export default class TransactionsController {
     res: Response,
     next: NextFunction
   ): Promise<any> {
-
     const getRandomInt = (min, max) =>
       Math.floor(Math.random() * (max - min)) + min;
       const getRandomString = (length, base) => {
@@ -1110,11 +1115,8 @@ export default class TransactionsController {
       } = global.mongoModel;
 
       const id = req.params.id;
-      console.log({id});
 
       let { body: data } = req;
-
-      console.log({data});
 
       let resData = await TransactionsModel.findOne({
         _id: ObjectId(id),
@@ -1413,18 +1415,13 @@ export default class TransactionsController {
               }
             )
             .exec();
-
-            console.log({JobData});
             
             const userData = await userModel.findOne({_id: JobData.user}).lean().exec();
-            console.log({userData});
             const floorData = await floorModel.findOne({rooms: JobData.room._id}).lean().exec();
-            console.log({floorData});
             const motelData = await motelRoomModel.findOne({floors: floorData._id})
                                                                                 .populate("owner address").lean().exec();
-            console.log({motelData});
+
             const bankData = await BankingModel.find({user: motelData.owner._id}).lean().exec();
-            console.log({bankData});
             
             
             //create bill
