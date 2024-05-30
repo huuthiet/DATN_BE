@@ -7,6 +7,10 @@ const energyRoute = express.Router();
 energyRoute.route("/testFunction").get(EnergyController.testFunction);
 
 energyRoute
+  .route("/device/historyEnergyByJob/:id/:year")
+  .get(EnergyController.getHistoryEnergyByJob);
+
+energyRoute
   .route("/device/getTotalKWhPerHourInOneDay/:idRoom/:day")
   .get(EnergyController.getTotalKWhPerHourInOneDay);
 
@@ -23,6 +27,7 @@ energyRoute
 energyRoute
   .route("/device/getTotalKWhPerDayForDayToDayV2/:idRoom/:start/:end")
   .get(EnergyController.getTotalKWhPerDayForDayToDayV2);
+
 
 energyRoute
   .route("/device/getListIdMetterElectricByRoom/:id")
