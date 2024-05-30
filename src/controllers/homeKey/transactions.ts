@@ -761,6 +761,49 @@ export default class TransactionsController {
     }
   }
 
+  static async getListOrderNoPayOfPayDeposit(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const idPayDeposit = req.params.id;
+
+      console.log({idPayDeposit})
+
+      const {
+        order: orderModel,
+        payDepositList: payDepositListModel,
+      } = global.mongoModel;
+
+      let listOrderNoPay = [];
+
+      const payDepositListData = await payDepositListModel.findOne({_id: idPayDeposit}).lean().exec();
+
+      if(!payDepositListData) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+      if(!payDepositListData.ordersNoPay) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+      if(payDepositListData.ordersNoPay.length === 0) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+
+      for(let i = 0; i < payDepositListData.ordersNoPay.length; i++) {
+        let orderData = await orderModel.findOne({_id: payDepositListData.ordersNoPay[i]}).lean().exec();
+        if(orderData) {
+          listOrderNoPay.push(orderData);
+        }
+      }
+
+      return HttpResponse.returnSuccessResponse(res, listOrderNoPay);
+
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getBankingCashPendingDepositListByMotel (
     req: Request,
     res: Response,

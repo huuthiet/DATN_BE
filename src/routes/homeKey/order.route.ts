@@ -41,6 +41,9 @@ orderRoute
 orderRoute
   .route("/orderDepositAfterCheckInCostPendingPaymentListByMotel/:id") //by motel
   .get(TransactionsController.getOrderDepositAfterCheckInCostPendingPaymentListByMotel)
+orderRoute
+  .route("/listOrderNoPayOfPayDeposit/:id") // + id payDeposit
+  .get(TransactionsController.getListOrderNoPayOfPayDeposit)
 
   orderRoute
   .route("/putBankingCashPendingTransactionByMotel/:id")
