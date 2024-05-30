@@ -15,7 +15,7 @@ export default class BillController {
 
   static async insertDb(data, userId): Promise<any> {
     const {
-      bill: billModel, 
+      bill: billModel,
       optionsType: OptionsTypeModel,
     } = global.mongoModel;
     // check trung ma hoa đơn
@@ -509,7 +509,67 @@ export default class BillController {
     });
   }
 
-  /* -------------------------------------------------------------------------- */
-  /*                             END HELPER FUNCTION                            */
-  /* -------------------------------------------------------------------------- */
+  static async saveHostRevenue(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    let jsonRevenue = [];
+    try {
+      const { user: userModel, motelRoom: motelRoomModel, bill: billModel, order: orderModel } = global.mongoModel;
+
+      const users = await userModel.find({ role: "host" }).exec();
+      if (users.length === 0) {
+        return HttpResponse.returnErrorWithMessage(res, "Không có dữ liệu");
+      }
+
+      for (const user of users) {
+        console.log("Check user", user._id);
+        console.log("Check user", user);
+
+        const motelInfor = await motelRoomModel.find({ owner: user._id }).exec();
+        console.log({ motelInfor });
+
+        let userRevenue = {
+          user: `${user.lastName} ${user.firstName}`,
+          revenue: 0,
+          timePeriod: 'Không có'
+        };
+
+        for (const motel of motelInfor) {
+          const billData = await billModel.find({ motel: motel._id, type: "monthly" }).exec();
+          console.log({ billData });
+
+          for (const bill of billData) {
+            const orderData = await orderModel.findOne({ _id: bill.order, type: "monthly" }).exec();
+            console.log({ orderData });
+
+            if (orderData) {
+              const orderStartTime = new Date(orderData.startTime);
+              const currentDate = new Date();
+
+              if (
+                orderStartTime.getMonth() === currentDate.getMonth() &&
+                orderStartTime.getFullYear() === currentDate.getFullYear()
+              ) {
+                userRevenue.revenue += orderData.amount;
+                userRevenue.timePeriod = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
+              }
+            }
+          }
+        }
+
+        jsonRevenue.push(userRevenue);
+      }
+
+      return HttpResponse.returnSuccessResponse(res, {
+        message: "Get all bills of customers successful",
+        data: jsonRevenue,
+      });
+
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
+

@@ -46,5 +46,4 @@ export = app => {
 	// // About APIs
 	// app.use('/uploading', uploadimgRoute);
 
-
 };

@@ -86,7 +86,7 @@ export default class PaymentController {
       if (!orderData) {
         return HttpResponse.returnBadRequestResponse(
           res,
-          "Hóa đơn không tồn tại"
+          "Không tìm thấy hóa đơn!"
         );
       }
 

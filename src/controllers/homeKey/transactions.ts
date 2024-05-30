@@ -158,7 +158,7 @@ export default class TransactionsController {
   ): Promise<any> {
     try {
       // Init models
-      const { 
+      const {
         transactions: TransactionsModel,
         order: orderModel,
         user: userModel,
@@ -166,8 +166,8 @@ export default class TransactionsController {
         motelRoom: motelRoomModel,
         floor: floorModel,
         job: jobModel,
-       } = global.mongoModel;
-      
+      } = global.mongoModel;
+
       const id = req.params.id;
 
       let { body: formData } = req;
@@ -188,7 +188,7 @@ export default class TransactionsController {
         status: "waiting",
       }).lean().exec();
 
-      if(transactionDataRes) {
+      if (transactionDataRes) {
         return HttpResponse.returnBadRequestResponse(
           res,
           "Phòng đã được đặt cọc trước đó, giao dịch đang chờ phê duyệt. Vui lòng quay lại sau!"
@@ -263,7 +263,7 @@ export default class TransactionsController {
       if (!motelRoomData) {
         return HttpResponse.returnBadRequestResponse(res, "Phòng không hợp lệ");
       }
-      let resData = await jobModel.create(formData);``
+      let resData = await jobModel.create(formData); ``
       let userUpdateData = {
         $addToSet: {
           jobs: resData._id,
@@ -361,7 +361,7 @@ export default class TransactionsController {
     next: NextFunction
   ): Promise<any> {
     try {
-      const { 
+      const {
         transactions: TransactionsModel,
         order: orderModel,
         user: userModel,
@@ -369,48 +369,48 @@ export default class TransactionsController {
         motelRoom: motelRoomModel,
         floor: floorModel,
         job: jobModel,
-       } = global.mongoModel;
-      
+      } = global.mongoModel;
+
 
       let { body: formData } = req;
 
-      console.log({formData});
+      console.log({ formData });
 
-      const orderData = await orderModel.findOne({_id: formData.order}).lean().exec();
+      const orderData = await orderModel.findOne({ _id: formData.order }).lean().exec();
 
-      if(!orderData) {
+      if (!orderData) {
         return HttpResponse.returnBadRequestResponse(
           res,
-          "Hóa đơn không tồn tại"
+          "Không tìm thấy hóa đơn"
         )
       }
 
-      const motelData = await motelRoomModel.findOne({_id: formData.motel}).lean().exec();
-      if(!motelData) {
+      const motelData = await motelRoomModel.findOne({ _id: formData.motel }).lean().exec();
+      if (!motelData) {
         return HttpResponse.returnBadRequestResponse(
           res,
           "Tòa nhà không tồn tại"
         )
       }
 
-      const roomData = await roomModel.findOne({_id: formData.room}).lean().exec();
-      if(!roomData) {
+      const roomData = await roomModel.findOne({ _id: formData.room }).lean().exec();
+      if (!roomData) {
         return HttpResponse.returnBadRequestResponse(
           res,
           "Phòng không tồn tại"
         )
       }
 
-      const tranRes = await TransactionsModel.findOne({order: ObjectId(formData.order)}).lean().exec();
-      console.log({tranRes});
-      if(tranRes) {
+      const tranRes = await TransactionsModel.findOne({ order: ObjectId(formData.order) }).lean().exec();
+      console.log({ tranRes });
+      if (tranRes) {
         return HttpResponse.returnBadRequestResponse(
           res,
           "Yêu cầu thanh toán đã tồn tài, vui lòng chờ phê duyệt"
         )
       }
       let transactionsData = {}
-      if(formData.type === "afterCheckInCost") {
+      if (formData.type === "afterCheckInCost") {
         transactionsData = await TransactionsModel.create({
           user: req["userId"],
           keyPayment: formData.keyPayment,
@@ -425,7 +425,7 @@ export default class TransactionsController {
           motel: motelData._id,
           room: roomData._id,
         });
-      } else if(formData.type === "monthly") {
+      } else if (formData.type === "monthly") {
         transactionsData = await TransactionsModel.create({
           user: req["userId"],
           keyPayment: formData.keyPayment,
@@ -442,7 +442,7 @@ export default class TransactionsController {
         });
       }
 
-      
+
       // Get ip
       // formData["ipAddr"] =
       //   req.headers["x-forwarded-for"] ||
@@ -464,7 +464,7 @@ export default class TransactionsController {
     try {
       const userId = req["userId"];
       // const userId = "66066c737dc6a346c59765a9";
-      console.log({userId});
+      console.log({ userId });
       const {
         user: userModel,
         motelRoom: motelRoomModel,
@@ -473,13 +473,13 @@ export default class TransactionsController {
         floor: floorModel,
       } = global.mongoModel;
 
-      const userData = await userModel.findOne({_id: userId}).populate("jobs").lean().exec();
-      if(!userData) {
+      const userData = await userModel.findOne({ _id: userId }).populate("jobs").lean().exec();
+      if (!userData) {
         return HttpResponse.returnBadRequestResponse(res,
           "Người dùng không tồn tại"
         )
       }
-      if(userData.jobs.lengh === 0) {
+      if (userData.jobs.lengh === 0) {
         return HttpResponse.returnBadRequestResponse(
           res,
           "Người dùng chưa có hợp đồng thuê phòng nào"
@@ -488,7 +488,7 @@ export default class TransactionsController {
       const jobListCurrent = userData.jobs.filter(job => job.isDeleted === false); //chưa bị xóa
       console.log(jobListCurrent.length);
 
-      if(jobListCurrent.length === 0){
+      if (jobListCurrent.length === 0) {
         return HttpResponse.returnBadRequestResponse(
           res,
           "Người dùng không có hợp đồng nào còn hiệu lực"
@@ -496,20 +496,20 @@ export default class TransactionsController {
       }
 
       let currentOrderIdOfList = jobListCurrent.map(job => job.currentOrder);
-      console.log({currentOrderIdOfList});
+      console.log({ currentOrderIdOfList });
       //sẽ có trường hợp user có 2 bill liên tiếp chưa thanh toán, kiểm tra order kế order current
 
       const currentOrderIdOfListLength = currentOrderIdOfList.length;
 
       let orderNoPaymentList = [];
-      for(let i: number = 0; i < currentOrderIdOfListLength; i++) {
-        let orderData = await orderModel.findOne({_id: currentOrderIdOfList[i]}).lean().exec();
-        if(orderData.isCompleted === false) {
+      for (let i: number = 0; i < currentOrderIdOfListLength; i++) {
+        let orderData = await orderModel.findOne({ _id: currentOrderIdOfList[i] }).lean().exec();
+        if (orderData.isCompleted === false) {
           orderNoPaymentList.push(orderData);
         }
       }
 
-      if(orderNoPaymentList.length === 0) {
+      if (orderNoPaymentList.length === 0) {
         return HttpResponse.returnBadRequestResponse(res,
           "Người dùng hiện tại không có hóa đơn nào chưa thanh toán"
         )
@@ -542,7 +542,7 @@ export default class TransactionsController {
         }
         return order;
       }
-      
+
       orderNoPaymentList = await Promise.all(orderNoPaymentList.map(enrichOrderData));
 
       return HttpResponse.returnSuccessResponse(res, orderNoPaymentList);
@@ -559,7 +559,7 @@ export default class TransactionsController {
     try {
       const idMotel = req.params.id;
       // const userId = "66066c737dc6a346c59765a9";
-      console.log({idMotel});
+      console.log({ idMotel });
       const {
         user: userModel,
         motelRoom: motelRoomModel,
@@ -568,15 +568,15 @@ export default class TransactionsController {
         floor: floorModel,
       } = global.mongoModel;
 
-      const motelData = await motelRoomModel.findOne({_id: idMotel}).populate("floors").lean().exec();
-      if(!motelData) {
+      const motelData = await motelRoomModel.findOne({ _id: idMotel }).populate("floors").lean().exec();
+      if (!motelData) {
         // return HttpResponse.returnBadRequestResponse(
         //   res,
         //   "Tòa nhà không tồn tại"
         // )
         return HttpResponse.returnSuccessResponse(res, []);
       }
-      if(motelData.floors.length === 0) {
+      if (motelData.floors.length === 0) {
         // return HttpResponse.returnBadRequestResponse(
         //   res,
         //   "Tòa nhà không có tầng nào"
@@ -584,16 +584,16 @@ export default class TransactionsController {
         return HttpResponse.returnSuccessResponse(res, []);
       }
 
-      console.log({motelData});
+      console.log({ motelData });
 
       let roomIdList = [];
       // roomIdList = roomIdList.concat(motelData.floors.filter((floor) => floor.rooms));
-      for (let i: number = 0; i<motelData.floors.length; i++) {
+      for (let i: number = 0; i < motelData.floors.length; i++) {
         roomIdList = roomIdList.concat(motelData.floors[i].rooms);
       }
-      console.log({roomIdList});
+      console.log({ roomIdList });
 
-      if(roomIdList.length === 0) {
+      if (roomIdList.length === 0) {
         // return HttpResponse.returnBadRequestResponse(
         //   res,
         //   "Tòa nhà hiện không có phòng nào"
@@ -603,32 +603,32 @@ export default class TransactionsController {
       const roomIdListLength = roomIdList.length;
 
       let listOrderPendingPay = [];
-      for(let i: number = 0; i<roomIdListLength; i++) {
+      for (let i: number = 0; i < roomIdListLength; i++) {
         let dataPush = {};
         let jobData = await jobModel.findOne({
           isDeleted: false,
           room: roomIdList[i]
         }).populate("currentOrder room").lean().exec();
 
-        if(jobData) {
-          if(jobData.currentOrder.isCompleted === false && jobData.currentOrder.type === "monthly") {
-            let userData = await userModel.findOne({_id: jobData.user}).lean().exec();
+        if (jobData) {
+          if (jobData.currentOrder.isCompleted === false && jobData.currentOrder.type === "monthly") {
+            let userData = await userModel.findOne({ _id: jobData.user }).lean().exec();
             let data;
-            if(userData && jobData.room) {
+            if (userData && jobData.room) {
               data = {
                 userName: userData.lastName + " " + userData.firstName,
                 userPhone: userData.phoneNumber.countryCode + " " + userData.phoneNumber.number,
                 roomName: jobData.room.name,
                 ...jobData.currentOrder,
               };
-            } else if(userData) {
+            } else if (userData) {
               data = {
                 userName: userData.lastName + " " + userData.firstName,
                 userPhone: userData.phoneNumber.countryCode + " " + userData.phoneNumber.number,
                 roomName: null,
                 ...jobData.currentOrder,
               };
-            } else if(jobData.room) {
+            } else if (jobData.room) {
               data = {
                 userName: null,
                 userPhone: null,
@@ -644,7 +644,7 @@ export default class TransactionsController {
               };
             }
             listOrderPendingPay.push(data);
-          }          
+          }
         }
       }
 
@@ -663,7 +663,7 @@ export default class TransactionsController {
       const idMotel = req.params.id;
       // const idMotel = "65d426786415bc4a8ced1afd";
       // const userId = "66066c737dc6a346c59765a9";
-      console.log({idMotel});
+      console.log({ idMotel });
       const {
         user: userModel,
         motelRoom: motelRoomModel,
@@ -672,15 +672,15 @@ export default class TransactionsController {
         floor: floorModel,
       } = global.mongoModel;
 
-      const motelData = await motelRoomModel.findOne({_id: idMotel}).populate("floors").lean().exec();
-      if(!motelData) {
+      const motelData = await motelRoomModel.findOne({ _id: idMotel }).populate("floors").lean().exec();
+      if (!motelData) {
         // return HttpResponse.returnBadRequestResponse(
         //   res,
         //   "Tòa nhà không tồn tại"
         // )
         return HttpResponse.returnSuccessResponse(res, []);
       }
-      if(motelData.floors.length === 0) {
+      if (motelData.floors.length === 0) {
         // return HttpResponse.returnBadRequestResponse(
         //   res,
         //   "Tòa nhà không có tầng nào"
@@ -688,16 +688,16 @@ export default class TransactionsController {
         return HttpResponse.returnSuccessResponse(res, []);
       }
 
-      console.log({motelData});
+      console.log({ motelData });
 
       let roomIdList = [];
       // roomIdList = roomIdList.concat(motelData.floors.filter((floor) => floor.rooms));
-      for (let i: number = 0; i<motelData.floors.length; i++) {
+      for (let i: number = 0; i < motelData.floors.length; i++) {
         roomIdList = roomIdList.concat(motelData.floors[i].rooms);
       }
-      console.log({roomIdList});
+      console.log({ roomIdList });
 
-      if(roomIdList.length === 0) {
+      if (roomIdList.length === 0) {
         // return HttpResponse.returnBadRequestResponse(
         //   res,
         //   "Tòa nhà hiện không có phòng nào"
@@ -707,32 +707,32 @@ export default class TransactionsController {
       const roomIdListLength = roomIdList.length;
 
       let listOrderPendingPay = [];
-      for(let i: number = 0; i<roomIdListLength; i++) {
+      for (let i: number = 0; i < roomIdListLength; i++) {
         let dataPush = {};
         let jobData = await jobModel.findOne({
           isDeleted: false,
           room: roomIdList[i]
         }).populate("currentOrder room").lean().exec();
 
-        if(jobData) {
-          if(jobData.currentOrder.isCompleted === false && (jobData.currentOrder.type === "deposit" || jobData.currentOrder.type === "afterCheckInCost")) {
-            let userData = await userModel.findOne({_id: jobData.user}).lean().exec();
+        if (jobData) {
+          if (jobData.currentOrder.isCompleted === false && (jobData.currentOrder.type === "deposit" || jobData.currentOrder.type === "afterCheckInCost")) {
+            let userData = await userModel.findOne({ _id: jobData.user }).lean().exec();
             let data;
-            if(userData && jobData.room) {
+            if (userData && jobData.room) {
               data = {
                 userName: userData.lastName + " " + userData.firstName,
                 userPhone: userData.phoneNumber.countryCode + " " + userData.phoneNumber.number,
                 roomName: jobData.room.name,
                 ...jobData.currentOrder,
               };
-            } else if(userData) {
+            } else if (userData) {
               data = {
                 userName: userData.lastName + " " + userData.firstName,
                 userPhone: userData.phoneNumber.countryCode + " " + userData.phoneNumber.number,
                 roomName: null,
                 ...jobData.currentOrder,
               };
-            } else if(jobData.room) {
+            } else if (jobData.room) {
               data = {
                 userName: null,
                 userPhone: null,
@@ -748,7 +748,7 @@ export default class TransactionsController {
               };
             }
             listOrderPendingPay.push(data);
-          }          
+          }
         }
       }
 
@@ -758,7 +758,7 @@ export default class TransactionsController {
     }
   }
 
-  static async getBankingCashPendingDepositListByMotel (
+  static async getBankingCashPendingDepositListByMotel(
     req: Request,
     res: Response,
     next: NextFunction,
@@ -767,7 +767,7 @@ export default class TransactionsController {
       // const id = req.params.id;
       const idMotel = req.params.id;
 
-      console.log({idMotel});
+      console.log({ idMotel });
       const {
         user: userModel,
         transactions: TransactionsModel,
@@ -783,31 +783,31 @@ export default class TransactionsController {
         status: "waiting",
       }).populate("user room").lean().exec();
 
-      console.log({transactionsData})
+      console.log({ transactionsData })
       if (transactionsData) {
         for (let i = 0; i < transactionsData.length; i++) {
-            if (transactionsData[i].file) {
-              const dataimg = await imageModel.findOne({
-                _id: transactionsData[i].file,
-              });
-              if (dataimg) {
-                transactionsData[i].file = await helpers.getImageUrl(dataimg);
-              }
-            }     
-            
-            // if(transactionsData[i].motel) {
-            //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
-            //   if(motelData) {
-            //     transactionsData[i].motel = motelData;
-            //   }
-            // }
+          if (transactionsData[i].file) {
+            const dataimg = await imageModel.findOne({
+              _id: transactionsData[i].file,
+            });
+            if (dataimg) {
+              transactionsData[i].file = await helpers.getImageUrl(dataimg);
+            }
+          }
 
-            // if(transactionsData[i].room) {
-            //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
-            //   if(roomData) {
-            //     transactionsData[i].room = roomData;
-            //   }
-            // }
+          // if(transactionsData[i].motel) {
+          //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+          //   if(motelData) {
+          //     transactionsData[i].motel = motelData;
+          //   }
+          // }
+
+          // if(transactionsData[i].room) {
+          //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+          //   if(roomData) {
+          //     transactionsData[i].room = roomData;
+          //   }
+          // }
         }
       }
 
@@ -821,7 +821,7 @@ export default class TransactionsController {
     }
   }
 
-  static async getBankingCashPendingAfterCheckInCostListByMotel (
+  static async getBankingCashPendingAfterCheckInCostListByMotel(
     req: Request,
     res: Response,
     next: NextFunction,
@@ -830,7 +830,7 @@ export default class TransactionsController {
       // const id = req.params.id;
       const idMotel = req.params.id;
 
-      console.log({idMotel});
+      console.log({ idMotel });
       const {
         user: userModel,
         transactions: TransactionsModel,
@@ -846,31 +846,31 @@ export default class TransactionsController {
         status: "waiting",
       }).populate("user room").lean().exec();
 
-      console.log({transactionsData})
+      console.log({ transactionsData })
       if (transactionsData) {
         for (let i = 0; i < transactionsData.length; i++) {
-            if (transactionsData[i].file) {
-              const dataimg = await imageModel.findOne({
-                _id: transactionsData[i].file,
-              });
-              if (dataimg) {
-                transactionsData[i].file = await helpers.getImageUrl(dataimg);
-              }
-            }     
-            
-            // if(transactionsData[i].motel) {
-            //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
-            //   if(motelData) {
-            //     transactionsData[i].motel = motelData;
-            //   }
-            // }
+          if (transactionsData[i].file) {
+            const dataimg = await imageModel.findOne({
+              _id: transactionsData[i].file,
+            });
+            if (dataimg) {
+              transactionsData[i].file = await helpers.getImageUrl(dataimg);
+            }
+          }
 
-            // if(transactionsData[i].room) {
-            //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
-            //   if(roomData) {
-            //     transactionsData[i].room = roomData;
-            //   }
-            // }
+          // if(transactionsData[i].motel) {
+          //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+          //   if(motelData) {
+          //     transactionsData[i].motel = motelData;
+          //   }
+          // }
+
+          // if(transactionsData[i].room) {
+          //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+          //   if(roomData) {
+          //     transactionsData[i].room = roomData;
+          //   }
+          // }
         }
       }
 
@@ -884,7 +884,7 @@ export default class TransactionsController {
     }
   }
 
-  static async getBankingCashPendingMonthlyByMotel (
+  static async getBankingCashPendingMonthlyByMotel(
     req: Request,
     res: Response,
     next: NextFunction,
@@ -892,7 +892,7 @@ export default class TransactionsController {
     try {
       const idMotel = req.params.id;
 
-      console.log({idMotel});
+      console.log({ idMotel });
       const {
         user: userModel,
         transactions: TransactionsModel,
@@ -908,33 +908,33 @@ export default class TransactionsController {
         status: "waiting",
       }).populate("user room").lean().exec();
 
-      console.log({transactionsData});
+      console.log({ transactionsData });
 
-      console.log({transactionsData})
+      console.log({ transactionsData })
       if (transactionsData) {
         for (let i = 0; i < transactionsData.length; i++) {
-            if (transactionsData[i].file) {
-              const dataimg = await imageModel.findOne({
-                _id: transactionsData[i].file,
-              });
-              if (dataimg) {
-                transactionsData[i].file = await helpers.getImageUrl(dataimg);
-              }
-            }     
-            
-            // if(transactionsData[i].motel) {
-            //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
-            //   if(motelData) {
-            //     transactionsData[i].motel = motelData;
-            //   }
-            // }
+          if (transactionsData[i].file) {
+            const dataimg = await imageModel.findOne({
+              _id: transactionsData[i].file,
+            });
+            if (dataimg) {
+              transactionsData[i].file = await helpers.getImageUrl(dataimg);
+            }
+          }
 
-            // if(transactionsData[i].room) {
-            //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
-            //   if(roomData) {
-            //     transactionsData[i].room = roomData;
-            //   }
-            // }
+          // if(transactionsData[i].motel) {
+          //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+          //   if(motelData) {
+          //     transactionsData[i].motel = motelData;
+          //   }
+          // }
+
+          // if(transactionsData[i].room) {
+          //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+          //   if(roomData) {
+          //     transactionsData[i].room = roomData;
+          //   }
+          // }
         }
       }
 
@@ -948,7 +948,7 @@ export default class TransactionsController {
     }
   }
 
-  static async getBankingCashTransactionsList (
+  static async getBankingCashTransactionsList(
     req: Request,
     res: Response,
     next: NextFunction,
@@ -957,7 +957,7 @@ export default class TransactionsController {
       // const id = req.params.id;
       const id = req["userId"];
 
-      console.log({id});
+      console.log({ id });
       const {
         user: userModel,
         transactions: TransactionsModel,
@@ -966,8 +966,8 @@ export default class TransactionsController {
         room: roomModel,
       } = global.mongoModel;
 
-      const userData = await userModel.findOne({_id: id}).lean().exec();
-      console.log({userData})
+      const userData = await userModel.findOne({ _id: id }).lean().exec();
+      console.log({ userData })
       if (!userData) {
         return HttpResponse.returnBadRequestResponse(
           res,
@@ -991,8 +991,8 @@ export default class TransactionsController {
             if (dataimg) {
               transactionsData[i].file = await helpers.getImageUrl(dataimg);
             }
-          }     
-          
+          }
+
           // if(transactionsData[i].motel) {
           //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
           //   if(motelData) {
@@ -1031,7 +1031,7 @@ export default class TransactionsController {
       const { payDepositList: PayDepositListModel } = global.mongoModel;
 
       const id = req.params.id;
-      console.log({id});
+      console.log({ id });
 
       let { body: data } = req;
 
@@ -1074,7 +1074,7 @@ export default class TransactionsController {
 
     const getRandomInt = (min, max) =>
       Math.floor(Math.random() * (max - min)) + min;
-      const getRandomString = (length, base) => {
+    const getRandomString = (length, base) => {
       let result = "";
       const baseLength = base.length;
 
@@ -1096,7 +1096,7 @@ export default class TransactionsController {
 
     try {
       // Init models
-      const { 
+      const {
         transactions: TransactionsModel,
         order: orderModel,
         user: userModel,
@@ -1110,11 +1110,11 @@ export default class TransactionsController {
       } = global.mongoModel;
 
       const id = req.params.id;
-      console.log({id});
+      console.log({ id });
 
       let { body: data } = req;
 
-      console.log({data});
+      console.log({ data });
 
       let resData = await TransactionsModel.findOne({
         _id: ObjectId(id),
@@ -1132,11 +1132,11 @@ export default class TransactionsController {
       //TRƯỜNG HỢP HỦY VÀ TRƯỜNG HỢP ĐỒNG Ý
       const resDataS = await TransactionsModel.findOneAndUpdate(
         { _id: id },
-        { 
+        {
           status: data.status,
           isDeleted: true,
-         },
-        {new: true}
+        },
+        { new: true }
       )
         .lean()
         .exec();
@@ -1150,7 +1150,7 @@ export default class TransactionsController {
         if (!orderData) {
           return HttpResponse.returnBadRequestResponse(
             res,
-            "Hóa đơn không tồn tại"
+            "Không tìm thấy hóa đơn!"
           );
         }
 
@@ -1189,7 +1189,7 @@ export default class TransactionsController {
             unitPrice: roomData.electricityPrice.toFixed(2),
             total: orderData.electricPrice.toFixed(2),
           });
-          
+
           const garbage = await OptionsTypeModel.create({
             expense: "Chi Dịch Vụ",
             type: "1",
@@ -1224,16 +1224,16 @@ export default class TransactionsController {
             total: orderData.roomPrice.toFixed(2),
           });
 
-          const userData = await userModel.findOne({_id: JobData.user}).lean().exec();
-          console.log({userData});
-          const floorData = await floorModel.findOne({rooms: JobData.room._id}).lean().exec();
-          console.log({floorData});
-          const motelData = await motelRoomModel.findOne({floors: floorData._id})
-                                                                                .populate("owner address").lean().exec();
+          const userData = await userModel.findOne({ _id: JobData.user }).lean().exec();
+          console.log({ userData });
+          const floorData = await floorModel.findOne({ rooms: JobData.room._id }).lean().exec();
+          console.log({ floorData });
+          const motelData = await motelRoomModel.findOne({ floors: floorData._id })
+            .populate("owner address").lean().exec();
 
-          console.log({motelData})                                                                      
-          const bankData = await BankingModel.find({user: motelData.owner._id}).lean().exec();
-          console.log({bankData});
+          console.log({ motelData })
+          const bankData = await BankingModel.find({ user: motelData.owner._id }).lean().exec();
+          console.log({ bankData });
 
           await billModel.create({
             order: orderData._id,
@@ -1249,7 +1249,7 @@ export default class TransactionsController {
             emailUser: userData.email,
 
             nameOwner: motelData.owner.lastName + motelData.owner.firstName,
-            emailOwner:  motelData.owner.email,
+            emailOwner: motelData.owner.email,
             phoneOwner: motelData.owner.phoneNumber.countryCode + motelData.owner.phoneNumber.number,
             addressOwner: motelData.owner.address,
             nameBankOwner: bankData ? bankData[0].nameTkLable : "Chưa thêm tài khoản",
@@ -1275,7 +1275,7 @@ export default class TransactionsController {
 
             user: JobData.user._id,
             motel: motelData._id,
-            roomRented: roomData._id, 
+            roomRented: roomData._id,
 
             type: "monthly",
           });
@@ -1351,9 +1351,9 @@ export default class TransactionsController {
               )
               .exec();
 
-            const bankData = await BankingModel.find({user: motelRoomData.owner._id}).lean().exec();
-            const userData = await userModel.findOne({_id: jobData.user}).lean().exec();
-            
+            const bankData = await BankingModel.find({ user: motelRoomData.owner._id }).lean().exec();
+            const userData = await userModel.findOne({ _id: jobData.user }).lean().exec();
+
             //create bill
             await billModel.create({
               order: orderData._id,
@@ -1369,7 +1369,7 @@ export default class TransactionsController {
               emailUser: userData.email,
 
               nameOwner: motelRoomData.owner.lastName + motelRoomData.owner.firstName,
-              emailOwner:  motelRoomData.owner.email,
+              emailOwner: motelRoomData.owner.email,
               phoneOwner: motelRoomData.owner.phoneNumber.countryCode + motelRoomData.owner.phoneNumber.number,
               addressOwner: motelRoomData.owner.address,
               nameBankOwner: bankData ? bankData[0].nameTkLable : "Chưa thêm tài khoản",
@@ -1385,11 +1385,11 @@ export default class TransactionsController {
 
               user: jobData.user,
               motel: motelRoomData._id,
-              roomRented: jobData.room._id, 
+              roomRented: jobData.room._id,
 
               type: "deposit",
             });
-            
+
           }
         }
 
@@ -1414,64 +1414,64 @@ export default class TransactionsController {
             )
             .exec();
 
-            console.log({JobData});
-            
-            const userData = await userModel.findOne({_id: JobData.user}).lean().exec();
-            console.log({userData});
-            const floorData = await floorModel.findOne({rooms: JobData.room._id}).lean().exec();
-            console.log({floorData});
-            const motelData = await motelRoomModel.findOne({floors: floorData._id})
-                                                                                .populate("owner address").lean().exec();
-            console.log({motelData});
-            const bankData = await BankingModel.find({user: motelData.owner._id}).lean().exec();
-            console.log({bankData});
-            
-            
-            //create bill
-            await billModel.create({
-              order: orderData._id,
-              idBill: getRandomHex2(),
-              dateBill: moment().format("DD/MM/YYYY"),
-              nameMotel: motelData.name,
-              addressMotel: motelData.address.address,
-              nameRoom: JobData.room.name,
+          console.log({ JobData });
 
-              nameUser: userData.lastName + " " + userData.firstName,
-              phoneUser: userData.phoneNumber.countryCode + userData.phoneNumber.number,
-              addressUser: userData.address,
-              emailUser: userData.email,
+          const userData = await userModel.findOne({ _id: JobData.user }).lean().exec();
+          console.log({ userData });
+          const floorData = await floorModel.findOne({ rooms: JobData.room._id }).lean().exec();
+          console.log({ floorData });
+          const motelData = await motelRoomModel.findOne({ floors: floorData._id })
+            .populate("owner address").lean().exec();
+          console.log({ motelData });
+          const bankData = await BankingModel.find({ user: motelData.owner._id }).lean().exec();
+          console.log({ bankData });
 
-              nameOwner: motelData.owner.lastName + motelData.owner.firstName,
-              emailOwner:  motelData.owner.email,
-              phoneOwner: motelData.owner.phoneNumber.countryCode + motelData.owner.phoneNumber.number,
-              addressOwner: motelData.owner.address,
-              nameBankOwner: bankData ? bankData[0].nameTkLable : "Chưa thêm tài khoản",
-              numberBankOwner: bankData ? bankData[0].stk : "Chưa thêm tài khoản",
-              nameOwnerBankOwner: bankData ? bankData[0].nameTk : "Chưa thêm tài khoản",
 
-              totalAll: orderData.amount.toFixed(2),
-              totalAndTaxAll: orderData.amount.toFixed(2),
-              totalTaxAll: 0,
-              typeTaxAll: 0,
+          //create bill
+          await billModel.create({
+            order: orderData._id,
+            idBill: getRandomHex2(),
+            dateBill: moment().format("DD/MM/YYYY"),
+            nameMotel: motelData.name,
+            addressMotel: motelData.address.address,
+            nameRoom: JobData.room.name,
 
-              description: orderData.orderData,
+            nameUser: userData.lastName + " " + userData.firstName,
+            phoneUser: userData.phoneNumber.countryCode + userData.phoneNumber.number,
+            addressUser: userData.address,
+            emailUser: userData.email,
 
-              user: JobData.user._id,
-              motel: motelData._id,
-              roomRented: JobData.room._id, 
+            nameOwner: motelData.owner.lastName + motelData.owner.firstName,
+            emailOwner: motelData.owner.email,
+            phoneOwner: motelData.owner.phoneNumber.countryCode + motelData.owner.phoneNumber.number,
+            addressOwner: motelData.owner.address,
+            nameBankOwner: bankData ? bankData[0].nameTkLable : "Chưa thêm tài khoản",
+            numberBankOwner: bankData ? bankData[0].stk : "Chưa thêm tài khoản",
+            nameOwnerBankOwner: bankData ? bankData[0].nameTk : "Chưa thêm tài khoản",
 
-              type: "afterCheckInCost",
-            });
-  
+            totalAll: orderData.amount.toFixed(2),
+            totalAndTaxAll: orderData.amount.toFixed(2),
+            totalTaxAll: 0,
+            typeTaxAll: 0,
+
+            description: orderData.orderData,
+
+            user: JobData.user._id,
+            motel: motelData._id,
+            roomRented: JobData.room._id,
+
+            type: "afterCheckInCost",
+          });
+
           const jobData = await JobController.getJobNoImg(orderData.job);
-  
+
           // await NotificationController.createNotification({
           //   title: "Thông báo đóng tiền phòng",
           //   content: "Vui lòng thanh toán tiền phòng trong vòng 5 ngày.",
           //   user: jobData.user,
           // });
 
-  
+
           // SỬA: chỗ này cần tạo 1 job để tạo bill tháng đó vào cuối tháng, để có thể bao gồm tiền phòng
           // await global.agendaInstance.agenda.schedule(
           //   moment()
@@ -1481,14 +1481,14 @@ export default class TransactionsController {
           //   "CreateFirstMonthOrder",
           //   { jobId: jobData._id }
           // );
-  
+
           await global.agendaInstance.agenda.schedule(
             moment().add("2", 'minutes').toDate(),
             'CreateFirstMonthOrder',
             { jobId: jobData._id }
           );
-  
-  
+
+
           // const newOrderData = await orderModel.create({
           //   user: jobData.user,
           //   job: jobData._id,
@@ -1503,7 +1503,7 @@ export default class TransactionsController {
           //   ),
           //   type: "monthly",
           // });
-  
+
           // await jobModel
           //   .findOneAndUpdate(
           //     { _id: jobData._id },
@@ -1514,7 +1514,7 @@ export default class TransactionsController {
           //     }
           //   )
           //   .exec();
-  
+
         }
 
         await orderModel
@@ -1529,7 +1529,7 @@ export default class TransactionsController {
           .lean()
           .exec()
 
-        return  HttpResponse.returnSuccessResponse(res, resDataS);
+        return HttpResponse.returnSuccessResponse(res, resDataS);
       } else if (resDataS.status === "cancel") {
         const orderData = await orderModel
           .findOne({ _id: resDataS.order })
@@ -1539,7 +1539,7 @@ export default class TransactionsController {
         if (!orderData) {
           return HttpResponse.returnBadRequestResponse(
             res,
-            "Hóa đơn không tồn tại"
+            "Không tìm thấy hóa đơn"
           );
         }
 
@@ -1551,7 +1551,7 @@ export default class TransactionsController {
         }
 
         //note: tạm thời xóa đi job
-        await jobModel.remove({_id: orderData.job}).lean().exec();
+        await jobModel.remove({ _id: orderData.job }).lean().exec();
 
         //xóa job ra khỏi user
 
@@ -2248,7 +2248,7 @@ export default class TransactionsController {
         return HttpResponse.returnBadRequestResponse(res, "logPayment");
       }
 
-      console.log({data})
+      console.log({ data })
 
       return HttpResponse.returnSuccessResponse(res, data);
     } catch (e) {
@@ -2362,25 +2362,25 @@ export default class TransactionsController {
       const id = req.params.id;
       // Init user model`
       // const id = req.params
-      const { 
-        user: userModel, 
-        code: codeModel, 
-        banking: BankingModel, 
+      const {
+        user: userModel,
+        code: codeModel,
+        banking: BankingModel,
         image: imageModel,
         floor: floorModel,
         motelRoom: motelRoomModel
       } = global.mongoModel;
 
-      const floorData = await floorModel.findOne({rooms: id}).lean().exec();
+      const floorData = await floorModel.findOne({ rooms: id }).lean().exec();
 
-      const motelData = await motelRoomModel.findOne({floors: floorData._id}).lean().exec();
+      const motelData = await motelRoomModel.findOne({ floors: floorData._id }).lean().exec();
 
-      const userData = await userModel.findOne({_id: motelData.owner});
+      const userData = await userModel.findOne({ _id: motelData.owner });
 
-      console.log({userData});
+      console.log({ userData });
 
 
-        // Use the admin user's ID to find banking information
+      // Use the admin user's ID to find banking information
       const bankMasterOptions = await BankingModel.find({ user: userData._id });
 
       return HttpResponse.returnSuccessResponse(res, bankMasterOptions);

@@ -2278,7 +2278,7 @@ export default class EnergyController {
       if(!orderData) {
         return HttpResponse.returnBadRequestResponse(
           res,
-          "Hóa đơn không tồn tại"
+          "Không tìm thấy hóa đơn!!"
         );
       }
 
@@ -2721,7 +2721,7 @@ export default class EnergyController {
       if(!transactionData.order) {
         return HttpResponse.returnBadRequestResponse(
           res,
-          "Hóa đơn không tồn tại"
+          "Không tìm thấy hóa đơn!!"
         );
       }
 
@@ -3097,7 +3097,7 @@ export default class EnergyController {
 
       if(!orderData) {
         return HttpResponse.returnBadRequestResponse(res,
-          "Hóa đơn không tồn tại"
+          "Không tìm thấy hóa đơn!!"
         )
       }
 
