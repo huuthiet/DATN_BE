@@ -1277,7 +1277,8 @@ export default class TransactionsController {
                                                                                 .populate("owner address").lean().exec();
 
           console.log({motelData})                                                                      
-          const bankData = await BankingModel.find({user: motelData.owner._id}).lean().exec();
+          // const bankData = await BankingModel.find({user: motelData.owner._id}).lean().exec();
+          const bankData = await BankingModel.find({_id: resDataS.banking}).lean().exec();
           console.log({bankData});
 
           await billModel.create({
@@ -1396,7 +1397,8 @@ export default class TransactionsController {
               )
               .exec();
 
-            const bankData = await BankingModel.find({user: motelRoomData.owner._id}).lean().exec();
+            // const bankData = await BankingModel.find({user: motelRoomData.owner._id}).lean().exec();
+            const bankData = await BankingModel.find({_id: resDataS.banking}).lean().exec();
             const userData = await userModel.findOne({_id: jobData.user}).lean().exec();
             
             //create bill
@@ -1464,8 +1466,8 @@ export default class TransactionsController {
             const motelData = await motelRoomModel.findOne({floors: floorData._id})
                                                                                 .populate("owner address").lean().exec();
 
-            const bankData = await BankingModel.find({user: motelData.owner._id}).lean().exec();
-            
+            // const bankData = await BankingModel.find({user: motelData.owner._id}).lean().exec();
+            const bankData = await BankingModel.find({_id: resDataS.banking}).lean().exec();
             
             //create bill
             await billModel.create({

@@ -945,6 +945,7 @@ export default class MotelRoomController {
       } = global.mongoModel;
       let { id: motelRoomId, idroom } = req.params;
       let { startDate, endDate } = req.query;
+
       const jobData = await jobModel
         .find({
           room: idroom,
@@ -972,6 +973,8 @@ export default class MotelRoomController {
           }
         }
       }
+
+      console.log({jobData})
 
       return HttpResponse.returnSuccessResponse(res, jobData);
     } catch (e) {
