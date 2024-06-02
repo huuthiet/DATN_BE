@@ -28,7 +28,7 @@ enum PaymentMethod {
 
 const getRandomInt = (min, max) =>
   Math.floor(Math.random() * (max - min)) + min;
-  const getRandomString = (length, base) => {
+const getRandomString = (length, base) => {
   let result = "";
   const baseLength = base.length;
 
@@ -43,13 +43,13 @@ const getRandomInt = (min, max) =>
 
 const getRandomHex2 = () => {
   const baseString =
-    "0123456789QƯERTYUIOPASDFGHJKLZXCVBNMqưertyuiopasdfghjklzxcvbnm";
+    "0123456789QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm";
   const ma = `${getRandomString(6, baseString)}`;
   return ma;
 };
 
 export class Order extends Basic {
-  @prop({default: getRandomHex2})
+  @prop({ default: getRandomHex2 })
   keyOrder: string;
 
   @prop({ ref: User })

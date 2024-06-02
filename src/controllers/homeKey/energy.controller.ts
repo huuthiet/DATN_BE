@@ -4903,11 +4903,16 @@ export default class EnergyController {
         // Initialize revenue data for each month
         let monthlyRevenue = Array.from({ length: 12 }, (_, index) => ({ 
             name: motelName, 
-          revenue: 0, 
-          electricNumber: 0,
-          electricPrice: 0,
+            revenue: 0, 
+            electricNumber: 0,
+            electricPrice: 0,
             time: `${index + 1}/${year !== "All Years" ? year : ""}` 
         }));
+
+        // Initialize total revenue, electric number, and electric price
+        let totalRevenue = 0;
+        let totalElectricNumber = 0;
+        let totalElectricPrice = 0;
 
         // Loop through each bill and find corresponding order
         for (const bill of billData) {
@@ -4921,22 +4926,39 @@ export default class EnergyController {
                 const orderMonth = orderStartTime.getMonth(); // 0-indexed (0 = January, 11 = December)
 
                 if (year === "All Years" || orderYear === parseInt(year, 10)) {
-                  monthlyRevenue[orderMonth].revenue += orderData.amount || 0;
-                  monthlyRevenue[orderMonth].electricNumber += orderData.electricNumber || 0;
-                  monthlyRevenue[orderMonth].electricPrice += orderData.electricPrice || 0;
+                    monthlyRevenue[orderMonth].revenue += orderData.amount || 0;
+                    monthlyRevenue[orderMonth].electricNumber += orderData.electricNumber || 0;
+                    monthlyRevenue[orderMonth].electricPrice += orderData.electricPrice || 0;
+
+                    // Update total revenue, electric number, and electric price
+                    totalRevenue += orderData.amount || 0;
+                    totalElectricNumber += orderData.electricNumber || 0;
+                    totalElectricPrice += orderData.electricPrice || 0;
                 }
             }
         }
 
-        // Remove months with no revenue
+        // Remove months with no revenue (if needed)
         jsonMotel = monthlyRevenue;
 
-        res.status(200).json({ success: true, data: jsonMotel });
+        // Add total revenue, electric number, and electric price to the response
+        const response = {
+            success: true,
+            data: {
+                monthlyRevenue: jsonMotel,
+                totalRevenue,
+                totalElectricNumber,
+                totalElectricPrice
+            }
+        };
+
+        res.status(200).json(response);
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 }
+
 
 
 

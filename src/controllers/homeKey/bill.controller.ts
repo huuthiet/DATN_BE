@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import * as mongoose from "mongoose";
 import HttpResponse from "../../services/response";
+import { RevenueModel } from "models/homeKey/revenue";
 
 export default class BillController {
   /* -------------------------------------------------------------------------- */
@@ -480,7 +481,7 @@ export default class BillController {
     res: Response,
     next: NextFunction
   ): Promise<any> {
-    const { user: UserModel, bill: billModel } = global.mongoModel;
+    const { user: UserModel, bill: billModel, revenue: revenueModel } = global.mongoModel;
 
     // Get userId
     const userId: string = req["userId"];
@@ -516,12 +517,24 @@ export default class BillController {
   ): Promise<any> {
     let jsonRevenue = [];
     try {
-      const { user: userModel, motelRoom: motelRoomModel, bill: billModel, order: orderModel } = global.mongoModel;
+      const { user: userModel, motelRoom: motelRoomModel, bill: billModel, order: orderModel, revenue: RevenueModel } = global.mongoModel;
 
       const users = await userModel.find({ role: "host" }).exec();
       if (users.length === 0) {
-        return HttpResponse.returnErrorWithMessage(res, "Không có dữ liệu");
+        return HttpResponse.returnErrorWithMessage(res, {
+          message: "Không có dữ liệu",
+        });
       }
+
+      const currentDate = new Date();
+      const previousMonth = currentDate.getMonth() - 1;
+      const previousMonthYear = previousMonth < 0 ? currentDate.getFullYear() - 1 : currentDate.getFullYear();
+      const previousMonthAdjusted = previousMonth < 0 ? 11 : previousMonth;
+
+      // Get the first and last day of the previous month
+      const firstDayOfPreviousMonth = new Date(previousMonthYear, previousMonthAdjusted, 1);
+      const lastDayOfPreviousMonth = new Date(previousMonthYear, previousMonthAdjusted + 1, 0);
+      lastDayOfPreviousMonth.setHours(23, 59, 59, 999);
 
       for (const user of users) {
         console.log("Check user", user._id);
@@ -530,14 +543,20 @@ export default class BillController {
         const motelInfor = await motelRoomModel.find({ owner: user._id }).exec();
         console.log({ motelInfor });
 
-        let userRevenue = {
-          user: `${user.lastName} ${user.firstName}`,
-          revenue: 0,
-          timePeriod: 'Không có'
-        };
+        let motelsRevenue = [];
+        const timePeriod = `${previousMonthYear}-${previousMonthAdjusted + 1}`;
 
         for (const motel of motelInfor) {
-          const billData = await billModel.find({ motel: motel._id, type: "monthly" }).exec();
+          let monthlyRevenue = 0;
+
+          const billData = await billModel.find({
+            motel: motel._id,
+            type: "monthly",
+            createdAt: {
+              $gte: firstDayOfPreviousMonth,
+              $lt: new Date(previousMonthYear, previousMonthAdjusted + 1, 1)
+            }
+          }).exec();
           console.log({ billData });
 
           for (const bill of billData) {
@@ -545,21 +564,27 @@ export default class BillController {
             console.log({ orderData });
 
             if (orderData) {
-              const orderStartTime = new Date(orderData.startTime);
-              const currentDate = new Date();
-
-              if (
-                orderStartTime.getMonth() === currentDate.getMonth() &&
-                orderStartTime.getFullYear() === currentDate.getFullYear()
-              ) {
-                userRevenue.revenue += orderData.amount;
-                userRevenue.timePeriod = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
-              }
+              monthlyRevenue += orderData.amount;
             }
           }
+
+          motelsRevenue.push({
+            motelId: motel._id,
+            motelName: motel.name,
+            revenue: monthlyRevenue
+          });
         }
 
-        jsonRevenue.push(userRevenue);
+        const revenueEntry = new RevenueModel({
+          hostId: user._id,
+          hostName: `${user.lastName} ${user.firstName}`,
+          motels: motelsRevenue,
+          timePeriod: timePeriod,
+          date: lastDayOfPreviousMonth
+        });
+
+        await revenueEntry.save();
+        jsonRevenue.push(revenueEntry);
       }
 
       return HttpResponse.returnSuccessResponse(res, {
@@ -571,5 +596,7 @@ export default class BillController {
       return next(error);
     }
   }
+
+
 }
 

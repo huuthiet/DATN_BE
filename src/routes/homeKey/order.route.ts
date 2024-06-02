@@ -41,6 +41,13 @@ orderRoute
 orderRoute
   .route("/orderDepositAfterCheckInCostPendingPaymentListByMotel/:id") //by motel
   .get(TransactionsController.getOrderDepositAfterCheckInCostPendingPaymentListByMotel)
+orderRoute
+  .route("/listOrderNoPayOfPayDeposit/:id") // + id payDeposit
+  .get(TransactionsController.getListOrderNoPayOfPayDeposit)
+
+  orderRoute
+  .route("/putBankingCashPendingTransactionByMotel/:id")
+  .put(TransactionsController.putBankingCashPendingTransactionByMotel);
 
 
 //-------------------------------------------------
@@ -62,10 +69,6 @@ orderRoute
   .route("/bankingCashTransactionsList/")
   .get(TransactionsController.getBankingCashTransactionsList);
 
-//--------------------------------------------------------------------
-orderRoute.use(AuthMiddleware.isHost);
-
-//hosts
 orderRoute
   .route("/bankingCashPendingDepositListByMotel/:id")
   .get(TransactionsController.getBankingCashPendingDepositListByMotel)
@@ -77,10 +80,18 @@ orderRoute
 orderRoute
   .route("/bankingCashPendingMonthlyByMotel/:id")
   .get(TransactionsController.getBankingCashPendingMonthlyByMotel)
+//--------------------------------------------------------------------
+orderRoute.use(AuthMiddleware.isHost);
+
+//hosts
+// orderRoute
+//   .route("/bankingCashPendingDepositListByMotel/:id")
+//   .get(TransactionsController.getBankingCashPendingDepositListByMotel)
+
+// orderRoute
+//   .route("/bankingCashPendingMonthlyByMotel/:id")
+//   .get(TransactionsController.getBankingCashPendingMonthlyByMotel)
   
-orderRoute
-  .route("/putBankingCashPendingTransactionByMotel/:id")
-  .put(TransactionsController.putBankingCashPendingTransactionByMotel);
   
 orderRoute
   .route("/payDeposit/:id")
@@ -89,7 +100,11 @@ orderRoute
 
 
 /* ------------------------------ PRIVATE APIS ------------------------------ */
-
+orderRoute.use(AuthMiddleware.isMaster);
+// orderRoute
+//   .route("/putBankingCashPendingTransactionByMotel/:id")
+//   .put(TransactionsController.putBankingCashPendingTransactionByMotel);
+  
 export default orderRoute;
 
 

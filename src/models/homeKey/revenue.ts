@@ -1,29 +1,41 @@
-import { prop, Ref, pre, arrayProp } from '../../libs/typegoose/typegoose';
+import { prop, Ref } from "../../libs/typegoose/typegoose";
+import { Basic } from "../basic";
+import { User } from "../user";
 
-import { Basic } from '../basic';
-import { User } from '../user';
+class MotelRevenue {
+    @prop()
+    motelId: string;
 
-export class Revenue extends Basic {
-    @prop({ ref: User })
-    hostId: Ref<User>;
+    @prop()
+    motelName: string;
 
     @prop()
     revenue: number;
+}
+
+export class Revenue extends Basic {
+    @prop({ ref: () => User })
+    hostId: Ref<User>;
+
+    @prop()
+    hostName: string;
+
+    @prop({ type: () => [MotelRevenue] })
+    motels: MotelRevenue[];
+
+    @prop()
+    timePeriod: string;
 
     @prop()
     date: Date;
 }
-//   isPaid: boolean;
-//
-//   @prop({ default: false })
-//   isDeleted: boolean;
 
 export const RevenueModel = (connection) => {
     return new Revenue().getModelForClass(Revenue, {
         existingConnection: connection,
         schemaOptions: {
+            timestamps: true,
             collection: "revenue",
-            timestamps: true
-        }
+        },
     });
-}
+};
