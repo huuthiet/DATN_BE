@@ -1096,6 +1096,139 @@ export default class EnergyController {
       next(error);
     }
   }
+
+  static async getAllDataByYearMonthV2(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    const { 
+      motelRoom: motelRoomModel,
+      room: roomModel,
+     } = global.mongoModel;
+
+    const year = parseInt(req.params.year, 10);
+    const month = parseInt(req.params.month, 10);
+    const motelId = req.params.motelId;
+
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: "Invalid year or month input." });
+    }
+
+    const formattedMonth = month < 10 ? `0${month}` : month;
+
+    const startOfMonth = moment(`${year}-${formattedMonth}`).startOf("month").format("YYYY-MM-DD");
+    const endOfMonth = moment(`${year}-${formattedMonth}`).endOf("month").format("YYYY-MM-DD")
+
+    console.log({startOfMonth})
+    console.log({endOfMonth})
+    const resultArray = [];
+    let latestDataBeforeMonth= null;
+
+    try {
+      const motelData = await motelRoomModel.findOne({
+        _id: motelId
+      }).populate("floors").lean().exec();
+      console.log("tới 1")
+
+      if(!motelData) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+      console.log("tới 2")
+      if(!motelData.floors) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+      console.log("tới 3")
+      if(motelData.floors.length === 0) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+      console.log("tới 4")
+      function getLastNonNullValue(arr) {
+        for (let i = arr.length - 1; i >= 0; i--) {
+          if (arr[i] !== null) {
+            return arr[i];
+          }
+        }
+        return null;
+      }
+
+      for(let i = 0; i < motelData.floors.length; i++) {
+        if(motelData.floors[i].rooms) {
+          if(motelData.floors[i].rooms.length > 0) {
+            for(let j = 0; j < motelData.floors[i].rooms.length; j++) {
+              let roomData = await roomModel.findOne({_id: motelData.floors[i].rooms[j]}).lean().exec();
+              if(!roomData) {
+                continue;
+              }
+              if(!roomData.listIdElectricMetter) {
+                continue;
+              }
+              if(roomData.listIdElectricMetter.length === 0) {
+                continue;
+              }
+              const tempStart = moment(startOfMonth).subtract(1, "days").startOf("month");
+              const tempEnd = moment(startOfMonth).subtract(1, "days").endOf("month");
+              // const result = await checkRangeTimeForIdMetter(roomData.listIdElectricMetter, tempStart, tempEnd);
+              // if(result) {
+              //   if(result.length > 0){
+                  
+              //   }
+              // }
+              const dataCountOneMonthBefore = await EnergyController.getElectricV2(
+                tempStart,
+                tempEnd,
+                // result[result.length - 1].value,
+                roomData.listIdElectricMetter[0].value,
+                'Total kWh',
+                'MONTH',
+                1,
+                'MAX',
+              );
+
+              if(dataCountOneMonthBefore) {
+                if(dataCountOneMonthBefore.length > 0) {
+                  latestDataBeforeMonth = dataCountOneMonthBefore[0].value;
+                }
+              }
+              let data = await EnergyController.getElectricV2(
+                moment(startOfMonth).startOf("day"),
+                moment(endOfMonth).endOf("day"),
+                // result[result.length - 1].value,
+                roomData.listIdElectricMetter[0].value,
+                'Total kWh',
+                'MONTH',
+                1,
+                'MAX',
+              );
+              // let data = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(roomData._id, startOfMonth, endOfMonth);
+              if(data.length !== 0) {
+                // let latestDataCurrentMonth = getLastNonNullValue(data.kWhData)
+                // let dataEnd = {
+                //   latestDataCurrentMonth: latestDataCurrentMonth,
+                //   latestDataBeforeMonth : latestDataBeforeMonth,
+                // }
+                roomData.latestDataCurrentMonth = data[0].value;
+                roomData.latestDataBeforeMonth = latestDataBeforeMonth;
+                roomData.idTemp = roomData.listIdElectricMetter[0].value;
+                roomData.start = startOfMonth;
+                roomData.end = endOfMonth;
+                roomData.tempStart = tempStart.format("YYYY-MM-DD");
+                roomData.tempEnd = tempEnd.format("YYYY-MM-DD");
+                resultArray.push(roomData);
+              }
+            }
+          }
+        }
+        
+      }
+      console.log("tới 5")
+      console.log({resultArray})
+
+      return HttpResponse.returnSuccessResponse(res, resultArray);
+    } catch (e) {
+      next(e);
+    }
+  }
   
   
   
@@ -5041,46 +5174,46 @@ export default class EnergyController {
   ): Promise<any> {
     try {
       
-      let data = [
-        { "label": "05-2024", "value": 29.12, "price": 101920, "user": {} },
-        { "label": "07-2024", "value": 30.5, "price": 102000, "user": {} },
-        { "label": "07-2024", "value": 30.1, "price": 102000, "user": {} },
-        { "label": "05-2024", "value": 29.5, "price": 101920, "user": {} },
-        // Các đối tượng khác...
-      ];
+      // let data = [
+      //   { "label": "05-2024", "value": 29.12, "price": 101920, "user": {} },
+      //   { "label": "07-2024", "value": 30.5, "price": 102000, "user": {} },
+      //   { "label": "07-2024", "value": 30.1, "price": 102000, "user": {} },
+      //   { "label": "05-2024", "value": 29.5, "price": 101920, "user": {} },
+      //   // Các đối tượng khác...
+      // ];
 
-      const year = data[0].label.split("-")[1];
+      // const year = data[0].label.split("-")[1];
 
-      const monthsOfYear = Array.from({ length: 12 }, (_, i) => {
-        const month = (i + 1).toString().padStart(2, "0");
-        return `${month}-${year}`;
-      });
+      // const monthsOfYear = Array.from({ length: 12 }, (_, i) => {
+      //   const month = (i + 1).toString().padStart(2, "0");
+      //   return `${month}-${year}`;
+      // });
 
-      console.log({monthsOfYear})
+      // console.log({monthsOfYear})
       
-      // Tạo một tập hợp các tháng đã tồn tại trong mảng
-      let existingMonths = new Set(data.map(item => item.label));
+      // // Tạo một tập hợp các tháng đã tồn tại trong mảng
+      // let existingMonths = new Set(data.map(item => item.label));
       
-      // Thêm các tháng còn thiếu vào mảng
-      monthsOfYear.forEach(month => {
-        if (!existingMonths.has(month)) {
-          data.push({
-            label: month,
-            value: null,
-            price: null,
-            user: null
-          });
-        }
-      });
+      // // Thêm các tháng còn thiếu vào mảng
+      // monthsOfYear.forEach(month => {
+      //   if (!existingMonths.has(month)) {
+      //     data.push({
+      //       label: month,
+      //       value: null,
+      //       price: null,
+      //       user: null
+      //     });
+      //   }
+      // });
       
-      // Sắp xếp lại mảng theo thứ tự tháng
-      data.sort((a, b) => {
-        const [monthA, yearA] = a.label.split("-").map(Number);
-        const [monthB, yearB] = b.label.split("-").map(Number);
-        return yearA - yearB || monthA - monthB;
-      });
+      // // Sắp xếp lại mảng theo thứ tự tháng
+      // data.sort((a, b) => {
+      //   const [monthA, yearA] = a.label.split("-").map(Number);
+      //   const [monthB, yearB] = b.label.split("-").map(Number);
+      //   return yearA - yearB || monthA - monthB;
+      // });
       
-      console.log(data);
+      // console.log(data);
       // const {room: roomModel, totalKwh: totalKwhModel, 
       //   order: orderModel, job: jobModel,
       //   bill: billModel, optionsType: optionsTypeModel,
@@ -5183,18 +5316,24 @@ export default class EnergyController {
 // console.log({dateStay});
 // console.log({a});
 
-      // const {
-      //   room: roomModel,
-      //   floor: floorModel,
-      //   motelRoom: motelRoomModel,
-      //   job: jobModel,
-      //   user: userModel,
-      //   order: orderModel,
-      //   transactions: TransactionsModel,
-      //   bill: BillModel,
-      //   optionsType: OptionsTypeModel,
-      //   totalKwh: totalKwhModel,
-      // } = global.mongoModel;
+      const {
+        room: roomModel,
+        floor: floorModel,
+        motelRoom: motelRoomModel,
+        job: jobModel,
+        user: userModel,
+        order: orderModel,
+        transactions: TransactionsModel,
+        bill: BillModel,
+        optionsType: OptionsTypeModel,
+        totalKwh: totalKwhModel,
+      } = global.mongoModel;
+
+      const startOfMonth = '2024-05-01';
+      const endOfMonth = '2024-05-31';
+
+      let data = EnergyController.calculateElectricUsedDayToDayHaveLabelTime("6640d72526fe12180875ab7a", startOfMonth, endOfMonth);
+      console.log({data})
 
       // const a = await orderModel.findOne({
       //   _id: "664d27ea4a755b6434ac92b6",
@@ -10338,6 +10477,8 @@ async function getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
   let kWhDataWithTime: DataElectricType[] = []; 
   console.log({startQuery});
   console.log({endQuery});
+
+  let latestDataBeforeMonth = null;
 
   let rawDataElectricInDay = await EnergyController.getElectricV2(
     startQuery, //start

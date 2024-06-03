@@ -124,6 +124,9 @@ energyRoute
 /* ---------------------------- CHECK PERMISSION ---------------------------- */
 /* ------------------------------ PRIVATE APIS ------------------------------ */
 // Login
+energyRoute
+  .route("/device/getAllDataByYearMonth/:year/:month/:motelId")
+  .get(EnergyController.getAllDataByYearMonthV2);
 energyRoute.use(AuthMiddleware.isAuthenticated);
 
 energyRoute
@@ -135,9 +138,9 @@ energyRoute
   .route("/device/getNameRoomById/:id")
   .get(EnergyController.getNameRoomById);
 
-energyRoute
-  .route("/device/getAllDataByYearMonth/:year/:month/:motelId")
-  .get(EnergyController.getAllDataByYearMonth);
+// energyRoute
+//   .route("/device/getAllDataByYearMonth/:year/:month/:motelId")
+//   .get(EnergyController.getAllDataByYearMonth);
 
 energyRoute
   .route("/device/currentMonDataPerDay/:id/:year/:month")
