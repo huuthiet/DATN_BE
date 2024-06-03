@@ -6,6 +6,21 @@ import AuthMiddleware from "../../middlewares/auth";
 const energyRoute = express.Router();
 energyRoute.route("/testFunction").get(EnergyController.testFunction);
 
+//for current user rented room
+energyRoute
+  .route("/device/historyEnergyByJob/:id/:year")
+  .get(EnergyController.getHistoryEnergyByJob);
+
+//for host, admin to manage
+energyRoute
+  .route("/device/historyEnergyByRoom/:id/:year")
+  .get(EnergyController.getHistoryEnergyByRoom);
+
+// 
+energyRoute
+  .route("/device/historyEnergyByRoomV2/:id/:year")
+  .get(EnergyController.getHistoryEnergyByRoomV2);
+
 energyRoute
   .route("/device/getTotalKWhPerHourInOneDay/:idRoom/:day")
   .get(EnergyController.getTotalKWhPerHourInOneDay);
@@ -23,6 +38,7 @@ energyRoute
 energyRoute
   .route("/device/getTotalKWhPerDayForDayToDayV2/:idRoom/:start/:end")
   .get(EnergyController.getTotalKWhPerDayForDayToDayV2);
+
 
 energyRoute
   .route("/device/getListIdMetterElectricByRoom/:id")
@@ -120,7 +136,7 @@ energyRoute
   .get(EnergyController.getNameRoomById);
 
 energyRoute
-  .route("/device/getAllDataByYearMonth/:year/:month")
+  .route("/device/getAllDataByYearMonth/:year/:month/:motelId")
   .get(EnergyController.getAllDataByYearMonth);
 
 energyRoute
