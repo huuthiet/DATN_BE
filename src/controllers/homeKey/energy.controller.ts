@@ -1013,49 +1013,93 @@ export default class EnergyController {
     res: Response,
     next: NextFunction
   ): Promise<any> {
-    const { electrics: ElectricsModel } = global.mongoModel;
-
-    const year = parseInt(req.params.year, 10);
-    const month = parseInt(req.params.month, 10);
-
-    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
-      return res.status(400).json({ error: "Invalid year or month input." });
-    }
-
-    const formattedMonth = month < 10 ? `0${month}` : month;
-
-    const startOfMonth = new Date(`${year}-${formattedMonth}-01T00:00:00Z`);
-    const endOfMonth = new Date(
-      new Date(startOfMonth).setMonth(startOfMonth.getMonth() + 1) - 1
-    );
-
-    const resultArray = [];
-
     try {
-      // Iterate over devices
-      const allDevices = await ElectricsModel.distinct("IdDevice");
-      for (const deviceId of allDevices) {
-        const query = {
-          IdDevice: deviceId,
-          Time: { $gte: startOfMonth, $lt: endOfMonth },
-        };
-
-        const dataInMonth = await ElectricsModel.findOne(query)
-          .sort({ Time: -1 })
-          .lean()
-          .exec();
-
-        resultArray.push(dataInMonth !== null ? dataInMonth : null);
+      const { electrics: ElectricsModel, motelRoom: motelRoomModel, floor: floorModel, room: roomModel } = global.mongoModel;
+  
+      const year: number = parseInt(req.params.year, 10);
+      const month: number = parseInt(req.params.month, 10);
+      const motelId: string = req.params.motelId;
+  
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        return res.status(400).json({ error: "Invalid year or month input." });
       }
+  
+      const formattedMonth = month < 10 ? `0${month}` : month;
+  
+      const startOfMonth = moment(`${year}-${formattedMonth}-01T00:00:00`).startOf('month');
+      const endOfMonth = moment(startOfMonth).endOf('month');
+  
+      const motelData = await motelRoomModel.findOne({ _id: motelId }).lean().exec();
+      if (!motelData) {
+        return res.status(404).json({ error: "Motel not found." });
+      }
+  
+      const floors = motelData.floors;
+      if (!floors) {
+        return res.status(404).json({ error: "Floors not found." });
+      }
+  
+      const floorData = await floorModel.find({ _id: { $in: floors } }).lean().exec();
+      if (!floorData) {
+        return res.status(404).json({ error: "Floor not found." });
+      } else {
+        const resultArray = [];
+        for (const floor of floorData) {
+          const rooms = await roomModel.find({ _id: { $in: floor.rooms } }).lean().exec();
+          for (const room of rooms) {
+            const roomData = await roomModel.findOne({ _id: room._id }).lean().exec();
+            let electricMeterValues = [];
+            if (roomData.listIdElectricMetter && roomData.listIdElectricMetter.length > 0) {
+              roomData.listIdElectricMetter.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-      const resultData = {
-        dataInMonth: resultArray,
-      };
-      return res.status(200).json(resultData);
-    } catch (e) {
-      next(e);
+              const electricMeterValues = roomData.listIdElectricMetter.map(meter => meter.value);
+              console.log("Check id: ", electricMeterValues);
+              
+              const electricData = await this.getElectricV2(
+                startOfMonth,
+                endOfMonth,
+                electricMeterValues,
+                'Total kWh',
+                'MONTH',
+                1,
+                'MAX'
+              );
+
+              console.log({electricData});
+            }
+
+            
+  
+            // Lấy dữ liệu điện cho phòng
+            // const electricData = await this.getElectricV2(
+            //   startOfMonth,
+            //   endOfMonth,
+            //   electricMeterValues,
+            //   'Total kWh',
+            //   'MONTH',
+            //   1,
+            //   'MAX'
+            // );
+  
+            // Thêm thông tin phòng và dữ liệu điện vào mảng kết quả
+            resultArray.push({
+              roomId: roomData._id,
+              roomName: roomData.name,
+              electricMeterValues: electricMeterValues,
+              electricData: electricData
+            });
+          }
+        }
+        return res.json(resultArray);
+      }
+    } catch (error) {
+      next(error);
     }
   }
+  
+  
+  
+  
   
 
   //get last records of all devices from the previous month
@@ -7494,7 +7538,7 @@ export default class EnergyController {
 
       const instance = axios.create({
           baseURL: process.env.ENERGY_BASE_URL,
-          timeout: 1000,
+          timeout: 10000,
           headers: headers
       });
 
@@ -7510,9 +7554,6 @@ export default class EnergyController {
               limit: 100
           }
       });
-
-      
-
       resData = response.data;
 
       console.log("resDataaaa", resData);
