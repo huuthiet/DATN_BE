@@ -1123,6 +1123,7 @@ export default class EnergyController {
     console.log({startOfMonth})
     console.log({endOfMonth})
     const resultArray = [];
+    let simplifiedRoomData = [];
     let latestDataBeforeMonth= null;
 
     try {
@@ -1214,7 +1215,24 @@ export default class EnergyController {
                 roomData.end = endOfMonth;
                 roomData.tempStart = tempStart.format("YYYY-MM-DD");
                 roomData.tempEnd = tempEnd.format("YYYY-MM-DD");
-                resultArray.push(roomData);
+
+                const simplifiedRoomData = {
+                  name: roomData.name,
+                  latestDataCurrentMonth: data[0].value,
+                  latestDataBeforeMonth: latestDataBeforeMonth,
+                  idTemp: roomData.listIdElectricMetter[0].value,
+                  start: startOfMonth,
+                  end: endOfMonth,
+                  tempStart: tempStart.format("YYYY-MM-DD"),
+                  tempEnd: tempEnd.format("YYYY-MM-DD")
+                };
+                
+                console.log({simplifiedRoomData});
+                
+              
+              // Thêm simplifiedRoomData vào resultArray
+              resultArray.push(simplifiedRoomData);
+                // resultArray.push(roomData);
               }
             }
           }
