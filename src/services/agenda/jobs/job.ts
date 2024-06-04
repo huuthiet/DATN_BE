@@ -520,7 +520,7 @@ export default (agenda) => {
               if (error) {
                 console.error(error);
               } else {
-                console.log('Email đã được gửi: ' + info.response);
+                // console.log('Email đã được gửi: ' + info.response);
               }
             });
 
@@ -814,11 +814,11 @@ export default (agenda) => {
                   if (error) {
                     console.error(error);
                   } else {
-                    console.log('Email đã được gửi: ' + info.response);
+                    // console.log('Email đã được gửi: ' + info.response);
                   }
                 });
   
-                console.log(`Gửi tới mail: ${userData.email}`);
+                // console.log(`Gửi tới mail: ${userData.email}`);
               }
             }
 
@@ -1091,11 +1091,11 @@ export default (agenda) => {
                   if (error) {
                     console.error(error);
                   } else {
-                    console.log('Email đã được gửi: ' + info.response);
+                    // console.log('Email đã được gửi: ' + info.response);
                   }
                 });
   
-                console.log(`Gửi tới mail: ${userData.email}`);
+                // console.log(`Gửi tới mail: ${userData.email}`);
               }
             }
             await global.agendaInstance.agenda.schedule(
@@ -1465,11 +1465,11 @@ export default (agenda) => {
                   if (error) {
                     console.error(error);
                   } else {
-                    console.log('Email đã được gửi: ' + info.response);
+                    // console.log('Email đã được gửi: ' + info.response);
                   }
                 });
   
-                console.log(`Gửi tới mail: ${userData.email}`);
+                // console.log(`Gửi tới mail: ${userData.email}`);
               }
             }
           } else {
@@ -1730,11 +1730,11 @@ export default (agenda) => {
                   if (error) {
                     console.error(error);
                   } else {
-                    console.log('Email đã được gửi: ' + info.response);
+                    // console.log('Email đã được gửi: ' + info.response);
                   }
                 });
   
-                console.log(`Gửi tới mail: ${userData.email}`);
+                // console.log(`Gửi tới mail: ${userData.email}`);
               }
             }
 
@@ -1994,11 +1994,11 @@ export default (agenda) => {
                   if (error) {
                     console.error(error);
                   } else {
-                    console.log('Email đã được gửi: ' + info.response);
+                    // console.log('Email đã được gửi: ' + info.response);
                   }
                 });
   
-                console.log(`Gửi tới mail: ${userData.email}`);
+                // console.log(`Gửi tới mail: ${userData.email}`);
               }
             }
 
@@ -2266,11 +2266,11 @@ export default (agenda) => {
                   if (error) {
                     console.error(error);
                   } else {
-                    console.log('Email đã được gửi: ' + info.response);
+                    // console.log('Email đã được gửi: ' + info.response);
                   }
                 });
   
-                console.log(`Gửi tới mail: ${userData.email}`);
+                // console.log(`Gửi tới mail: ${userData.email}`);
               }
             }
 
@@ -2680,11 +2680,11 @@ export default (agenda) => {
                   if (error) {
                     console.error(error);
                   } else {
-                    console.log('Email đã được gửi: ' + info.response);
+                    // console.log('Email đã được gửi: ' + info.response);
                   }
                 });
   
-                console.log(`Gửi tới mail: ${userData.email}`);
+                // console.log(`Gửi tới mail: ${userData.email}`);
               }
             }
           } else {

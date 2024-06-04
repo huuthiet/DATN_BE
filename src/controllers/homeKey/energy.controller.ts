@@ -1247,6 +1247,105 @@ export default class EnergyController {
       next(e);
     }
   }
+
+
+  static async getAllDataByYearMonthV3(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    const { 
+      motelRoom: motelRoomModel,
+      room: roomModel,
+     } = global.mongoModel;
+
+    const year = parseInt(req.params.year, 10);
+    const month = parseInt(req.params.month, 10);
+    const motelId = req.params.motelId;
+
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: "Invalid year or month input." });
+    }
+
+    const formattedMonth = month < 10 ? `0${month}` : month;
+
+    const startOfMonth = moment(`${year}-${formattedMonth}`).startOf("month");
+    const endOfMonth = moment(`${year}-${formattedMonth}`).endOf("month");
+
+    const startBeforeMonth = moment(startOfMonth).subtract(1, "days").startOf("month");
+    const endBeforeMonth = moment(startOfMonth).subtract(1, "days").endOf("month");
+
+    const resultArray = [];
+    let latestDataBeforeMonth= null;
+    let latestDataCurrentMonth= null;
+    let totalKwhCurrentMonth = null;
+
+    try {
+      const motelData = await motelRoomModel.findOne({
+        _id: motelId
+      }).populate("floors").lean().exec();
+      console.log("tới 1")
+
+      if(!motelData) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+      console.log("tới 2")
+      if(!motelData.floors) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+      console.log("tới 3")
+      if(motelData.floors.length === 0) {
+        return HttpResponse.returnSuccessResponse(res, []);
+      }
+      console.log("tới 4")
+
+      for(let i = 0; i < motelData.floors.length; i++) {
+        if(motelData.floors[i].rooms) {
+          if(motelData.floors[i].rooms.length > 0) {
+            for(let j = 0; j < motelData.floors[i].rooms.length; j++) {
+              let roomData = await roomModel.findOne({_id: motelData.floors[i].rooms[j]}).lean().exec();
+              if(!roomData) {
+                continue;
+              }
+              if(!roomData.listIdElectricMetter) {
+                continue;
+              }
+              if(roomData.listIdElectricMetter.length === 0) {
+                continue;
+              }
+
+              latestDataCurrentMonth = await getLatestEnergyDataDayToDayInMonth(roomData.listIdElectricMetter, startOfMonth, endOfMonth);
+              latestDataBeforeMonth = await getLatestEnergyDataDayToDayInMonth(roomData.listIdElectricMetter, startBeforeMonth, endBeforeMonth);
+              totalKwhCurrentMonth = await EnergyController.calculateElectricUsedDayToDay(roomData._id, startOfMonth.format("YYYY-MM-DD"), endOfMonth.format("YYYY-MM-DD"));
+              const listIdMeter = await checkRangeTimeForIdMetter(roomData.listIdElectricMetter, startOfMonth, endOfMonth);
+
+              if(latestDataBeforeMonth === null) {
+                latestDataBeforeMonth = await getLatestEnergyDataDayToDayStartOfMonth(roomData.listIdElectricMetter, startOfMonth, endOfMonth);
+              }
+
+              const simplifiedRoomData = {
+                name: roomData.name,
+                totalKwhCurrentMonth: totalKwhCurrentMonth,
+                latestDataCurrentMonth: latestDataCurrentMonth,
+                latestDataBeforeMonth: latestDataBeforeMonth,
+                idTemp: roomData.listIdElectricMetter[0].value,
+                start: startOfMonth,
+                end: endOfMonth,
+                tempStart: startBeforeMonth,tempEnd: endBeforeMonth,
+                numberOfMeter: listIdMeter.length,
+              };
+              resultArray.push(simplifiedRoomData);
+            }
+          }
+        }
+        
+      }
+      console.log("tới 5");
+      return HttpResponse.returnSuccessResponse(res, resultArray);
+    } catch (e) {
+      next(e);
+    }
+  }
   
   
   
@@ -7686,7 +7785,6 @@ export default class EnergyController {
     let startTime: string = start.format();
     
     let endTime: string = end.format();
-    console.log({endTime});
 
     try {
       const headers = {
@@ -7713,10 +7811,9 @@ export default class EnergyController {
       });
       resData = response.data;
 
-      console.log("resDataaaa", resData);
       return resData;
     } catch (error) {
-        console.error(error);
+        console.error("error in get ElectricV2", error);
         return resData;
     }
   }
@@ -7900,6 +7997,112 @@ async function fillNullForDataElectricEmptyDayToDay(
     return a.ts.localeCompare(b.ts);
   });
 };
+
+async function getLatestEnergyDataDayToDayInMonth(
+  lisId: DataIdMetterType[], 
+  start: moment.Moment, 
+  end: moment.Moment
+): Promise<any> {
+  let latestData = null
+  const result = await checkRangeTimeForIdMetter(lisId, start, end);
+  if(result.length === 0) {
+    latestData= null;
+  } else if(result.length === 1){
+    let id: string = result[0].value;
+    let data = await EnergyController.getElectricV2(
+      start,
+      end,
+      id,
+      'Total kWh',
+      'MONTH',
+      1,
+      'MAX',
+    );
+    if(data) {
+      if(data.length > 0) {
+        latestData = data[0].value;
+      } else {
+        latestData = null;
+      }
+    }      
+  } else if(result.length > 1) {
+    for(let i = result.length - 1; i >= 0; i--) {
+      let id = result[i].value;
+      let data = await EnergyController.getElectricV2(
+        start,
+        end,
+        id,
+        'Total kWh',
+        'MONTH',
+        1,
+        'MAX',
+      );
+
+      if(data) {
+        if(data.length > 0) {
+          latestData = data[0].value;
+          break;
+        } else {
+          latestData = null;
+        }
+      } 
+    }
+  }
+  return latestData;
+}
+
+async function getLatestEnergyDataDayToDayStartOfMonth(
+  lisId: DataIdMetterType[], 
+  start: moment.Moment, 
+  end: moment.Moment
+): Promise<any> {
+  let latestData = null
+  const result = await checkRangeTimeForIdMetter(lisId, start, end);
+  if(result.length === 0) {
+    latestData= null;
+  } else if(result.length === 1){
+    let id: string = result[0].value;
+    let data = await EnergyController.getElectricV2(
+      start,
+      end,
+      id,
+      'Total kWh',
+      'MONTH',
+      1,
+      'MIN',
+    );
+    if(data) {
+      if(data.length > 0) {
+        latestData = data[0].value;
+      } else {
+        latestData = null;
+      }
+    }      
+  } else if(result.length > 1) {
+    for(let i = 0; i < result.length; i++) {
+      let id = result[i].value;
+      let data = await EnergyController.getElectricV2(
+        start,
+        end,
+        id,
+        'Total kWh',
+        'MONTH',
+        1,
+        'MIN',
+      );
+
+      if(data) {
+        if(data.length > 0) {
+          latestData = data[0].value;
+          break;
+        } else {
+          latestData = null;
+        }
+      } 
+    }
+  }
+  return latestData;
+}
 
 async function generatePDF(json, banking, energy): Promise<Buffer> {
   console.log({ banking });
