@@ -520,9 +520,7 @@ export default class BillController {
 
       const users = await userModel.find({ role: "host" }).exec();
       if (users.length === 0) {
-        return HttpResponse.returnErrorWithMessage(res, {
-          message: "Không có dữ liệu",
-        });
+        return HttpResponse.returnErrorWithMessage("Không tìm thấy chủ nhà nào");
       }
 
       const currentDate = new Date();
