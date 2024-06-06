@@ -126,7 +126,7 @@ energyRoute
 // Login
 energyRoute
   .route("/device/getAllDataByYearMonth/:year/:month/:motelId")
-  .get(EnergyController.getAllDataByYearMonthV2);
+  .get(EnergyController.getAllDataByYearMonthV3);
 energyRoute.use(AuthMiddleware.isAuthenticated);
 
 energyRoute

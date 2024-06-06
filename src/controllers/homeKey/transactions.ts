@@ -522,6 +522,13 @@ export default class TransactionsController {
         )
       }
 
+      if(moment(orderData.expireTime).isBefore(moment())) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Hóa đơn đã hết hạn thanh toán"
+        )
+      }
+
       const motelData = await motelRoomModel.findOne({ _id: formData.motel }).lean().exec();
       if (!motelData) {
         return HttpResponse.returnBadRequestResponse(
