@@ -1049,13 +1049,14 @@ export default class EnergyController {
           for (const room of rooms) {
             const roomData = await roomModel.findOne({ _id: room._id }).lean().exec();
             let electricMeterValues = [];
+            let electricData = [];
             if (roomData.listIdElectricMetter && roomData.listIdElectricMetter.length > 0) {
               roomData.listIdElectricMetter.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
               const electricMeterValues = roomData.listIdElectricMetter.map(meter => meter.value);
               console.log("Check id: ", electricMeterValues);
               
-              const electricData = await this.getElectricV2(
+              electricData = await this.getElectricV2(
                 startOfMonth,
                 endOfMonth,
                 electricMeterValues,
@@ -1067,19 +1068,6 @@ export default class EnergyController {
 
               console.log({electricData});
             }
-
-            
-  
-            // Lấy dữ liệu điện cho phòng
-            // const electricData = await this.getElectricV2(
-            //   startOfMonth,
-            //   endOfMonth,
-            //   electricMeterValues,
-            //   'Total kWh',
-            //   'MONTH',
-            //   1,
-            //   'MAX'
-            // );
   
             // Thêm thông tin phòng và dữ liệu điện vào mảng kết quả
             resultArray.push({

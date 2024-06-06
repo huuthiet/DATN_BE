@@ -522,7 +522,7 @@ export default class TransactionsController {
         )
       }
 
-      if(moment(orderData.expireTime).isBefore(moment())) {
+      if (moment(orderData.expireTime).isBefore(moment())) {
         return HttpResponse.returnBadRequestResponse(
           res,
           "Hóa đơn đã hết hạn thanh toán"
@@ -1874,7 +1874,7 @@ export default class TransactionsController {
     next: NextFunction
   ): Promise<any> {
     try {
-      const { transactions: TransactionsModel, user: userModel } = global.mongoModel;
+      const { transactions: TransactionsModel, user: userModel, image: imageModel } = global.mongoModel;
       const userId = req.params.userId;
       const motelName = req.params.motelName;
 
@@ -1895,6 +1895,16 @@ export default class TransactionsController {
 
       console.log("Withdrawals list", withdrawalsList);
 
+      // Xử lý ảnh cho từng mục trong withdrawalsList
+      for (let i = 0; i < withdrawalsList.length; i++) {
+        if (withdrawalsList[i].file) {
+          const dataimg = await imageModel.findOne({ _id: withdrawalsList[i].file });
+          if (dataimg) {
+            withdrawalsList[i].file = await helpers.getImageUrl(dataimg);
+          }
+        }
+      }
+
       // Thêm firstName và lastName vào từng mục trong withdrawalsList
       const updatedWithdrawalsList = withdrawalsList.map(item => ({
         ...item,
@@ -1907,6 +1917,7 @@ export default class TransactionsController {
       next(e);
     }
   }
+
 
 
 

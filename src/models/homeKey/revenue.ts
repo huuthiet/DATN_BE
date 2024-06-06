@@ -26,7 +26,7 @@ class MotelRevenue {
     @prop()
     revenue: number;
 
-    @prop({ type: () => [Withdrawal] })
+    @prop()
     withdrawals: Withdrawal[]; // Thêm mảng lịch sử rút tiền
 }
 
@@ -37,7 +37,7 @@ export class Revenue extends Basic {
     @prop()
     hostName: string;
 
-    @prop({ type: () => [MotelRevenue] })
+    @prop()
     motels: MotelRevenue[];
 
     @prop()
