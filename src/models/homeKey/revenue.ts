@@ -2,6 +2,20 @@ import { prop, Ref } from "../../libs/typegoose/typegoose";
 import { Basic } from "../basic";
 import { User } from "../user";
 
+class Withdrawal {
+    @prop()
+    withdrawalId: string;
+
+    @prop()
+    amount: number;
+
+    @prop()
+    remainingRevenue: number;
+
+    @prop()
+    date: Date;
+}
+
 class MotelRevenue {
     @prop()
     motelId: string;
@@ -11,6 +25,9 @@ class MotelRevenue {
 
     @prop()
     revenue: number;
+
+    @prop({ type: () => [Withdrawal] })
+    withdrawals: Withdrawal[]; // Thêm mảng lịch sử rút tiền
 }
 
 export class Revenue extends Basic {

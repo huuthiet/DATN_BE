@@ -515,7 +515,6 @@ export default class BillController {
     res: Response,
     next: NextFunction
   ): Promise<any> {
-    let jsonRevenue = [];
     try {
       const { user: userModel, motelRoom: motelRoomModel, bill: billModel, order: orderModel, revenue: RevenueModel } = global.mongoModel;
 
@@ -531,23 +530,52 @@ export default class BillController {
       const previousMonthYear = previousMonth < 0 ? currentDate.getFullYear() - 1 : currentDate.getFullYear();
       const previousMonthAdjusted = previousMonth < 0 ? 11 : previousMonth;
 
+
       // Get the first and last day of the previous month
       const firstDayOfPreviousMonth = new Date(previousMonthYear, previousMonthAdjusted, 1);
       const lastDayOfPreviousMonth = new Date(previousMonthYear, previousMonthAdjusted + 1, 0);
       lastDayOfPreviousMonth.setHours(23, 59, 59, 999);
 
       for (const user of users) {
-        console.log("Check user", user._id);
-        console.log("Check user", user);
-
         const motelInfor = await motelRoomModel.find({ owner: user._id }).exec();
-        console.log({ motelInfor });
+        // console.log(`Danh sách nhà trọ của chủ nhà ${user._id}: ${motelInfor}`);
+
+        let motelList = [];
+
+        // console.log(`Check time: ${previousMonthYear}-${previousMonthAdjusted}`);
+
+
+        const revenueLastMonth = await RevenueModel.findOne({
+          hostId: user._id,
+          timePeriod: `${previousMonthYear}-${previousMonthAdjusted}`
+        }).exec();
+
+        if (revenueLastMonth) {
+          console.log(`Dữ liệu doanh thu của chủ nhà ${user._id} đã tồn tại`);
+          motelList = revenueLastMonth.motels;
+        } else {
+          console.log(`Dữ liệu doanh thu của chủ nhà ${user._id} chưa tồn tại`);
+        }
 
         let motelsRevenue = [];
+        let motelTotalRevenue = 0;
+        let electricityPrice = 0;
+        let waterPrice = 0;
+        let servicePrice = 0;
+        let vehiclePrice = 0;
         const timePeriod = `${previousMonthYear}-${previousMonthAdjusted + 1}`;
 
         for (const motel of motelInfor) {
           let monthlyRevenue = 0;
+
+          motelList.map((motelLastMonth) => {
+            // console.log("Check last month: ", motelLastMonth.motelId);
+            // console.log("Check current month: ", motel._id);
+            //motelLastMonth.motelId and motel._id are an object, so we need to convert them to string
+            if (motelLastMonth.motelId.toString() === motel._id.toString()) {
+              motelTotalRevenue += motelLastMonth.totalRevenue;
+            }
+          });
 
           const billData = await billModel.find({
             motel: motel._id,
@@ -557,21 +585,29 @@ export default class BillController {
               $lt: new Date(previousMonthYear, previousMonthAdjusted + 1, 1)
             }
           }).exec();
-          console.log({ billData });
 
           for (const bill of billData) {
             const orderData = await orderModel.findOne({ _id: bill.order, type: "monthly" }).exec();
-            console.log({ orderData });
 
             if (orderData) {
-              monthlyRevenue += orderData.amount;
+              monthlyRevenue += orderData.roomPrice;
+              electricityPrice = orderData.electricPrice;
+              waterPrice = orderData.waterPrice;
+              servicePrice = orderData.servicePrice;
+              vehiclePrice = orderData.vehiclePrice;
             }
           }
 
           motelsRevenue.push({
             motelId: motel._id,
             motelName: motel.name,
-            revenue: monthlyRevenue
+            totalRevenue: motelTotalRevenue + monthlyRevenue,
+            electricityPrice: electricityPrice,
+            waterPrice: waterPrice,
+            servicePrice: servicePrice,
+            vehiclePrice: vehiclePrice,
+            currentMonthRevenue: monthlyRevenue, // Thêm trường doanh thu tháng hiện tại
+            withdrawals: [] // Khởi tạo mảng rút tiền
           });
         }
 
@@ -584,12 +620,10 @@ export default class BillController {
         });
 
         await revenueEntry.save();
-        jsonRevenue.push(revenueEntry);
       }
 
       return HttpResponse.returnSuccessResponse(res, {
-        message: "Get all bills of customers successful",
-        data: jsonRevenue,
+        message: "Lưu dữ liệu doanh thu của chủ nhà thành công",
       });
 
     } catch (error) {
