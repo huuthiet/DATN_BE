@@ -23,6 +23,7 @@ enum PaymentType {
   afterCheckInCost = "afterCheckInCost",
   monthly = "monthly",
   recharge = "recharge",
+  withdraw = "withdraw",
 }
 
 enum StatusTransactions {
@@ -43,6 +44,9 @@ export class Transactions extends Basic {
   keyOrder: string;
 
   @prop()
+  motelName: string;
+
+  @prop()
   description?: string;
 
   @prop({ default: 0 })
@@ -59,11 +63,11 @@ export class Transactions extends Basic {
 
   @prop({ ref: Order })
   order?: Ref<Order>; //->job->room->floor->motel->
-  
+
   @prop({ ref: Banking })
   banking?: Ref<Banking>; // tài khoản người nhận
 
-  @prop({default: "none"})
+  @prop({ default: "none" })
   type: PaymentType;
 
   @prop({ ref: MotelRoom })

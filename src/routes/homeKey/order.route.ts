@@ -8,30 +8,35 @@ import EnergyController from "../../controllers/homeKey/energy.controller";
 const orderRoute = express.Router();
 
 orderRoute
-    .route("/exportBillPaidByTransaction/:id")
-    .post(EnergyController.exportBillPaidByTransaction);
+  .route("/exportBillPaidByTransaction/:id")
+  .post(EnergyController.exportBillPaidByTransaction);
 orderRoute
-    .route("/exportBillPaidByOrder/:id")
-    .post(EnergyController.exportBillPaidByOrder);
+  .route("/exportBillPaidByOrder/:id")
+  .post(EnergyController.exportBillPaidByOrder);
 
 orderRoute
-    .route("/exportBillRoomPendingPayByOrder/:id")
-    .post(EnergyController.exportBillRoomPendingPayByOrder);
+  .route("/exportBillRoomPendingPayByOrder/:id")
+  .post(EnergyController.exportBillRoomPendingPayByOrder);
 
 orderRoute
+<<<<<<< HEAD
     .route("/exportAllBillRoomPendingPayByOrderToMail/")
     .post(EnergyController.exportAllBillRoomPendingPayByOrderToMail);
 
 orderRoute
     .route("/getPayDepositList/:id")
     .get(OrderController.getPayDepositList);
+=======
+  .route("/getPayDepositList/:id")
+  .get(OrderController.getPayDepositList);
+>>>>>>> 6a24e21890dd92c411bd817e8748d028cfb46699
 orderRoute
-    .route("/getDepositAfterCheckInCostHistoryList/:id")
-    .get(OrderController.getDepositAfterCheckInCostHistoryList);
+  .route("/getDepositAfterCheckInCostHistoryList/:id")
+  .get(OrderController.getDepositAfterCheckInCostHistoryList);
 
 orderRoute
-    .route("/getMonthlyHistoryList/:id")
-    .get(OrderController.getMonthlyHistoryList);
+  .route("/getMonthlyHistoryList/:id")
+  .get(OrderController.getMonthlyHistoryList);
 
 //Phiên bản V1 là: getOrderListByHost
 orderRoute
@@ -49,13 +54,14 @@ orderRoute
   .route("/listOrderNoPayOfPayDeposit/:id") // + id payDeposit
   .get(TransactionsController.getListOrderNoPayOfPayDeposit)
 
-  orderRoute
+orderRoute
   .route("/putBankingCashPendingTransactionByMotel/:id")
   .put(TransactionsController.putBankingCashPendingTransactionByMotel);
 
 orderRoute
   .route("/payDeposit/:id")
   .put(TransactionsController.putPayDeposit);
+
 
 //-------------------------------------------------
 orderRoute.use(AuthMiddleware.isAuthenticated);
@@ -102,9 +108,17 @@ orderRoute.use(AuthMiddleware.isHost);
 // orderRoute
 //   .route("/bankingCashPendingMonthlyByMotel/:id")
 //   .get(TransactionsController.getBankingCashPendingMonthlyByMotel)
+<<<<<<< HEAD
   
   
 
+=======
+
+
+orderRoute
+  .route("/payDeposit/:id")
+  .put(TransactionsController.putPayDeposit);
+>>>>>>> 6a24e21890dd92c411bd817e8748d028cfb46699
 
 
 
@@ -114,7 +128,7 @@ orderRoute.use(AuthMiddleware.isMaster);
 // orderRoute
 //   .route("/putBankingCashPendingTransactionByMotel/:id")
 //   .put(TransactionsController.putBankingCashPendingTransactionByMotel);
-  
+
 export default orderRoute;
 
 

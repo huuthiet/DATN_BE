@@ -1051,13 +1051,14 @@ export default class EnergyController {
           for (const room of rooms) {
             const roomData = await roomModel.findOne({ _id: room._id }).lean().exec();
             let electricMeterValues = [];
+            let electricData = [];
             if (roomData.listIdElectricMetter && roomData.listIdElectricMetter.length > 0) {
               roomData.listIdElectricMetter.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
               const electricMeterValues = roomData.listIdElectricMetter.map(meter => meter.value);
               console.log("Check id: ", electricMeterValues);
               
-              const electricData = await this.getElectricV2(
+              electricData = await this.getElectricV2(
                 startOfMonth,
                 endOfMonth,
                 electricMeterValues,
@@ -1069,19 +1070,6 @@ export default class EnergyController {
 
               console.log({electricData});
             }
-
-            
-  
-            // Lấy dữ liệu điện cho phòng
-            // const electricData = await this.getElectricV2(
-            //   startOfMonth,
-            //   endOfMonth,
-            //   electricMeterValues,
-            //   'Total kWh',
-            //   'MONTH',
-            //   1,
-            //   'MAX'
-            // );
   
             // Thêm thông tin phòng và dữ liệu điện vào mảng kết quả
             resultArray.push({
@@ -5291,11 +5279,12 @@ export default class EnergyController {
   ): Promise<any> {
     const idUser = req.params.idOwner;
     console.log("id User: ", idUser);
-
-    const totalJson = {}; // Object chứa thông tin tất cả các motel
-
-    let jsonMotel = {};
-
+  
+    let jsonMotel = {
+      owner: idUser,
+      motels: {} // Initialize an empty object for motels
+    };
+  
     const {
       motelRoom: motelRoomModel,
       floor: floorModel,
@@ -5306,31 +5295,35 @@ export default class EnergyController {
       order: orderModel,
       bill: billModel,
     } = global.mongoModel;
-
+  
     try {
       const motelInfor = await motelRoomModel
         .find({ owner: idUser })
         .lean()
         .exec();
       console.log("motelInfor", motelInfor);
-      
+  
       motelInfor.forEach((motel) => {
         const idMotel = motel._id;
         const nameMotel = motel.name;
         console.log("motelInfor", motel);
-      
-        // Push idMotel into jsonMotel using nameMotel as the key
-        jsonMotel[nameMotel] = idMotel;
+  
+        // Add each motel to the motels object with name as key and id as value
+        jsonMotel.motels[nameMotel] = idMotel;
       });
-      
+  
       console.log(jsonMotel); // This will show the final jsonMotel object
-
+  
       return HttpResponse.returnSuccessResponse(res, jsonMotel);
     } catch (e) {
       console.log({ e });
       next(e);
     }
   }
+  
+  
+  
+  
 
   static async buildingRevenue(req: Request, res: Response, next: NextFunction): Promise<any> {
     const idMotel = req.params.idMotel;
@@ -5357,17 +5350,22 @@ export default class EnergyController {
 
         // Initialize revenue data for each month
         let monthlyRevenue = Array.from({ length: 12 }, (_, index) => ({ 
-            name: motelName, 
+          name: motelName,
+          total: 0,
             revenue: 0, 
             electricNumber: 0,
-            electricPrice: 0,
+          electricPrice: 0,
+          servicePrice: 0,
+          waterPrice: 0,
+          vehiclePrice: 0,
             time: `${index + 1}/${year !== "All Years" ? year : ""}` 
         }));
 
         // Initialize total revenue, electric number, and electric price
         let totalRevenue = 0;
         let totalElectricNumber = 0;
-        let totalElectricPrice = 0;
+      let totalElectricPrice = 0;
+      let total= 0;
 
         // Loop through each bill and find corresponding order
         for (const bill of billData) {
@@ -5381,14 +5379,19 @@ export default class EnergyController {
                 const orderMonth = orderStartTime.getMonth(); // 0-indexed (0 = January, 11 = December)
 
                 if (year === "All Years" || orderYear === parseInt(year, 10)) {
-                    monthlyRevenue[orderMonth].revenue += orderData.amount || 0;
+                    monthlyRevenue[orderMonth].revenue += orderData.roomPrice || 0;
                     monthlyRevenue[orderMonth].electricNumber += orderData.electricNumber || 0;
-                    monthlyRevenue[orderMonth].electricPrice += orderData.electricPrice || 0;
+                  monthlyRevenue[orderMonth].electricPrice += orderData.electricPrice || 0;
+                  monthlyRevenue[orderMonth].servicePrice += orderData.servicePrice || 0;
+                  monthlyRevenue[orderMonth].waterPrice += orderData.waterPrice || 0;
+                  monthlyRevenue[orderMonth].vehiclePrice += orderData.vehiclePrice || 0;
+                  monthlyRevenue[orderMonth].total += orderData.amount || 0;
 
                     // Update total revenue, electric number, and electric price
-                    totalRevenue += orderData.amount || 0;
+                    totalRevenue += orderData.roomPrice || 0;
                     totalElectricNumber += orderData.electricNumber || 0;
-                    totalElectricPrice += orderData.electricPrice || 0;
+                  totalElectricPrice += orderData.electricPrice || 0;
+                  total += orderData.amount || 0;
                 }
             }
         }
@@ -5403,7 +5406,8 @@ export default class EnergyController {
                 monthlyRevenue: jsonMotel,
                 totalRevenue,
                 totalElectricNumber,
-                totalElectricPrice
+              totalElectricPrice,
+              total,
             }
         };
 

@@ -16,6 +16,7 @@ import { Bill } from "models/homeKey/bill";
 import { OrderModel } from "models/homeKey/order";
 import { FloorModel } from "models/homeKey/floor";
 import { RoomList } from "twilio/lib/rest/video/v1/room";
+import * as mongoose from "mongoose";
 var optionsNumbeer = {
   // example input , yes negative values do work
   min: 1000,
@@ -151,6 +152,142 @@ export default class TransactionsController {
       next(e);
     }
   }
+
+  static async postRequestWithdrawHost(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init models
+      const { transactions: TransactionsModel } = global.mongoModel;
+      const { user: userModel } = global.mongoModel;
+
+      const id = req.params.id;
+
+      let { body: data } = req;
+      console.log("Check data:", data);
+
+      let resData = await userModel
+        .findOne(
+          { _id: req["userId"], isDeleted: false },
+          { password: 0, token: 0 }
+        )
+        .populate("avatar identityCards")
+        .lean()
+        .exec();
+      if (!resData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tài khoản không tồn tại"
+        );
+      }
+
+      const transactionsData = await TransactionsModel.create({
+        user: req["userId"],
+        keyPayment: data.keyPayment,
+        requestDate: data.requestDate || new Date(),
+        motelName: data.motelName,
+        description: `${resData.lastName} ${resData.firstName} yêu cầu rút tiền doanh thu`,
+        amount: data.withdrawAmount,
+        status: "waiting",
+        paymentMethod: data.type,
+        type: "withdraw",
+        //data.bankId is a string, add as a objectId
+        banking: ObjectId(data.bankId),
+        accountNumber: data.accountNumber, // Assuming you want to store the account number
+        withdrawReason: data.withdrawReason, // Assuming you want to store the reason for the withdrawal
+      });
+
+      // Get ip
+      data["ipAddr"] =
+        req.headers["x-forwarded-for"] ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        req.socket.remoteAddress;
+
+      return HttpResponse.returnSuccessResponse(res, transactionsData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async getWithdrawRequestListAdmin(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const { transactions: TransactionsModel, banking: BankingModel, image: imageModel } = global.mongoModel;
+
+      const transactionsData = await TransactionsModel.find({
+        type: "withdraw",
+      })
+        .populate({
+          path: 'user',
+          select: 'firstName lastName phoneNumber'  // Chỉ lấy các trường cụ thể từ collection 'user'
+        })
+        .populate('banking')  // Giữ nguyên populate cho 'banking'
+        .lean()
+        .exec();
+
+
+      if (!transactionsData) {
+        return HttpResponse.returnBadRequestResponse(res, []);
+      }
+
+      if (transactionsData) {
+        for (let i = 0; i < transactionsData.length; i++) {
+          if (transactionsData[i].file) {
+            const dataimg = await imageModel.findOne({
+              _id: transactionsData[i].file,
+            });
+            if (dataimg) {
+              transactionsData[i].file = await helpers.getImageUrl(dataimg);
+            }
+          }
+
+          // if(transactionsData[i].motel) {
+          //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+          //   if(motelData) {
+          //     transactionsData[i].motel = motelData;
+          //   }
+          // }
+
+          // if(transactionsData[i].room) {
+          //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+          //   if(roomData) {
+          //     transactionsData[i].room = roomData;
+          //   }
+          // }
+        }
+      }
+
+      return HttpResponse.returnSuccessResponse(res, transactionsData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   static async postTransactionsDepositPendingBanking(
     req: Request,
     res: Response,
@@ -387,7 +524,7 @@ export default class TransactionsController {
         )
       }
 
-      if(moment(orderData.expireTime).isBefore(moment())) {
+      if (moment(orderData.expireTime).isBefore(moment())) {
         return HttpResponse.returnBadRequestResponse(
           res,
           "Hóa đơn đã hết hạn thanh toán"
@@ -1763,6 +1900,166 @@ export default class TransactionsController {
       next(e);
     }
   }
+
+  static async approveWithdrawalRequest(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init models
+      const { transactions: TransactionsModel, revenue: RevenueModel } = global.mongoModel;
+
+      const id = req.params.id;
+      let { body: data } = req;
+
+      let resData = await TransactionsModel.findOne({
+        _id: id,
+        isDeleted: false,
+      }).lean().exec();
+
+      if (!resData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Giao dịch không tồn tại"
+        );
+      }
+
+      console.log("Check data", resData);
+      const userId = resData.user;
+      const motelName = resData.motelName;
+
+      const userRevenue = await RevenueModel.findOne({
+        hostId: userId,
+      }).lean().exec();
+
+      if (!userRevenue) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Doanh thu của chủ nhà không tồn tại"
+        );
+      }
+
+      const motelsList = userRevenue.motels || [];
+      const matchedMotel = motelsList.find(motel => motel.motelName === motelName);
+
+      if (!matchedMotel) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không tồn tại"
+        );
+      }
+
+      // Calculate the remaining revenue after withdrawal
+      const withdrawalAmount = resData.amount;
+      const totalRevenueBeforeWithdrawal = matchedMotel.totalRevenue || 0;
+      const remainingRevenue = totalRevenueBeforeWithdrawal - withdrawalAmount;
+
+      if (remainingRevenue < 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Số tiền yêu cầu rút vượt quá doanh thu hiện tại"
+        );
+      }
+
+      // Create a new withdrawal record
+      const newWithdrawal = {
+        withdrawalRequestId: new mongoose.Types.ObjectId(id),
+        amount: withdrawalAmount,
+        remainingRevenue: remainingRevenue,
+        date: new Date()
+      };
+
+      // Update the motel's revenue and add the new withdrawal
+      matchedMotel.totalRevenue = remainingRevenue;
+      if (!matchedMotel.withdrawals) {
+        matchedMotel.withdrawals = [];
+      }
+      matchedMotel.withdrawals.push(newWithdrawal);
+
+      // Save the updated revenue data
+      await RevenueModel.updateOne(
+        { hostId: userId, "motels.motelId": matchedMotel.motelId },
+        {
+          $set: {
+            "motels.$.totalRevenue": remainingRevenue,
+            "motels.$.withdrawals": matchedMotel.withdrawals
+          }
+        }
+      );
+
+      // Update the transaction status
+      await TransactionsModel.updateOne(
+        { _id: id },
+        {
+          $set: {
+            status: "approved",
+            updatedAt: new Date()
+          }
+        }
+      );
+
+      return HttpResponse.returnSuccessResponse(res, { ...resData, matchedMotel });
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async getWithdrawalsRequestListByHost(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const { transactions: TransactionsModel, user: userModel, image: imageModel } = global.mongoModel;
+      const userId = req.params.userId;
+      const motelName = req.params.motelName;
+
+      console.log("User ID", userId);
+
+      const userData = await userModel.findOne({ _id: userId }).lean().exec();
+      if (!userData) {
+        return HttpResponse.returnBadRequestResponse(res, "Người dùng không tồn tại");
+      }
+      const firstName = userData.firstName;
+      const lastName = userData.lastName;
+
+      const withdrawalsList = await TransactionsModel.find({
+        user: userId,
+        type: "withdraw",
+        isDeleted: false
+      }).lean().exec();
+
+      console.log("Withdrawals list", withdrawalsList);
+
+      // Xử lý ảnh cho từng mục trong withdrawalsList
+      for (let i = 0; i < withdrawalsList.length; i++) {
+        if (withdrawalsList[i].file) {
+          const dataimg = await imageModel.findOne({ _id: withdrawalsList[i].file });
+          if (dataimg) {
+            withdrawalsList[i].file = await helpers.getImageUrl(dataimg);
+          }
+        }
+      }
+
+      // Thêm firstName và lastName vào từng mục trong withdrawalsList
+      const updatedWithdrawalsList = withdrawalsList.map(item => ({
+        ...item,
+        firstName,
+        lastName,
+      }));
+
+      return HttpResponse.returnSuccessResponse(res, updatedWithdrawalsList);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+
+
+
+
+
 
   static async putTransactionPayment(
     req: Request,

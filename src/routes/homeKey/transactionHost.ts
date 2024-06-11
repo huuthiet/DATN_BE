@@ -24,6 +24,14 @@ transactionHostRoute
   .route("/host")
   .get(TransactionsController.getTransactionPaymentHost);
 
+transactionHostRoute
+  .route("/requestWithdraws")
+  .post(TransactionsController.postRequestWithdrawHost);
+transactionHostRoute
+  .route("/requestWithdraws/list/:userId/:motelName")
+  .get(TransactionsController.getWithdrawalsRequestListByHost);
+
+
 /* ------------------------------ PRIVATE APIS ------------------------------ */
 
 /* -------------------------------------------------------------------------- */
