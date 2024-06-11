@@ -34,6 +34,10 @@ authRoute
   .route("/img/:id/transaction")
   .post(UploadImgController.postUploadImgByRoomIdTransaction);
 
+authRoute
+  .route("/img/:id/payDeposit")
+  .post(UploadImgController.postUploadImgPayDeposit);
+
 /* ---------------------------- CHECK PERMISSION ---------------------------- */
 
 export default authRoute;

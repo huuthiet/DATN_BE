@@ -19,6 +19,10 @@ orderRoute
     .post(EnergyController.exportBillRoomPendingPayByOrder);
 
 orderRoute
+    .route("/exportAllBillRoomPendingPayByOrderToMail/")
+    .post(EnergyController.exportAllBillRoomPendingPayByOrderToMail);
+
+orderRoute
     .route("/getPayDepositList/:id")
     .get(OrderController.getPayDepositList);
 orderRoute
@@ -49,9 +53,16 @@ orderRoute
   .route("/putBankingCashPendingTransactionByMotel/:id")
   .put(TransactionsController.putBankingCashPendingTransactionByMotel);
 
+orderRoute
+  .route("/payDeposit/:id")
+  .put(TransactionsController.putPayDeposit);
 
 //-------------------------------------------------
 orderRoute.use(AuthMiddleware.isAuthenticated);
+
+orderRoute
+    .route("/getPayDepositListUser/")
+    .get(OrderController.getPayDepositListUser);
 
 orderRoute
   .route("/orderPendingPaymentList/") //by user
@@ -93,14 +104,13 @@ orderRoute.use(AuthMiddleware.isHost);
 //   .get(TransactionsController.getBankingCashPendingMonthlyByMotel)
   
   
-orderRoute
-  .route("/payDeposit/:id")
-  .put(TransactionsController.putPayDeposit);
+
 
 
 
 /* ------------------------------ PRIVATE APIS ------------------------------ */
 orderRoute.use(AuthMiddleware.isMaster);
+
 // orderRoute
 //   .route("/putBankingCashPendingTransactionByMotel/:id")
 //   .put(TransactionsController.putBankingCashPendingTransactionByMotel);

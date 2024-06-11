@@ -375,4 +375,64 @@ export default class UploadImgController {
       next(e);
     }
   }
+
+  static async postUploadImgPayDeposit(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      //Init models
+      const { payDepositList: payDepositListModel } = global.mongoModel;
+
+      let { id: id } = req.params;
+      console.log({id});
+
+      const imageService = new ImageService("local", false);
+
+      // Process form data
+      const processDataInfo = await imageService.processFormData(req, res);
+
+      if (processDataInfo && processDataInfo.error) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          processDataInfo.error
+        );
+      }
+
+      const { body: data } = req;
+      console.log("check data from req", data);
+      console.log("check data from req", data.formData);
+
+      console.log("fill", req["files"]);
+
+
+      // Upload image
+      if (req["files"]) {
+        data.images = {};
+        const uploadResults = await imageService.upload(req["files"].file);
+        if (uploadResults.error) {
+          return HttpResponse.returnInternalServerResponseWithMessage(
+            res,
+            uploadResults.message
+          );
+        }
+        console.log("check uploadResults", uploadResults);
+
+        data.images.imageUrl = uploadResults.imageUrl;
+        data.images.imageId = uploadResults.imageId;
+
+        const resDataS = await payDepositListModel.findOneAndUpdate(
+          { _id: id },
+          { file: uploadResults.imageId }
+        )
+          .lean()
+          .exec();
+      }
+
+      return HttpResponse.returnSuccessResponse(res, data);
+    } catch (e) {
+      next(e);
+    }
+  }
 }

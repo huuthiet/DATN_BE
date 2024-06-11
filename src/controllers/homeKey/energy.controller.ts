@@ -18,6 +18,8 @@ import { FloorModel } from "models/homeKey/floor";
 import { time } from "console";
 import electric from "services/agenda/jobs/electric";
 
+import { helpers } from "../../utils";
+
 const width = 595;
 const height = 400;
 
@@ -2606,6 +2608,22 @@ export default class EnergyController {
           "Lầu không tồn tại"
         )
       }
+
+      // const nameFile = `Invoice deposit`;
+      //   let fileName = `${nameFile}.pdf`;
+
+      //   // res.setHeader("Content-Type", "application/pdf");
+      //   // res.setHeader("Content-Dispsition", "attachment;filename=" + fileName);
+
+      //   const buffer = await await getBufferOrderAllType(
+      //     orderData,
+      //     jobData,
+      //     roomData,
+      //     floorData
+      //   );
+      //   res.send(buffer);
+      //   console.log("XXXXXXXXX")
+        
       const motelData = await motelRoomModel.findOne({floors: floorData._id}).populate("owner address").lean().exec();
       console.log({motelData});
 
@@ -2996,6 +3014,123 @@ export default class EnergyController {
         const buffer = await generateOrderDepositPendingPayPDF(json, bankData);
         res.send(buffer);
       }
+      const data = "exportBillSuccess";
+      return HttpResponse.returnSuccessResponse(res, data);
+    } catch (e) {
+      console.log({ e });
+      next(e);
+    }
+  }
+
+  static async exportAllBillRoomPendingPayByOrderToMail(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const { email, listIdOrder } = req.body;
+
+      console.log({email});
+
+      console.log({listIdOrder});
+
+      if(listIdOrder.length === 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res, 
+          "Không có hóa đơn nào!"
+        )
+      }
+      if(!email) {
+        return HttpResponse.returnBadRequestResponse(
+          res, 
+          "Không có email!"
+        )
+      }
+
+      const {
+        motelRoom: motelRoomModel,
+        room: roomModel,
+        address: addressModel,
+        user: userModel,
+        banking: BankingModel,
+        job: jobModel,
+        transactions: TransactionsModel,
+        order: orderModel,
+        floor: floorModel,
+        totalKwh: totalKwhModel,
+      } = global.mongoModel;
+
+      const bufferList = [];
+
+      const listIdOrderLength = listIdOrder.length;
+      for(let i = 0; i < listIdOrderLength; i++ ) {
+        
+        const orderData = await orderModel.findOne({_id: listIdOrder[i]}).lean().exec();
+
+        if(!orderData) {
+          continue;
+        }
+        console.log("KJHDFALKSJDHF")
+
+        const jobData = await jobModel.findOne({_id: orderData.job}).lean().exec();
+
+        if (!jobData) {
+          continue;
+        }
+
+        const roomData = await roomModel.findOne({_id: jobData.room}).lean().exec();
+        if(!roomData) {
+          continue;
+        }
+
+        const floorData = await floorModel.findOne({rooms: roomData._id}).lean().exec();
+        if(!floorData) {
+          continue;
+        }
+        
+
+        let buffer = await getBufferOrderAllType(
+          orderData,
+          jobData,
+          roomData,
+          floorData
+        );
+        // bufferList.push(buffer);
+        bufferList.push({ buffer: Buffer.from(buffer) });
+      }
+
+      console.log("eladfasd", bufferList.length);
+
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: "cr7ronadol12345@gmail.com",
+          pass: "wley oiaw yhpl oupy",
+        },
+        tls: {
+          rejectUnauthorized: false
+        }
+      });
+
+      const mailOptions = {
+        from: "cr7ronadol12345@gmail.com",
+        to: email,
+        subject: `HÓA ĐƠN XUẤT NGÀY ${moment().format("DD/MM/YYYY")}`,
+        text: `HÓA ĐƠN XUẤT NGÀY ${moment().format("DD/MM/YYYY")}`,
+        attachments: bufferList.map((result) => ({
+          filename: `Invoice.pdf`,
+          content: result.buffer,
+        })),
+      };
+
+      transporter.sendMail(mailOptions, function (error, info) {
+        if (error) {
+          console.error(error);
+        } else {
+          console.log("Email đã được gửi: " + info.response);
+        }
+      });
+      
       const data = "exportBillSuccess";
       return HttpResponse.returnSuccessResponse(res, data);
     } catch (e) {
@@ -5290,6 +5425,14 @@ export default class EnergyController {
     next: NextFunction
   ): Promise<any> {
     try {
+
+      // const a = await helpers.getImageUrl("666012d86a765add7c01ad0e");
+      const a  = moment().startOf("months");
+      const b = moment().month();
+      const c = moment("2024-05-31T17:00:00.000+00:00")
+      console.log({b});
+      console.log(typeof(b));
+      console.log({c})
       
       // let data = [
       //   { "label": "05-2024", "value": 29.12, "price": 101920, "user": {} },
@@ -5433,24 +5576,24 @@ export default class EnergyController {
 // console.log({dateStay});
 // console.log({a});
 
-      const {
-        room: roomModel,
-        floor: floorModel,
-        motelRoom: motelRoomModel,
-        job: jobModel,
-        user: userModel,
-        order: orderModel,
-        transactions: TransactionsModel,
-        bill: BillModel,
-        optionsType: OptionsTypeModel,
-        totalKwh: totalKwhModel,
-      } = global.mongoModel;
+      // const {
+      //   room: roomModel,
+      //   floor: floorModel,
+      //   motelRoom: motelRoomModel,
+      //   job: jobModel,
+      //   user: userModel,
+      //   order: orderModel,
+      //   transactions: TransactionsModel,
+      //   bill: BillModel,
+      //   optionsType: OptionsTypeModel,
+      //   totalKwh: totalKwhModel,
+      // } = global.mongoModel;
 
-      const startOfMonth = '2024-05-01';
-      const endOfMonth = '2024-05-31';
+      // const startOfMonth = '2024-05-01';
+      // const endOfMonth = '2024-05-31';
 
-      let data = EnergyController.calculateElectricUsedDayToDayHaveLabelTime("6640d72526fe12180875ab7a", startOfMonth, endOfMonth);
-      console.log({data})
+      // let data = EnergyController.calculateElectricUsedDayToDayHaveLabelTime("6640d72526fe12180875ab7a", startOfMonth, endOfMonth);
+      // console.log({data})
 
       // const a = await orderModel.findOne({
       //   _id: "664d27ea4a755b6434ac92b6",
@@ -10905,6 +11048,395 @@ async function handleDuplicateTimeTotalKwh(
             resultX.push({ ts: key, value: map[key] });
         }
   return resultX;
+}
+
+//monthly, deposit, afterCheckICost
+async function getBufferOrderAllType(
+  orderData: any,
+  jobData: any,
+  roomData: any,
+  floorData: any,
+): Promise<any>{
+  const {
+    motelRoom: motelRoomModel,
+    room: roomModel,
+    address: addressModel,
+    user: userModel,
+    banking: BankingModel,
+    job: jobModel,
+    transactions: TransactionsModel,
+    order: orderModel,
+    floor: floorModel,
+    totalKwh: totalKwhModel,
+  } = global.mongoModel;
+  const motelData = await motelRoomModel.findOne({floors: floorData._id}).populate("owner address").lean().exec();
+  console.log({motelData});
+
+  const motelOwner = motelData.owner;
+  const emailOwner = motelOwner.email;
+  const phoneOwner =
+    motelOwner.phoneNumber.countryCode + motelOwner.phoneNumber.number;
+  const addressOwner = motelOwner.address;
+
+  const adminData = await userModel.findOne({role: "master"}).lean().exec();
+
+  let banking = await BankingModel.find({ user: adminData._id }) //trả về mảng
+    .lean()
+    .exec();
+  // const banking = await BankingModel.find({ user: motelOwner._id }) //trả về mảng
+  //   .lean()
+  //   .exec();
+
+  //Nếu đã yêu cầu thanh toán => đã có transaction => đã chọn ngân hàng
+  const transactionData = await TransactionsModel.findOne({order: orderData._id}).lean().exec();
+  if(transactionData) {
+    let tempBanking = await BankingModel.findOne({ _id: transactionData.banking })
+    .lean()
+    .exec();
+
+    if(tempBanking) {
+      banking = [];
+      banking.push(tempBanking);
+    }
+  }
+
+  const nameMotel = motelData.name;
+  const motelAddress = motelData.address.address;
+  const nameRoom = roomData.name;
+
+  console.log("Tớiiiiii")
+
+  if(orderData.type === "monthly")  {
+    console.log("Tới 1")
+    // const totalkWhTime = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+    //   roomData._id,
+    //   moment(new Date(orderData.startTime)).format("YYYY-MM-DD"),
+    //   moment(new Date(orderData.endTime)).format("YYYY-MM-DD")
+    // );
+
+    const totalkWhTime = await totalKwhModel.findOne({
+      order: orderData._id,
+    }).lean().exec();
+
+
+    // // //Thông số
+    const idBill: string = orderData.keyOrder;
+    const numberDayStay = orderData.numberDayStay;
+
+    const unitPriceRoom = roomData.price;
+    const unitPriceElectricity = roomData.electricityPrice;
+    const unitPriceWater = roomData.waterPrice;
+    const unitPriceGarbage = roomData.garbagePrice; // dịch vụ
+    const unitPriceWifi = roomData.wifiPrice; // xe
+    const unitPriceOther = 0;
+
+    const typeRoom: number = orderData.numberDayStay;
+    const typeWater: number = roomData.person;
+    const typeGarbage: string = "1";
+    const typeWifi: number = roomData.vihicle;
+    const typeOther = 0;
+    let typeElectricity: number = orderData.electricNumber;
+
+    const totalAll = parseInt(orderData.amount);
+    const totalAndTaxAll = parseInt(orderData.amount);
+    const totalRoom = parseInt(orderData.roomPrice);
+    const totalWifi = parseInt(orderData.vehiclePrice);
+    const totalGarbage = parseInt(orderData.servicePrice); // service
+    const totalWater = parseInt(orderData.waterPrice);
+    const totalElectricity = parseInt(orderData.electricPrice);
+
+    const parsedTime = moment(new Date(orderData.createdAt)).format("DD/MM/YY"); //ngày tạo
+
+    const expireTime = moment(new Date(orderData.expireTime)).format("DD/MM/YYYY");
+    const startTime = moment(new Date(orderData.createdAt)).format("DD/MM/YYYY");
+
+    let json = {};
+
+    if (roomData.rentedBy) {
+      const userId = roomData.rentedBy;
+      const userInfor = await userModel
+        .findOne({ _id: userId })
+        .lean()
+        .exec();
+
+      const nameUser = userInfor.lastName + userInfor.firstName;
+      const phoneUser =
+        userInfor.phoneNumber.countryCode +
+        " " +
+        userInfor.phoneNumber.number;
+      const addressUser = userInfor.address;
+      const emailUser = userInfor.email;
+
+
+      json = {
+        numberDayStay: numberDayStay,
+
+        idBill: idBill, 
+        phoneOwner,
+        startTime: startTime,
+        expireTime: expireTime,
+        dateBill: parsedTime,
+        nameMotel: nameMotel,
+        addressMotel: motelAddress,
+        nameRoom: nameRoom,
+        nameUser: nameUser,
+        phoneUser: phoneUser,
+        addressUser: addressUser,
+        imgRoom: "",
+        addressOwner: addressOwner,
+        emailUser: emailUser,
+        emailOwner: emailOwner,
+
+        totalAll: totalAll,
+
+        totalAndTaxAll: totalAndTaxAll,
+
+        totalTaxAll: 0,
+        typeTaxAll: 0,
+        expenseRoom: "Chi Phí Phòng",
+        typeRoom: typeRoom,
+        unitPriceRoom: unitPriceRoom,
+        totalRoom: totalRoom,
+
+        expenseElectricity: "Chi Phí Điện",
+        typeElectricity: typeElectricity,
+        unitPriceElectricity: unitPriceElectricity,
+        totalElectricity: totalElectricity,
+
+        expenseWater: "Chi Phí Nước",
+        typeWater: typeWater,
+        unitPriceWater: unitPriceWater,
+        totalWater: totalWater,
+
+        expenseGarbage: "Phí Dịch Vụ",
+        typeGarbage: typeGarbage,
+        unitPriceGarbage: unitPriceGarbage,
+        totalGarbage: totalGarbage,
+
+        expenseWifi: "Chi Phí Xe",
+        typeWifi: typeWifi,
+        unitPriceWifi: unitPriceWifi,
+        totalWifi: totalWifi,
+
+        expenseOther: "Tiện Ích Khác",
+        typeOther: typeOther,
+        unitPriceOther: unitPriceOther,
+        totalOther: typeOther * unitPriceOther,
+      };
+
+      const nameFile = `Invoice - ${nameMotel} - ${nameRoom} from ${moment(new Date(orderData.startTime)).format("DD-MM-YYYY")} to ${moment(new Date(orderData.endTime)).format("DD-MM-YYYY")}`;
+      let fileName = `${nameFile}.pdf`;
+
+      const buffer = await generateOrderMonthlyPendingPayPDF(json, banking[0], totalkWhTime);
+
+      // Export chartjs to pdf
+      // const configuration: ChartConfiguration = {
+      //   type: "line",
+      //   data: {
+      //     labels: totalkWhTime.labelTime.map((item) =>
+      //       item ? item : "Chưa có dữ liệu"
+      //     ),
+      //     datasets: [
+      //       {
+      //         // label: `Tổng số điện từ ${startTime} đến ${endTime}`,
+      //         label: `Tổng số điện từ ${moment(new Date(orderData.startTime)).format("DD-MM-YYYY")} đến ${moment(new Date(orderData.endTime)).format("DD-MM-YYYY")}`,
+      //         data: totalkWhTime.kWhData,
+      //         backgroundColor: ["rgba(255, 99, 132, 0.2)"],
+      //         borderColor: ["rgba(255,99,132,1)"],
+      //         borderWidth: 1,
+      //         tension: 0.01,
+      //         fill: false,
+      //       },
+      //     ],
+      //   },
+      //   options: {
+      //     scales: {
+      //       x: {
+      //         title: {
+      //           display: true,
+      //           text: "Thời gian",
+      //         },
+      //       },
+      //       y: {
+      //         title: {
+      //           display: true,
+      //           text: "Số KwH",
+      //         },
+      //       },
+      //     },
+      //   },
+      //   plugins: [
+      //     {
+      //       id: "background-colour",
+      //       beforeDraw: (chart) => {
+      //         const ctx = chart.ctx;
+      //         ctx.save();
+      //         ctx.fillStyle = "white";
+      //         ctx.fillRect(0, 0, width, height);
+      //         ctx.restore();
+      //       },
+      //     },
+      //     {
+      //       id: "chart-data-labels",
+      //       afterDatasetsDraw: (chart, args, options) => {
+      //         const { ctx } = chart;
+      //         ctx.save();
+
+      //         // Configure data labels here
+      //         chart.data.datasets.forEach((dataset, i) => {
+      //           const meta = chart.getDatasetMeta(i);
+      //           meta.data.forEach((element, index) => {
+      //             const model = element;
+      //             const x = model.x;
+      //             const y = model.y;
+      //             const text = dataset.data[index]
+      //               ? (+dataset.data[index].toString()).toFixed(2)
+      //               : ""; // You can customize this based on your data
+      //             const font = "12px Arial"; // Example font setting
+      //             const fillStyle = "black"; // Example color setting
+      //             const textAlign = "center"; // Example alignment setting
+
+      //             ctx.fillStyle = fillStyle;
+      //             ctx.font = font;
+      //             ctx.textAlign = textAlign;
+      //             ctx.fillText(text, x, y);
+      //           });
+      //         });
+
+      //         ctx.restore();
+      //       },
+      //     },
+      //   ],
+      // };
+      // const chartBufferPNG = await chartJSNodeCanvas.renderToBuffer(
+      //   configuration
+      // );
+      // const mergedBuffer = await mergeBuffer(buffer, chartBufferPNG);
+      // console.log({ mergedBuffer: Buffer.from(mergedBuffer) });
+
+      
+      // res.send(mergedBuffer);
+      return buffer;
+    }
+  } else if(orderData.type === "afterCheckInCost") {
+    const bankData = {
+      nameBankOwner: banking[0].nameTkLable,
+      nameOwnerBankOwner: banking[0].nameTk,
+      numberBankOwner: banking[0].stk,
+    };
+    const idBill: string = orderData.keyOrder;
+
+    const totalAll = parseInt(orderData.amount);
+    const totalAndTaxAll = parseInt(orderData.amount);
+
+    const expireTime = moment(new Date(orderData.expireTime)).format("DD/MM/YYYY");
+    const startTime = moment(new Date(orderData.createdAt)).format("DD/MM/YYYY");
+
+    if (roomData.rentedBy) {
+      const userId = roomData.rentedBy;
+      const userInfor = await userModel
+        .findOne({ _id: userId })
+        .lean()
+        .exec();
+
+      const nameUser = userInfor.lastName + userInfor.firstName;
+      const phoneUser =
+        userInfor.phoneNumber.countryCode +
+        " " +
+        userInfor.phoneNumber.number;
+      const addressUser = userInfor.address;
+        const emailUser = userInfor.email;
+
+      let json = {};
+
+      json = {
+        idBill: idBill,
+        phoneOwner: phoneOwner,
+        expireTime: expireTime,
+        dateBill: startTime,
+        startTime: startTime,
+        nameMotel: nameMotel,
+        addressMotel: motelAddress,
+        nameRoom: nameRoom,
+
+        nameUser: nameUser,
+        phoneUser: phoneUser,
+        addressUser: addressUser,
+        imgRoom: "",
+
+        addressOwner: addressOwner,
+        emailUser: emailUser,
+        emailOwner: emailOwner,
+
+        totalAll: totalAll,
+        totalAndTaxAll: totalAndTaxAll,
+        totalTaxAll: 0,
+        typeTaxAll: 0,
+      };
+
+      const buffer = await generateOrderDepositPendingPayPDF(json, bankData);
+      
+      return buffer;
+    }
+  } else if(orderData.type === "deposit") {
+    const bankData = {
+      nameBankOwner: banking[0].nameTkLable,
+      nameOwnerBankOwner: banking[0].nameTk,
+      numberBankOwner: banking[0].stk,
+    };
+    const idBill: string = orderData.keyOrder;
+
+    const totalAll = parseInt(orderData.amount);
+    const totalAndTaxAll = parseInt(orderData.amount);
+
+    const expireTime = moment(new Date(orderData.expireTime)).format("DD/MM/YYYY");
+    const startTime = moment(new Date(orderData.createdAt)).format("DD/MM/YYYY");
+
+    const userId = orderData.user;
+      const userInfor = await userModel
+        .findOne({ _id: userId })
+        .lean()
+        .exec();
+
+    const nameUser = userInfor.lastName + userInfor.firstName;
+    const phoneUser =
+      userInfor.phoneNumber.countryCode +
+      " " +
+      userInfor.phoneNumber.number;
+    const addressUser = userInfor.address;
+      const emailUser = userInfor.email;
+
+    let json = {};
+
+    json = {
+      idBill: idBill,
+      phoneOwner: phoneOwner,
+      expireTime: expireTime,
+      dateBill: startTime,
+      startTime: startTime,
+      nameMotel: nameMotel,
+      addressMotel: motelAddress,
+      nameRoom: nameRoom,
+
+      nameUser: nameUser,
+      phoneUser: phoneUser,
+      addressUser: addressUser,
+      imgRoom: "",
+
+      addressOwner: addressOwner,
+      emailUser: emailUser,
+      emailOwner: emailOwner,
+
+      totalAll: totalAll,
+      totalAndTaxAll: totalAndTaxAll,
+      totalTaxAll: 0,
+      typeTaxAll: 0,
+    };
+
+    const buffer = await generateOrderDepositPendingPayPDF(json, bankData);
+
+    return buffer;
+  }
 }
 
 

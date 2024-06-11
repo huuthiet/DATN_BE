@@ -189,10 +189,12 @@ export default class TransactionsController {
       }).lean().exec();
 
       if (transactionDataRes) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Phòng đã được đặt cọc trước đó, giao dịch đang chờ phê duyệt. Vui lòng quay lại sau!"
-        )
+        if(transactionDataRes.status === "waiting") {
+          return HttpResponse.returnBadRequestResponse(
+            res,
+            "Phòng đã được đặt cọc trước đó, giao dịch đang chờ phê duyệt. Vui lòng quay lại sau!"
+          )
+        }
       }
 
       const roomData = await RoomController.getRoomById(formData.roomId);
@@ -836,7 +838,7 @@ export default class TransactionsController {
         paymentMethod: { $ne: "wallet" },
         isDeleted: false,
         status: "waiting",
-      }).populate("user room").lean().exec();
+      }).populate("room").lean().exec();
 
       console.log({ transactionsData })
       if (transactionsData) {
@@ -848,6 +850,100 @@ export default class TransactionsController {
             if (dataimg) {
               transactionsData[i].file = await helpers.getImageUrl(dataimg);
             }
+          }
+
+          const userData = await userModel.findOne({_id: transactionsData[i].user}).populate("backId avatar frontId").lean().exec();
+
+          if(userData) {
+            if(userData.backId) {
+              userData.backId = await helpers.getImageUrl(userData.backId);
+            }
+            if(userData.avatar) {
+              userData.avatar = await helpers.getImageUrl(userData.avatar);
+            }
+            if(userData.frontId) {
+              userData.frontId = await helpers.getImageUrl(userData.frontId);
+            }
+            transactionsData[i].user = userData;
+          }
+
+          // if(transactionsData[i].motel) {
+          //   const motelData = await motelRoomModel.findOne({_id: transactionsData[i].motel}).populate("owner").lean().exec();
+          //   if(motelData) {
+          //     transactionsData[i].motel = motelData;
+          //   }
+          // }
+
+          // if(transactionsData[i].room) {
+          //   const roomData = await roomModel.findOne({_id: transactionsData[i].room}).lean().exec();
+          //   if(roomData) {
+          //     transactionsData[i].room = roomData;
+          //   }
+          // }
+        }
+      }
+      transactionsData = transactionsData.reverse();
+
+      if (!transactionsData) {
+        return HttpResponse.returnBadRequestResponse(res, []);
+      }
+
+      return HttpResponse.returnSuccessResponse(res, transactionsData);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async historyTransactions(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      // const id = req.params.id;
+      const idMotel = req.params.id;
+
+      console.log({ idMotel });
+      const {
+        user: userModel,
+        transactions: TransactionsModel,
+        image: imageModel,
+        room: roomModel,
+      } = global.mongoModel;
+
+      let transactionsData = await TransactionsModel.find({
+        motel: ObjectId(idMotel),
+        type: "deposit",
+        paymentMethod: { $ne: "wallet" },
+        isDeleted: false,
+        status: { $ne: "waiting" },
+      }).populate("room").lean().exec();
+
+      console.log({ transactionsData })
+      if (transactionsData) {
+        for (let i = 0; i < transactionsData.length; i++) {
+          if (transactionsData[i].file) {
+            const dataimg = await imageModel.findOne({
+              _id: transactionsData[i].file,
+            });
+            if (dataimg) {
+              transactionsData[i].file = await helpers.getImageUrl(dataimg);
+            }
+          }
+
+          const userData = await userModel.findOne({_id: transactionsData[i].user}).populate("backId avatar frontId").lean().exec();
+
+          if(userData) {
+            if(userData.backId) {
+              userData.backId = await helpers.getImageUrl(userData.backId);
+            }
+            if(userData.avatar) {
+              userData.avatar = await helpers.getImageUrl(userData.avatar);
+            }
+            if(userData.frontId) {
+              userData.frontId = await helpers.getImageUrl(userData.frontId);
+            }
+            transactionsData[i].user = userData;
           }
 
           // if(transactionsData[i].motel) {
@@ -903,7 +999,7 @@ export default class TransactionsController {
         paymentMethod: { $ne: "wallet" },
         isDeleted: false,
         status: "waiting",
-      }).populate("user room").lean().exec();
+      }).populate("room").lean().exec();
 
       if (transactionsData) {
         for (let i = 0; i < transactionsData.length; i++) {
@@ -914,6 +1010,21 @@ export default class TransactionsController {
             if (dataimg) {
               transactionsData[i].file = await helpers.getImageUrl(dataimg);
             }
+          }
+
+          const userData = await userModel.findOne({_id: transactionsData[i].user}).populate("backId avatar frontId").lean().exec();
+
+          if(userData) {
+            if(userData.backId) {
+              userData.backId = await helpers.getImageUrl(userData.backId);
+            }
+            if(userData.avatar) {
+              userData.avatar = await helpers.getImageUrl(userData.avatar);
+            }
+            if(userData.frontId) {
+              userData.frontId = await helpers.getImageUrl(userData.frontId);
+            }
+            transactionsData[i].user = userData;
           }
 
           // if(transactionsData[i].motel) {
@@ -964,7 +1075,7 @@ export default class TransactionsController {
         paymentMethod: { $ne: "wallet" },
         isDeleted: false,
         status: "waiting",
-      }).populate("user room").lean().exec();
+      }).populate("room").lean().exec();
 
       if (transactionsData) {
         for (let i = 0; i < transactionsData.length; i++) {
@@ -975,6 +1086,21 @@ export default class TransactionsController {
             if (dataimg) {
               transactionsData[i].file = await helpers.getImageUrl(dataimg);
             }
+          }
+
+          const userData = await userModel.findOne({_id: transactionsData[i].user}).populate("backId avatar frontId").lean().exec();
+
+          if(userData) {
+            if(userData.backId) {
+              userData.backId = await helpers.getImageUrl(userData.backId);
+            }
+            if(userData.avatar) {
+              userData.avatar = await helpers.getImageUrl(userData.avatar);
+            }
+            if(userData.frontId) {
+              userData.frontId = await helpers.getImageUrl(userData.frontId);
+            }
+            transactionsData[i].user = userData;
           }
 
           // if(transactionsData[i].motel) {
@@ -1184,8 +1310,14 @@ export default class TransactionsController {
           "Giao dịch không tồn tại"
         );
       }
+      
+      if(resData.status === "cancel" || resData.status === "success" || resData.status === "faild") {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Giao dịch đã được xử lý"
+        )
+      }
 
-      //TRƯỜNG HỢP HỦY VÀ TRƯỜNG HỢP ĐỒNG Ý
       const resDataS = await TransactionsModel.findOneAndUpdate(
         { _id: id },
         {
@@ -1585,7 +1717,7 @@ export default class TransactionsController {
         return HttpResponse.returnSuccessResponse(res, resDataS);
       } else if (resDataS.status === "cancel") {
         const orderData = await orderModel
-          .findOne({ _id: resDataS.order })
+          .findOne({ _id: resDataS.order }) 
           .lean()
           .exec();
 
@@ -1603,20 +1735,25 @@ export default class TransactionsController {
           );
         }
 
-        //note: tạm thời xóa đi job
-        await jobModel.remove({ _id: orderData.job }).lean().exec();
+        // nếu cọc thì xóa job, xóa order
+        if(resDataS.type === "deposit") {
+          //note: tạm thời xóa đi job
+          await jobModel.remove({ _id: orderData.job }).lean().exec();
 
-        //xóa job ra khỏi user
+          //xóa job ra khỏi user
 
-        let userUpdateData = {
-          $pull: {
-            jobs: orderData.job,
-          },
-        };
+          let userUpdateData = {
+            $pull: {
+              jobs: orderData.job,
+            },
+          };
 
-        await userModel
-          .findOneAndUpdate({ _id: resDataS.user }, userUpdateData, { new: true })
-          .exec();
+          await userModel
+            .findOneAndUpdate({ _id: resDataS.user }, userUpdateData, { new: true })
+            .exec();
+
+          await orderModel.remove({ _id: orderData._id }).lean().exec();
+        }
 
         return HttpResponse.returnSuccessResponse(res, resDataS);
       }
