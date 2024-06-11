@@ -19,17 +19,12 @@ orderRoute
   .post(EnergyController.exportBillRoomPendingPayByOrder);
 
 orderRoute
-<<<<<<< HEAD
     .route("/exportAllBillRoomPendingPayByOrderToMail/")
     .post(EnergyController.exportAllBillRoomPendingPayByOrderToMail);
 
 orderRoute
     .route("/getPayDepositList/:id")
     .get(OrderController.getPayDepositList);
-=======
-  .route("/getPayDepositList/:id")
-  .get(OrderController.getPayDepositList);
->>>>>>> 6a24e21890dd92c411bd817e8748d028cfb46699
 orderRoute
   .route("/getDepositAfterCheckInCostHistoryList/:id")
   .get(OrderController.getDepositAfterCheckInCostHistoryList);
@@ -108,17 +103,9 @@ orderRoute.use(AuthMiddleware.isHost);
 // orderRoute
 //   .route("/bankingCashPendingMonthlyByMotel/:id")
 //   .get(TransactionsController.getBankingCashPendingMonthlyByMotel)
-<<<<<<< HEAD
   
   
 
-=======
-
-
-orderRoute
-  .route("/payDeposit/:id")
-  .put(TransactionsController.putPayDeposit);
->>>>>>> 6a24e21890dd92c411bd817e8748d028cfb46699
 
 
 
