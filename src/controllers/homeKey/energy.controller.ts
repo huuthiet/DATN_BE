@@ -5201,23 +5201,67 @@ export default class EnergyController {
 
     const {
         order: orderModel,
-        bill: billModel,
+      bill: billModel,
+      motelRoom: motelRoomModel,
+        revenue: revenueModel,
     } = global.mongoModel;
 
     try {
-        const billData = await billModel.find({ motel: idMotel, type: "monthly" }).lean().exec();
-        console.log("billData", billData);
+      const billData = await billModel.find({ motel: idMotel, type: "monthly" }).lean().exec();
+      // console.log("billData", billData);
         
-        let motelName = "";
-        if (billData.length > 0) {
-            motelName = billData[0].nameMotel;
-        }
+      let motelName = "";
+      
+      const motelData = await motelRoomModel.findOne({ _id: idMotel }).lean().exec();
+      const hostId = motelData.owner;
+      motelName = motelData.name;
 
+      //get current month
+      const currentDate = new Date();
+      let previousMonth = currentDate.getMonth(); // Tháng trước (0-11)
+      let previousYear = currentDate.getFullYear(); // Năm hiện tại
+
+      if (previousMonth === 0) {
+        // Nếu tháng hiện tại là tháng 1, thì tháng trước là tháng 12 của năm trước
+        previousMonth = 12;
+        previousYear -= 1;
+      }
+
+      // Định dạng timePeriod thành "YYYY-MM"
+      const previousMonthFormatted = `${previousYear}-${previousMonth}`;
+
+      const revenue = await revenueModel.findOne({
+        hostId: hostId,
+        timePeriod: previousMonthFormatted,
+        isDeleted: false
+      }).lean().exec();
+
+      if (!revenue) {
+        return HttpResponse.returnBadRequestResponse(res, "Không tìm thấy thông tin doanh thu");
+      }
+      const motels = revenue.motels;
+      let remainingRevenue = 0;
+      motels.forEach((motel) => {
+        //motel.motelId is an objectId, idMotel is a string
+        if (motel.motelId.toString() === idMotel) {
+          console.log("motel", motel);
+          
+          const withdrawals = motel.withdrawals;
+          console.log("withdrawals", withdrawals);
+          if (withdrawals.lenth > 0) {
+            remainingRevenue = motel.remainingRevenue;
+          } else {
+            remainingRevenue = motel.totalRevenue;
+            console.log("remainingRevenue", remainingRevenue);
+            
+          }
+        }
+      });
         // Initialize revenue data for each month
         let monthlyRevenue = Array.from({ length: 12 }, (_, index) => ({ 
           name: motelName,
           total: 0,
-            revenue: 0, 
+          revenue: 0, 
             electricNumber: 0,
           electricPrice: 0,
           servicePrice: 0,
@@ -5230,14 +5274,13 @@ export default class EnergyController {
         let totalRevenue = 0;
         let totalElectricNumber = 0;
       let totalElectricPrice = 0;
-      let total= 0;
+      let total = 0;
 
         // Loop through each bill and find corresponding order
         for (const bill of billData) {
             const orderId = bill.order;
             const orderData = await orderModel.findOne({ _id: orderId, type: "monthly" }).lean().exec();
-            console.log("orderData", orderData);
-            
+            // console.log("orderData", orderData);
             if (orderData) {
                 const orderStartTime = new Date(orderData.startTime);
                 const orderYear = orderStartTime.getFullYear();
@@ -5253,7 +5296,7 @@ export default class EnergyController {
                   monthlyRevenue[orderMonth].total += orderData.amount || 0;
 
                     // Update total revenue, electric number, and electric price
-                    totalRevenue += orderData.roomPrice || 0;
+                  totalRevenue += orderData.roomPrice || 0;
                     totalElectricNumber += orderData.electricNumber || 0;
                   totalElectricPrice += orderData.electricPrice || 0;
                   total += orderData.amount || 0;
@@ -5269,7 +5312,8 @@ export default class EnergyController {
             success: true,
             data: {
                 monthlyRevenue: jsonMotel,
-                totalRevenue,
+              totalRevenue,
+              remainingRevenue,
                 totalElectricNumber,
               totalElectricPrice,
               total,

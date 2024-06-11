@@ -49,6 +49,9 @@ export class Transactions extends Basic {
   @prop()
   description?: string;
 
+  @prop()
+  note?: string;
+
   @prop({ default: 0 })
   amount: number;
 
