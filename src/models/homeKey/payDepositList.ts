@@ -51,6 +51,9 @@ export class payDepositList extends Basic {
 
     @prop({default: 0})
     amount: number;
+
+    @prop({ ref: Image })
+    file?: Ref<Image>;
 }
 
 export const PayDepositListModel = connection => {

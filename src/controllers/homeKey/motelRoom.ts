@@ -5,6 +5,7 @@ import HttpResponse from "../../services/response";
 import { helpers } from "../../utils";
 import AddressController from "../address";
 import * as mongoose from "mongoose";
+import EnergyController from "./energy.controller";
 import * as PdfPrinter from "pdfmake";
 import moment = require("moment");
 import BillController from "./bill.controller";
@@ -966,11 +967,24 @@ export default class MotelRoomController {
               { _id: user, isDeleted: false },
               { password: 0, token: 0, role: 0 }
             )
+            .populate("backId frontId avatar")
             .lean()
             .exec();
+          console.log({userData});
           if (userData) {
+            if(userData.backId) {
+              userData.backId = await helpers.getImageUrl(userData.backId);
+            }
+            if(userData.frontId) {
+              userData.frontId = await helpers.getImageUrl(userData.frontId);
+            }
+            if(userData.avatar) {
+              userData.avatar = await helpers.getImageUrl(userData.avatar);
+            }
             jobData[i].user = userData;
           }
+
+          console.log({userData})
         }
       }
 
@@ -1070,6 +1084,140 @@ export default class MotelRoomController {
           }
         }
       }
+
+      return HttpResponse.returnSuccessResponse(res, resData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async getAllDataForBill(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const {
+        room: roomModel,
+        motelRoom: motelRoomModel,
+        floor: floorModel,
+        job: jobModel,
+        user: userModel,
+        image: imageModel,
+      } = global.mongoModel;
+      let { id: motelRoomId, idroom, idUser, startDate, endDate } = req.params;
+
+      const jobData = await jobModel
+        .find({
+          room: idroom,
+          // user: idUser,
+          isCompleted: true,
+          // checkInTime: {
+          //   $gte: new Date(startDate.toString()), // lớn hơn
+          //   $lt: new Date(endDate.toString()), // nhỏ hơn
+          // },
+        })
+        .populate("room orders currentOrder")
+        .lean()
+        .exec();
+      const resData = [];
+      if (jobData) {
+        for (let i = 0; i < jobData.length; i++) {
+          const user = jobData[i].user;
+          if (user == idUser) {
+            let userData = await userModel
+              .findOne(
+                { _id: user, isDeleted: false },
+                { password: 0, token: 0, role: 0 }
+              )
+              .lean()
+              .exec();
+            if (userData) {
+              jobData[i].user = userData;
+            }
+            // get motelRoom
+            let motelRoomData = await motelRoomModel
+              .findOne({ _id: motelRoomId })
+              .populate("floors")
+              .lean()
+              .exec();
+            if (motelRoomData) {
+              jobData[i].motelRoomData = motelRoomData;
+              jobData[i].motelRoomData.emailOwner = "";
+              let userDataOwner = await userModel
+                .findOne(
+                  { _id: jobData[i].motelRoomData.owner, isDeleted: false },
+                  { password: 0, token: 0, role: 0 }
+                )
+                .lean()
+                .exec();
+              if (userDataOwner && userDataOwner.address) {
+                jobData[i].motelRoomData.emailOwner = userDataOwner.address;
+              }
+            }
+            //
+            if (jobData[i].room) {
+              const room = jobData[i].room;
+              if (room) {
+                if (room.images) {
+                  if (room.images.length > 0) {
+                    for (let j = 0; j < room.images.length; j++) {
+                      const dataimg = await imageModel.findOne({
+                        _id: room.images[j],
+                      });
+                      if (dataimg) {
+                        jobData[i].room.images[j] = await helpers.getImageUrl(
+                          dataimg
+                        );
+                      }
+                    }
+                  }
+                }
+                if(room.listIdElectricMetter) {
+                  let start : string = moment().startOf("month").format("YYYY-MM-DD");
+                  if(moment(jobData.checkInTime).month() === (moment().month() + 1)) {
+                    start = moment(jobData.checkInTime).format("YYYY-MM-DD");
+                  }
+                  let end: string = moment().format("YYYY-MM-DD");
+
+                  if(startDate !== 'undefined') {
+                    start = moment(startDate).format("YYYY-MM-DD");
+                  }
+                  if(endDate !== 'undefined') {
+                    end = moment(endDate).format("YYYY-MM-DD");
+                  }
+                  let numberOfElectric = null;
+                  
+                  if(room.listIdElectricMetter.length > 0) {
+                    console.log("qure", start);
+                    const resResult = await EnergyController.calculateElectricUsedDayToDayHaveLabelTime(
+                      room._id,
+                      start,
+                      end,
+                    );
+                    if(resResult) {
+                      numberOfElectric = resResult.totalkWhTime;
+                      jobData[i].numberOfElectric = numberOfElectric;
+                      // jobData[i].dayStart = moment(new Date(start)).format("DD-MM-YYYY");
+                      jobData[i].dayStart = moment(new Date(start)).format("DD/MM/YYYY");
+                      // jobData[i].dayEnd = moment().format("DD-MM-YYYY");
+                      jobData[i].dayEnd = moment(new Date(end)).format("DD/MM/YYYY");
+                    }
+                  }
+                  console.log({start});
+                  console.log({end});
+                }
+              }
+            }
+
+            resData.push(jobData[i]);
+            break;
+          }
+        }
+      }
+
+      console.log({startDate});
+      console.log({endDate});
 
       return HttpResponse.returnSuccessResponse(res, resData);
     } catch (e) {
@@ -1475,6 +1623,126 @@ export default class MotelRoomController {
       }
 
       console.log("resData[0]", resData[0]);
+      const buffer = await generatePDF(json, resData[0]);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Dispsition", "attachment;filename=" + fileName);
+
+      res.send(buffer);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async postCreateOrderAndExportPdf(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const { 
+        banking: BankingModel,
+        image: imageModel,
+        job: jobModel,
+        order: orderModel,
+        totalKwh: totalKwhModel,
+      } = global.mongoModel;
+      const data = [];
+      const nameFile = "Thien";
+      let fileName = `${nameFile}.pdf`;
+      const json = req.body;
+      console.log("json", json);
+      console.log("json", json.idRoom);
+      console.log("json", json.idUser);
+
+      const jobData = await jobModel.findOne({
+        isDeleted: false,
+        room: json.idRoom,
+        // user: json.idUser,
+      }).populate("currentOrder").lean().exec();
+
+      if(!jobData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Hợp đồng không tồn tại"
+        )
+      }
+
+      if(jobData.currentOrder) {
+        if(jobData.currentOrder.isCompleted === true) {
+          const orderData = await orderModel.create({
+            user: json.idUser,
+            job: jobData._id,
+            isCompleted: false,
+            electricNumber: json.typeElectricity,
+            electricPrice: json.totalElectricity,
+            numberDayStay: json.typeRoom,
+            waterPrice: json.totalWater,
+            servicePrice: json.totalGarbage,
+            vehiclePrice: json.totalWifi,
+            roomPrice: json.totalRoom,
+            description: `Tiền phòng từ ${json.dayStart} đến ${json.dayEnd}`,
+            amount: json.totalAndTaxAll,
+            type: "monthly",
+            startTime: moment(json.dayStart, "DD/MM/YYYY").toDate(),
+            endTime: moment(json.dayEnd, "DD/MM/YYYY").toDate(),
+            expireTime: moment(json.dayEnd, "DD/MM/YYYY").toDate(), //note: để tạm
+          });
+
+          // await totalKwhModel.create({
+          //   order: orderData._id,
+          //   kWhData: kWhData,
+          //   labelTime: labelTime,
+          // });
+  
+          // resData = await jobModel.findOneAndUpdate(
+          //   { _id: jobData._id },
+          //   {
+          //     $addToSet: { orders: orderData._id },
+          //     currentOrder: orderData._id,
+          //     status: "pendingMonthlyPayment",
+          //   },
+          //   { new: true }
+          // );
+
+
+        } else {
+          return HttpResponse.returnBadRequestResponse(
+            res,
+            "Hóa đơn hiện tại chưa được thanh toán, vui lòng yêu cầu khách hàng thanh toán trước khi tạo hóa đơn tiếp theo"
+          )
+        }
+      }
+
+
+
+
+
+      console.log({jobData})
+
+      
+      // insert db
+      const ress = await BillController.insertDb(json, req["userId"]);
+
+      // console.log("ress", ress)
+      if (ress && ress.error) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Mã Hóa Đơn Đã Tồn Tại"
+        );
+      }
+
+      let resData = await BankingModel.find()
+        .populate("images")
+        .lean()
+        .exec();
+      if (resData.length <= 0) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Chưa Có Tài Khoản Nhận Tiền Liên Hệ Admin"
+        );
+      }
+
+      // console.log("resData[0]", resData[0]);
       const buffer = await generatePDF(json, resData[0]);
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Dispsition", "attachment;filename=" + fileName);

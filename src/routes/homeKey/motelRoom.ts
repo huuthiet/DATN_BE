@@ -10,6 +10,10 @@ import JobController from "../../controllers/homeKey/job.controller";
 
 const motelRoomRoute = express.Router();
 
+motelRoomRoute
+  .route("/deleteMotelByAdmin/:id")
+  .delete(MotelRoomController.deleteMotelRoom);
+
 /* -------------------------------------------------------------------------- */
 /*                         START MOTEL ROOM MIDDLEWARE                        */
 /* -------------------------------------------------------------------------- */
@@ -27,6 +31,10 @@ motelRoomRoute
 motelRoomRoute
   .route("/:id/room/:idroom/user/:idUser")
   .get(MotelRoomController.getMotelRoomByIdRoom);
+
+motelRoomRoute
+  .route("/getAllDataForBill/:id/room/:idroom/user/:idUser/:startDate/:endDate")
+  .get(MotelRoomController.getAllDataForBill);
 
 motelRoomRoute.route("/:id").get(MotelRoomController.getMotelRoomById); // data all room of motel
 
@@ -54,7 +62,10 @@ motelRoomRoute
 
 // Host
 motelRoomRoute.route("/pdf").post(MotelRoomController.postExportPdf);
+
 motelRoomRoute.route("/pdf/:id").post(MotelRoomController.postExportPdfById);
+
+motelRoomRoute.route("/createOrder/pdf").post(MotelRoomController.postCreateOrderAndExportPdf);
 motelRoomRoute.use(AuthMiddleware.isHost);
 
 /* ------------------------------ PRIVATE APIS ------------------------------ */
@@ -87,6 +98,10 @@ motelRoomRoute
 motelRoomRoute
   .route("/jobList/MotelRoom/owner")
   .get(JobController.getJobListByOwnerN);
+
+motelRoomRoute.use(AuthMiddleware.isMaster);
+
+
 
 /* -------------------------------------------------------------------------- */
 /*                          END MOTEL ROOM MIDDLEWARE                         */

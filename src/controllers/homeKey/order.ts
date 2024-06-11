@@ -924,6 +924,7 @@ export default class OrderController {
         payDepositList: PayDepositListModel,
         motelRoom: motelRoomModel,
         floor: floorModel,
+        image: imageModel,
       } = global.mongoModel;
 
       const idMotel: string = req.params.id;
@@ -956,7 +957,6 @@ export default class OrderController {
       let roomList: string[] = [];
       for (let i = 0; i < floors.length; i++) {
         let floorData = await floorModel.findOne({ _id: floors[i] }).lean().exec();
-        console.log({ floorData })
         if (floorData) {
           roomList = roomList.concat(floorData.rooms);
         }
@@ -969,12 +969,75 @@ export default class OrderController {
           .lean()
           .exec();
 
+        if(payDepositData.length > 0) {
+          for(let j = 0; j < payDepositData.length; j ++) {
+            if (payDepositData[j].file) {
+              const dataimg = await imageModel.findOne({
+                _id: payDepositData[j].file,
+              });
+              if (dataimg) {
+                payDepositData[j].file = await helpers.getImageUrl(dataimg);
+              }
+            }
+          }
+        }
+
         payDeposits = payDeposits.concat(payDepositData);
       }
 
       payDeposits = payDeposits.reverse();
 
       return HttpResponse.returnSuccessResponse(res, payDeposits);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getPayDepositListUser(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<any> {
+    try {
+      const {
+        payDepositList: PayDepositListModel,
+        image: imageModel,
+        motelRoom: motelRoomModel,
+        floor: floorModel,
+      } = global.mongoModel;
+
+      const userId = req["userId"];
+
+      
+      let payDepositData = await PayDepositListModel.find({ user: userId })
+        .populate("user room")
+        .lean()
+        .exec();
+
+      if(payDepositData.length > 0) {
+        for(let j = 0; j < payDepositData.length; j ++) {
+          if (payDepositData[j].file) {
+            const dataimg = await imageModel.findOne({
+              _id: payDepositData[j].file,
+            });
+            if (dataimg) {
+              payDepositData[j].file = await helpers.getImageUrl(dataimg);
+            }
+          }
+
+          let floorData = await floorModel.findOne({rooms: payDepositData[j].room}).lean().exec();
+          if(floorData) {
+            let motelData = await motelRoomModel.findOne({floors: floorData._id}).populate("address").lean().exec();
+            if(motelData) {
+              payDepositData[j].motel = motelData;
+            }
+          }
+        }
+      }
+
+      payDepositData = payDepositData.reverse();
+
+      return HttpResponse.returnSuccessResponse(res, payDepositData);
     } catch (error) {
       next(error);
     }
