@@ -41,6 +41,7 @@ jobRoute.route("/remindUserRenewContract").get(JobController.remindUserRenewCont
 jobRoute.route("/sendMailRemindMonthlyPayment").get(JobController.sendMailRemindMonthlyPayment);
 
 
+// jobRoute.route("/:id/images").put(JobController.uploadImageForJob);
 
 jobRoute.use(AuthMiddleware.isAuthenticated);
 

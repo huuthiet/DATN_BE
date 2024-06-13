@@ -999,6 +999,8 @@ export default class JobController {
   ): Promise<any> {
     try {
       const data = req.body;
+      console.log({data})
+      console.log("ahsdfkjhas", req["userId"])
       let images = [];
 
       for (let i = 0; i < data.length; i++) {
