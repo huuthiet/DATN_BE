@@ -331,7 +331,7 @@ export default class TransactionsController {
       }).lean().exec();
 
       if (transactionDataRes) {
-        if(transactionDataRes.status === "waiting") {
+        if (transactionDataRes.status === "waiting") {
           return HttpResponse.returnBadRequestResponse(
             res,
             "Phòng đã được đặt cọc trước đó, giao dịch đang chờ phê duyệt. Vui lòng quay lại sau!"
@@ -994,16 +994,16 @@ export default class TransactionsController {
             }
           }
 
-          const userData = await userModel.findOne({_id: transactionsData[i].user}).populate("backId avatar frontId").lean().exec();
+          const userData = await userModel.findOne({ _id: transactionsData[i].user }).populate("backId avatar frontId").lean().exec();
 
-          if(userData) {
-            if(userData.backId) {
+          if (userData) {
+            if (userData.backId) {
               userData.backId = await helpers.getImageUrl(userData.backId);
             }
-            if(userData.avatar) {
+            if (userData.avatar) {
               userData.avatar = await helpers.getImageUrl(userData.avatar);
             }
-            if(userData.frontId) {
+            if (userData.frontId) {
               userData.frontId = await helpers.getImageUrl(userData.frontId);
             }
             transactionsData[i].user = userData;
@@ -1073,16 +1073,16 @@ export default class TransactionsController {
             }
           }
 
-          const userData = await userModel.findOne({_id: transactionsData[i].user}).populate("backId avatar frontId").lean().exec();
+          const userData = await userModel.findOne({ _id: transactionsData[i].user }).populate("backId avatar frontId").lean().exec();
 
-          if(userData) {
-            if(userData.backId) {
+          if (userData) {
+            if (userData.backId) {
               userData.backId = await helpers.getImageUrl(userData.backId);
             }
-            if(userData.avatar) {
+            if (userData.avatar) {
               userData.avatar = await helpers.getImageUrl(userData.avatar);
             }
-            if(userData.frontId) {
+            if (userData.frontId) {
               userData.frontId = await helpers.getImageUrl(userData.frontId);
             }
             transactionsData[i].user = userData;
@@ -1154,16 +1154,16 @@ export default class TransactionsController {
             }
           }
 
-          const userData = await userModel.findOne({_id: transactionsData[i].user}).populate("backId avatar frontId").lean().exec();
+          const userData = await userModel.findOne({ _id: transactionsData[i].user }).populate("backId avatar frontId").lean().exec();
 
-          if(userData) {
-            if(userData.backId) {
+          if (userData) {
+            if (userData.backId) {
               userData.backId = await helpers.getImageUrl(userData.backId);
             }
-            if(userData.avatar) {
+            if (userData.avatar) {
               userData.avatar = await helpers.getImageUrl(userData.avatar);
             }
-            if(userData.frontId) {
+            if (userData.frontId) {
               userData.frontId = await helpers.getImageUrl(userData.frontId);
             }
             transactionsData[i].user = userData;
@@ -1230,16 +1230,16 @@ export default class TransactionsController {
             }
           }
 
-          const userData = await userModel.findOne({_id: transactionsData[i].user}).populate("backId avatar frontId").lean().exec();
+          const userData = await userModel.findOne({ _id: transactionsData[i].user }).populate("backId avatar frontId").lean().exec();
 
-          if(userData) {
-            if(userData.backId) {
+          if (userData) {
+            if (userData.backId) {
               userData.backId = await helpers.getImageUrl(userData.backId);
             }
-            if(userData.avatar) {
+            if (userData.avatar) {
               userData.avatar = await helpers.getImageUrl(userData.avatar);
             }
-            if(userData.frontId) {
+            if (userData.frontId) {
               userData.frontId = await helpers.getImageUrl(userData.frontId);
             }
             transactionsData[i].user = userData;
@@ -1452,8 +1452,8 @@ export default class TransactionsController {
           "Giao dịch không tồn tại"
         );
       }
-      
-      if(resData.status === "cancel" || resData.status === "success" || resData.status === "faild") {
+
+      if (resData.status === "cancel" || resData.status === "success" || resData.status === "faild") {
         return HttpResponse.returnBadRequestResponse(
           res,
           "Giao dịch đã được xử lý"
@@ -1859,7 +1859,7 @@ export default class TransactionsController {
         return HttpResponse.returnSuccessResponse(res, resDataS);
       } else if (resDataS.status === "cancel") {
         const orderData = await orderModel
-          .findOne({ _id: resDataS.order }) 
+          .findOne({ _id: resDataS.order })
           .lean()
           .exec();
 
@@ -1878,7 +1878,7 @@ export default class TransactionsController {
         }
 
         // nếu cọc thì xóa job, xóa order
-        if(resDataS.type === "deposit") {
+        if (resDataS.type === "deposit") {
           //note: tạm thời xóa đi job
           await jobModel.remove({ _id: orderData.job }).lean().exec();
 
@@ -2050,13 +2050,9 @@ export default class TransactionsController {
     }
   }
 
-  static async getWithdrawalsRequestListByHost(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<any> {
+  static async getWithdrawalsRequestListByHost(req: Request, res: Response, next: NextFunction): Promise<any> {
     try {
-      const { transactions: TransactionsModel, user: userModel, image: imageModel } = global.mongoModel;
+      const { transactions: TransactionsModel, user: userModel, image: imageModel, banking: BankingModel } = global.mongoModel;
       const userId = req.params.userId;
       const motelName = req.params.motelName;
 
@@ -2073,26 +2069,58 @@ export default class TransactionsController {
         isDeleted: false
       }).lean().exec();
 
-      // Xử lý ảnh cho từng mục trong withdrawalsList
+      // Process withdrawal request images
       for (let i = 0; i < withdrawalsList.length; i++) {
         if (withdrawalsList[i].file) {
-          const dataimg = await imageModel.findOne({ _id: withdrawalsList[i].file });
-          if (dataimg) {
-            withdrawalsList[i].file = await helpers.getImageUrl(dataimg);
+          try {
+            const dataimg = await imageModel.findOne({ _id: withdrawalsList[i].file });
+            if (dataimg) {
+              withdrawalsList[i].file = await helpers.getImageUrl(dataimg);
+            }
+          } catch (error) {
+            console.error('Error retrieving image URL:', error);
           }
         }
       }
 
-      // Thêm firstName và lastName vào từng mục trong withdrawalsList
-      const updatedWithdrawalsList = withdrawalsList.map(item => ({
-        ...item,
-        firstName,
-        lastName,
-      }));
+      const bankMap = {}; // Create a lookup object for bank data
+
+      const updatedWithdrawalsList = await Promise.all(
+        withdrawalsList.map(async (item) => {
+          let bankName = '';
+          let bankNumber = '';
+          let bankOwner = '';
+
+          if (!bankMap[item.banking]) {
+            const bankData = await BankingModel.findOne({ _id: item.banking }).lean().exec();
+            if (bankData) {
+              bankName = bankData.nameTkLable;
+              bankNumber = bankData.stk;
+              bankOwner = bankData.nameTk;
+              bankMap[item.banking] = { bankName, bankNumber, bankOwner }; // Store bank data
+            } else {
+              console.error('Bank data not found for withdrawal:', item._id);
+            }
+          } else {
+            bankName = bankMap[item.banking].bankName;
+            bankNumber = bankMap[item.banking].bankNumber;
+            bankOwner = bankMap[item.banking].bankOwner;
+          }
+
+          return {
+            ...item,
+            firstName,
+            lastName,
+            bankName,
+            bankNumber,
+            bankOwner
+          };
+        })
+      );
 
       return HttpResponse.returnSuccessResponse(res, updatedWithdrawalsList);
-    } catch (e) {
-      next(e);
+    } catch (error) {
+      next(error);
     }
   }
 
