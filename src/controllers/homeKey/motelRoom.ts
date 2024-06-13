@@ -1705,6 +1705,7 @@ export default class MotelRoomController {
         isDeleted: false,
         room: json.idRoom,
         // user: json.idUser,
+        isCompleted: true,
       }).populate("currentOrder").lean().exec();
 
       if(!jobData) {
@@ -1759,8 +1760,10 @@ export default class MotelRoomController {
       //     )
       //   }
       // }
-
+      console.log("curremtOrder", jobData.currentOrder);
       if(jobData.currentOrder) {
+        // const currentOrder = await orderModel.findOne({_id: jobData.currentOrder}).lean().exec();
+
         if(jobData.currentOrder.isCompleted === true) {
           console.log("Tajo moiws")
           console.log({json});

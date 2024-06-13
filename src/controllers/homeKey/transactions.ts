@@ -529,7 +529,7 @@ export default class TransactionsController {
         )
       }
 
-      if (moment(orderData.expireTime).isBefore(moment())) {
+      if (moment(orderData.expireTime).endOf("days").isBefore(moment())) {
         return HttpResponse.returnBadRequestResponse(
           res,
           "Hóa đơn đã hết hạn thanh toán"
@@ -552,7 +552,10 @@ export default class TransactionsController {
         )
       }
 
-      const tranRes = await TransactionsModel.findOne({ order: ObjectId(formData.order) }).lean().exec();
+      const tranRes = await TransactionsModel.findOne({
+        order: ObjectId(formData.order),
+        status: "waiting",
+      }).lean().exec();
       console.log({ tranRes });
       if (tranRes) {
         return HttpResponse.returnBadRequestResponse(
@@ -1800,20 +1803,20 @@ export default class TransactionsController {
 
 
           // SỬA: chỗ này cần tạo 1 job để tạo bill tháng đó vào cuối tháng, để có thể bao gồm tiền phòng
-          // await global.agendaInstance.agenda.schedule(
-          //   moment()
-          //     .startOf("month")
-          //     .add("1", "months")
-          //     .toDate(),
-          //   "CreateFirstMonthOrder",
-          //   { jobId: jobData._id }
-          // );
-
           await global.agendaInstance.agenda.schedule(
-            moment().add("2", 'minutes').toDate(),
-            'CreateFirstMonthOrder',
+            moment()
+              .startOf("month")
+              .add("1", "months")
+              .toDate(),
+            "CreateFirstMonthOrder",
             { jobId: jobData._id }
           );
+
+          // await global.agendaInstance.agenda.schedule(
+          //   moment().add("2", 'minutes').toDate(),
+          //   'CreateFirstMonthOrder',
+          //   { jobId: jobData._id }
+          // );
 
 
           // const newOrderData = await orderModel.create({

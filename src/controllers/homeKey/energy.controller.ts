@@ -1949,6 +1949,7 @@ export default class EnergyController {
   ): Promise<any> {
     const id = req.params.id;
     console.log("id", id);
+    
 
     const {
       historyEnergy: HistoryEnergyModel,
@@ -2539,6 +2540,8 @@ export default class EnergyController {
   ): Promise<any> {
     try {
       const idOrder = req.params.id;
+      console.log("UUUUUU", req['userId']);
+      console.log("UUUUUU", req);
 
       let dataEnergy: {
         totalkWhTime: number;
@@ -7521,10 +7524,6 @@ export default class EnergyController {
         return null;
       } else if(resultLength === 1) {
         const id: string = result[0].value;
-
-        console.log({id});
-        
-
         const elementResult = await getElementRawDataElectricForTimePointHaveManyTimeLineDayToDay(
           start,
           end,
