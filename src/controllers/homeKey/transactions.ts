@@ -153,53 +153,55 @@ export default class TransactionsController {
     }
   }
 
-  static async postRequestWithdrawHost(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<any> {
+  static async postRequestWithdrawHost(req: Request, res: Response, next: NextFunction): Promise<any> {
     try {
       // Init models
-      const { transactions: TransactionsModel } = global.mongoModel;
-      const { user: userModel } = global.mongoModel;
+      const { transactions: TransactionsModel, user: userModel } = global.mongoModel;
+      const { id } = req.params;
+      const { body: data } = req;
 
-      const id = req.params.id;
-
-      let { body: data } = req;
-      console.log("Check data:", data);
-
-      let resData = await userModel
-        .findOne(
-          { _id: req["userId"], isDeleted: false },
-          { password: 0, token: 0 }
-        )
+      // Kiểm tra thông tin người dùng
+      const user = await userModel
+        .findOne({ _id: req["userId"], isDeleted: false }, { password: 0, token: 0 })
         .populate("avatar identityCards")
         .lean()
         .exec();
-      if (!resData) {
-        return HttpResponse.returnBadRequestResponse(
-          res,
-          "Tài khoản không tồn tại"
-        );
+      if (!user) {
+        return HttpResponse.returnBadRequestResponse(res, "Tài khoản không tồn tại");
       }
 
-      const transactionsData = await TransactionsModel.create({
+      // Kiểm tra lịch sử giao dịch
+      const transactionHistory = await TransactionsModel.find({
+        user: req["userId"],
+        type: "withdraw",
+        status: "waiting",
+      }).lean().exec();
+
+      // Tính tổng số tiền rút
+      const totalAmount = transactionHistory.reduce((sum, item) => sum + item.amount, 0);
+      if (totalAmount < data.amount) {
+        return HttpResponse.returnBadRequestResponse(res, "Số tiền rút vượt quá số tiền hiện có");
+      }
+
+      // Tạo yêu cầu rút tiền
+      const transactionData = {
         user: req["userId"],
         keyPayment: data.keyPayment,
         requestDate: data.requestDate || new Date(),
         motelName: data.motelName,
-        description: `${resData.lastName} ${resData.firstName} yêu cầu rút tiền doanh thu`,
+        description: `${user.lastName} ${user.firstName} yêu cầu rút tiền doanh thu`,
+        note: data.withdrawReason,
         amount: data.withdrawAmount,
         status: "waiting",
         paymentMethod: data.type,
         type: "withdraw",
-        //data.bankId is a string, add as a objectId
         banking: ObjectId(data.bankId),
-        accountNumber: data.accountNumber, // Assuming you want to store the account number
-        withdrawReason: data.withdrawReason, // Assuming you want to store the reason for the withdrawal
-      });
+        accountNumber: data.accountNumber,
+        withdrawReason: data.withdrawReason,
+      };
+      const transactionsData = await TransactionsModel.create(transactionData);
 
-      // Get ip
+      // Lấy địa chỉ IP
       data["ipAddr"] =
         req.headers["x-forwarded-for"] ||
         req.connection.remoteAddress ||
@@ -211,6 +213,7 @@ export default class TransactionsController {
       next(e);
     }
   }
+
 
   static async getWithdrawRequestListAdmin(
     req: Request,
@@ -237,6 +240,8 @@ export default class TransactionsController {
       }
 
       if (transactionsData) {
+        console.log(transactionsData);
+
         for (let i = 0; i < transactionsData.length; i++) {
           if (transactionsData[i].file) {
             const dataimg = await imageModel.findOne({
@@ -2008,6 +2013,46 @@ export default class TransactionsController {
     }
   }
 
+  static async rejectWithdrawalRequest(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init models
+      const { transactions: TransactionsModel } = global.mongoModel;
+
+      const id = req.params.id;
+      let { body: data } = req;
+
+      let resData = await TransactionsModel.findOne({
+        _id: id,
+        isDeleted: false,
+      }).lean().exec();
+
+      if (!resData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Giao dịch không tồn tại"
+        );
+      }
+
+      await TransactionsModel.updateOne(
+        { _id: id },
+        {
+          $set: {
+            status: "rejected",
+            updatedAt: new Date()
+          }
+        }
+      );
+
+      return HttpResponse.returnSuccessResponse(res, resData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
   static async getWithdrawalsRequestListByHost(
     req: Request,
     res: Response,
@@ -2017,8 +2062,6 @@ export default class TransactionsController {
       const { transactions: TransactionsModel, user: userModel, image: imageModel } = global.mongoModel;
       const userId = req.params.userId;
       const motelName = req.params.motelName;
-
-      console.log("User ID", userId);
 
       const userData = await userModel.findOne({ _id: userId }).lean().exec();
       if (!userData) {
@@ -2032,8 +2075,6 @@ export default class TransactionsController {
         type: "withdraw",
         isDeleted: false
       }).lean().exec();
-
-      console.log("Withdrawals list", withdrawalsList);
 
       // Xử lý ảnh cho từng mục trong withdrawalsList
       for (let i = 0; i < withdrawalsList.length; i++) {

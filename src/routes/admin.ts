@@ -121,6 +121,7 @@ adminRoute.route("/host").get(UserController.getHostList);
 
 adminRoute.route("/withdrawRequest/list").get(TransactionsController.getWithdrawRequestListAdmin);
 adminRoute.route("/approveWithdrawRequest/:id").put(TransactionsController.approveWithdrawalRequest);
+adminRoute.route("/rejectWithdrawRequest/:id").put(TransactionsController.rejectWithdrawalRequest);
 
 // adminRoute
 //   .route("/listMotel/host")

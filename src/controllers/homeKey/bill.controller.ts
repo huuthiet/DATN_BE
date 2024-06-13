@@ -516,7 +516,16 @@ export default class BillController {
     next: NextFunction
   ): Promise<any> {
     try {
-      const { user: userModel, motelRoom: motelRoomModel, bill: billModel, order: orderModel, revenue: RevenueModel } = global.mongoModel;
+      const {
+        user: userModel,
+        motelRoom: motelRoomModel,
+        floor: floorModel,
+        room: roomModel,
+        bill: billModel,
+        order: orderModel,
+        revenue: RevenueModel,
+        payDepositList: PayDepositListModel,
+      } = global.mongoModel;
 
       const users = await userModel.find({ role: "host" }).exec();
       if (users.length === 0) {
@@ -528,36 +537,70 @@ export default class BillController {
       const previousMonthYear = previousMonth < 0 ? currentDate.getFullYear() - 1 : currentDate.getFullYear();
       const previousMonthAdjusted = previousMonth < 0 ? 11 : previousMonth;
 
-
-      // Get the first and last day of the previous month
       const firstDayOfPreviousMonth = new Date(previousMonthYear, previousMonthAdjusted, 1);
       const lastDayOfPreviousMonth = new Date(previousMonthYear, previousMonthAdjusted + 1, 0);
       lastDayOfPreviousMonth.setHours(23, 59, 59, 999);
 
       for (const user of users) {
         const motelInfor = await motelRoomModel.find({ owner: user._id }).exec();
-        // console.log(`Danh sách nhà trọ của chủ nhà ${user._id}: ${motelInfor}`);
+
+        const firstDayOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        const lastDayOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+        lastDayOfCurrentMonth.setHours(23, 59, 59, 999);
+
+        let totalDepositRefund = 0;
+
+        const depositRefund = await PayDepositListModel.find({
+          type: "payDeposit",
+          createdAt: {
+            $gte: firstDayOfCurrentMonth,
+            $lt: lastDayOfCurrentMonth
+          }
+        }).exec();
+
+        if (depositRefund.length > 0) {
+          console.log(`Dữ liệu hoàn tiền cọc của chủ nhà ${user._id} đã tồn tại`);
+          for (const motel of motelInfor) {
+            const floors = motel.floors;
+            for (const floor of floors) {
+              const floorData = await floorModel.findOne({ _id: floor }).exec();
+              const rooms = floorData.rooms;
+              for (const room of rooms) {
+                const depositRefundData = await PayDepositListModel.find({
+                  room: room,
+                  type: "payDeposit",
+                  createdAt: {
+                    $gte: firstDayOfPreviousMonth,
+                    $lt: lastDayOfCurrentMonth
+                  }
+                }).exec();
+                console.log(`Dữ liệu hoàn tiền cọc của phòng ${room} có ${depositRefundData.length} bản ghi`);
+
+                if (depositRefundData.length > 0) {
+                  const roomTotalDepositRefund = depositRefundData.reduce((acc, curr) => acc + curr.amount, 0) / 2;
+                  totalDepositRefund += roomTotalDepositRefund;
+                }
+              }
+            }
+          }
+        } else {
+          console.log(`Dữ liệu hoàn tiền cọc của chủ nhà ${user._id} chưa tồn tại`);
+        }
 
         let motelList = [];
 
-        // console.log(`Check time: ${previousMonthYear}-${previousMonthAdjusted}`);
-
-
         const revenueLastMonth = await RevenueModel.findOne({
           hostId: user._id,
-          timePeriod: `${previousMonthYear}-${previousMonthAdjusted}`
+          timePeriod: `${previousMonthYear}-${previousMonthAdjusted + 1}`
         }).exec();
 
         if (revenueLastMonth) {
-          console.log(`Dữ liệu doanh thu của chủ nhà ${user._id} đã tồn tại`);
           motelList = revenueLastMonth.motels;
-        } else {
-          console.log(`Dữ liệu doanh thu của chủ nhà ${user._id} chưa tồn tại`);
         }
 
         let motelsRevenue = [];
         let motelTotalRevenue = 0;
-        let electricityPrice = 0;
+        let electricPrice = 0;
         let waterPrice = 0;
         let servicePrice = 0;
         let vehiclePrice = 0;
@@ -567,9 +610,6 @@ export default class BillController {
           let monthlyRevenue = 0;
 
           motelList.map((motelLastMonth) => {
-            // console.log("Check last month: ", motelLastMonth.motelId);
-            // console.log("Check current month: ", motel._id);
-            //motelLastMonth.motelId and motel._id are an object, so we need to convert them to string
             if (motelLastMonth.motelId.toString() === motel._id.toString()) {
               motelTotalRevenue += motelLastMonth.totalRevenue;
             }
@@ -587,9 +627,12 @@ export default class BillController {
           for (const bill of billData) {
             const orderData = await orderModel.findOne({ _id: bill.order, type: "monthly" }).exec();
 
+            console.log(`Check orderData:`, orderData);
+
+
             if (orderData) {
               monthlyRevenue += orderData.roomPrice;
-              electricityPrice = orderData.electricPrice;
+              electricPrice = orderData.electricPrice;
               waterPrice = orderData.waterPrice;
               servicePrice = orderData.servicePrice;
               vehiclePrice = orderData.vehiclePrice;
@@ -599,15 +642,19 @@ export default class BillController {
           motelsRevenue.push({
             motelId: motel._id,
             motelName: motel.name,
-            totalRevenue: motelTotalRevenue + monthlyRevenue,
-            electricityPrice: electricityPrice,
+            totalRevenue: motelTotalRevenue + monthlyRevenue + totalDepositRefund, // Cộng tổng hoàn tiền cọc vào tổng doanh thu
+            currentMonthRevenue: monthlyRevenue,
+            electricPrice: electricPrice,
             waterPrice: waterPrice,
             servicePrice: servicePrice,
             vehiclePrice: vehiclePrice,
-            currentMonthRevenue: monthlyRevenue, // Thêm trường doanh thu tháng hiện tại
+            depositRefund: totalDepositRefund, // Lưu thông tin hoàn tiền cọc riêng biệt
             withdrawals: [] // Khởi tạo mảng rút tiền
           });
         }
+
+        console.log(`Check motels Revenue:`, motelsRevenue);
+
 
         const revenueEntry = new RevenueModel({
           hostId: user._id,
@@ -628,6 +675,7 @@ export default class BillController {
       return next(error);
     }
   }
+
 
 
 }
