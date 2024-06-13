@@ -42,7 +42,7 @@ dotenv.config();
 
   // CORS configuration
   app.use(cors({
-    origin: "http://192.168.1.218:3006", // Adjust this to specific origins in production
+    origin: "*", // Adjust this to specific origins in production
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     preflightContinue: false,
     optionsSuccessStatus: 204,
