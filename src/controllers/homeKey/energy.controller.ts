@@ -7493,7 +7493,9 @@ export default class EnergyController {
       const start: moment.Moment = moment(startDay).startOf('day');
       const end: moment.Moment = moment(endDay).endOf('day');
       console.log({start})
-      console.log({end})
+      console.log({ end })
+      console.log("--------------------------------------------------------------");
+      
 
       const { room: roomModel } = global.mongoModel;
 
@@ -7502,7 +7504,7 @@ export default class EnergyController {
         // "Không tìm được phòng"
         return null;
       }
-      console.log({roomData});
+      // console.log({roomData});
 
       if (!roomData.listIdElectricMetter) {
         // "Phòng chưa có id đồng hồ, vui lòng thêm id cho đồng hồ!"
@@ -7516,7 +7518,13 @@ export default class EnergyController {
 
       const listId: DataIdMetterType[] = roomData.listIdElectricMetter;
 
+      console.log({listId});
+      
+
       const result = await checkRangeTimeForIdMetter(listId, start, end);
+
+      console.log({result});
+      
 
       const resultLength = result.length;
 
@@ -7531,6 +7539,9 @@ export default class EnergyController {
           end,
           id
         );
+
+        console.log({elementResult});
+        
 
         if (elementResult.length === 0) {
           // "Không có dữ liệu năng lượng trong khoảng thời gian đang tìm kiếm"
