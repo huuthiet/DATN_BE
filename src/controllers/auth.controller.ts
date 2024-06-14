@@ -223,10 +223,14 @@ export default class AuthController {
       // Parse error list form validation results
       const errorList = normalizeError(validateResults);
 
+      
+
       // Validation Error
       if (errorList.length > 0) {
         return HttpResponse.returnBadRequestResponse(res, errorList);
       }
+
+      
 
       // Check if password and confirm password is matched
       if (data.password !== data.confirmPassword) {
@@ -275,6 +279,10 @@ export default class AuthController {
         data.role.push("customer");
       }
 
+      if(data.role.includes("host")) {
+        data["isCensorHost"] = false;
+      }
+
       // Create the new user with provided info
       let userData = new userModel(data);
       userData.phoneNumberFull = numberPhone;
@@ -292,6 +300,8 @@ export default class AuthController {
       // Remove password property
       delete resData.password;
       delete resData.social;
+
+      
 
       return HttpResponse.returnSuccessResponse(res, resData);
     } catch (e) {

@@ -10,6 +10,8 @@ import JobController from "../../controllers/homeKey/job.controller";
 
 const motelRoomRoute = express.Router();
 
+motelRoomRoute.route("/searchMotels/").post(MotelRoomController.searchMotels);
+
 motelRoomRoute
   .route("/deleteMotelByAdmin/:id")
   .delete(MotelRoomController.deleteMotelRoom);
@@ -22,6 +24,9 @@ motelRoomRoute
 
 // Get list of motel room
 motelRoomRoute.route("/list").get(MotelRoomController.getMotelRoomList);
+motelRoomRoute.route("/motelPendingCensor/list").get(MotelRoomController.getMotelRoomPendingCensorList);
+
+motelRoomRoute.route("/motelPendingCensor/").put(MotelRoomController.censorNewMotelById);
 motelRoomRoute.route("/getMotelByOwner/:id").get(MotelRoomController.getMotelRoomListByOwner);
 
 // Get motel room detail

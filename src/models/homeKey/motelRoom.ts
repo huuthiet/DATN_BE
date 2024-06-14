@@ -17,6 +17,9 @@ export class MotelRoom extends Basic {
   @prop()
   name: string;
 
+  @prop({default: false})
+  isAcceptedByAdmin: boolean;
+
   @prop()
   contactPhone: string;
 
