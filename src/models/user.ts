@@ -161,6 +161,9 @@ export class User extends Basic {
   @prop({ default: null })
   idDevice: number;
 
+  @prop()
+  isCensorHost?: boolean;
+
   @staticMethod
   static async validatePassword(
     inputPassword: string,

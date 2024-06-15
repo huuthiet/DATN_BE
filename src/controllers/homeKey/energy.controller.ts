@@ -5478,12 +5478,12 @@ export default class EnergyController {
     try {
 
       // const a = await helpers.getImageUrl("666012d86a765add7c01ad0e");
-      const a  = moment().startOf("months");
-      const b = moment().month();
-      const c = moment("2024-05-31T17:00:00.000+00:00")
-      console.log({b});
-      console.log(typeof(b));
-      console.log({c})
+      // const a  = moment().startOf("months");
+      // const b = moment().month();
+      // const c = moment("2024-05-31T17:00:00.000+00:00")
+      // console.log({b});
+      // console.log(typeof(b));
+      // console.log({c})
       
       // let data = [
       //   { "label": "05-2024", "value": 29.12, "price": 101920, "user": {} },
@@ -5627,18 +5627,28 @@ export default class EnergyController {
 // console.log({dateStay});
 // console.log({a});
 
-      // const {
-      //   room: roomModel,
-      //   floor: floorModel,
-      //   motelRoom: motelRoomModel,
-      //   job: jobModel,
-      //   user: userModel,
-      //   order: orderModel,
-      //   transactions: TransactionsModel,
-      //   bill: BillModel,
-      //   optionsType: OptionsTypeModel,
-      //   totalKwh: totalKwhModel,
-      // } = global.mongoModel;
+      const {
+        room: roomModel,
+        floor: floorModel,
+        motelRoom: motelRoomModel,
+        job: jobModel,
+        user: userModel,
+        order: orderModel,
+        transactions: TransactionsModel,
+        bill: BillModel,
+        optionsType: OptionsTypeModel,
+        totalKwh: totalKwhModel,
+      } = global.mongoModel;
+
+      const a = await motelRoomModel.find({isDeleted: false}).lean().exec();
+      console.log({a})
+      console.log(a.length);
+      for(let i = 0; i< a.length; i++) {
+        await motelRoomModel.findOneAndUpdate(
+          {_id: a[i]._id},
+          {isAcceptedByAdmin: true}
+        )
+      }
 
       // const startOfMonth = '2024-05-01';
       // const endOfMonth = '2024-05-31';

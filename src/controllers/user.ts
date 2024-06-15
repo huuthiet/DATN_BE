@@ -1574,6 +1574,8 @@ export default class UserController {
     }
   }
 
+
+
   static async getHostList(
     req: Request,
     res: Response,
@@ -1798,6 +1800,291 @@ export default class UserController {
       }
 
       return HttpResponse.returnSuccessResponse(res, userData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async getListHostPendingCensorByAdmin(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init user model
+      const {
+        motelRoom: motelRoomModel,
+        floor: floorModel,
+        room: roomModel,
+        address: addressModel,
+        user: userModel,
+        electrics: ElectricsModel // Import ElectricsModel
+      } = global.mongoModel;
+
+      let jsonMotel = {};
+      let userDataWithRevenue = [];
+
+
+      let sortBy: string = req.query.sortBy
+        ? req.query.sortBy.toString()
+        : undefined;
+      let role: any = req.query.role ? req.query.role.toString() : undefined;
+      let size: number = req.query.size
+        ? +req.query.size.toString()
+        : undefined;
+      let page: number = req.query.page
+        ? +req.query.page.toString()
+        : undefined;
+      let keyword: string = req.query.keyword
+        ? req.query.keyword.toString()
+        : undefined;
+      let isVerified: string = req.query.isVerified
+        ? req.query.isVerified.toString()
+        : undefined;
+
+      const sortType = req.query.sortType === "ascending" ? 1 : -1;
+      let condition, sort, dob;
+
+      if (role && !Array.isArray(role)) {
+        role = [role];
+      }
+
+      //If isVerified is not exist, get all isVerified
+      if (!isVerified) {
+        isVerified = "all";
+      }
+
+      keyword = keyword ? keyword.toString() : keyword;
+
+      // if (keyword && moment(keyword).isValid()) {
+      // 	dob = new Date(keyword)
+      // }
+
+      // Check keyword is valid or not
+      keyword = helpers.escapeRegexp(keyword);
+
+      condition = [
+        {
+          $match: {
+            $and: [
+              {
+                // Search name, phone number, email by string input
+                // $or: [
+                // 	{ firstName: new RegExp(keyword, 'i') },
+                // 	{ lastName: new RegExp(keyword, 'i') }
+                // ]
+              },
+              // filter gender, is verified, active, provider and role
+              isVerified === "all"
+                ? {}
+                : isVerified === "true"
+                  ? { isVerified: true }
+                  : { isVerified: false },
+              // { role: { $nin: ["master", "content"] } },
+              { role: { $in: ["host", "content"] } },
+            ],
+            isCensorHost: false,
+            isDeleted: false,
+          },
+        },
+        // Populate avatar
+        {
+          $lookup: {
+            from: "images",
+            localField: "avatar",
+            foreignField: "_id",
+            as: "avatar",
+          },
+        },
+        { $unwind: { path: "$avatar", preserveNullAndEmptyArrays: true } },
+        // Populate identityCards
+        {
+          $lookup: {
+            from: "images",
+            localField: "identityCards",
+            foreignField: "_id",
+            as: "identityCards",
+          },
+        },
+        // Project token, password
+        {
+          $project: {
+            token: 0,
+            password: 0,
+          },
+        },
+      ];
+
+      if (sortBy && sortType) {
+        switch (sortBy) {
+          case "name": {
+            sort = { firstName: sortType, lastName: sortType };
+            break;
+          }
+          case "id": {
+            sort = { _id: sortType };
+            break;
+          }
+          case "dob": {
+            sort = { dob: sortType };
+            break;
+          }
+          case "phoneNumber": {
+            sort = { phoneNumber: sortType };
+            break;
+          }
+          case "email": {
+            sort = { email: sortType };
+            break;
+          }
+          case "active": {
+            sort = { active: sortType };
+            break;
+          }
+          case "role": {
+            sort = { role: sortType };
+            break;
+          }
+          default: {
+            sort = { createdAt: -1 };
+            break;
+          }
+        }
+
+        condition.push({ $sort: sort });
+      } else {
+        condition.push({ $sort: { createdAt: -1 } });
+      }
+
+      let userData = await userModel.paginate(size, page, condition);
+
+      // const userDataList = userData.data;
+
+      // // Duyệt qua từng người dùng để lấy thông tin doanh thu của từng tòa nhà
+      // for (const element of userDataList) {
+      //   const motelId = element._id;
+      //   const currentDate = new Date();
+      //   const formattedStartDate = new Date(
+      //     currentDate.getFullYear(),
+      //     currentDate.getMonth(),
+      //     2
+      //   ).toISOString().slice(0, 10);
+      //   const formattedCurrentDate = currentDate.toISOString().slice(0, 10);
+
+      //   try {
+      //     const buildingRevenueUrl = `http://localhost:5502/api/v1/homeKey/energy/device/buildingRevenue/${motelId}/${formattedStartDate}/${formattedCurrentDate}`;
+      //     const buildingRevenueResponse = await axios.get(buildingRevenueUrl);
+      //     if (buildingRevenueResponse) {
+      //       console.log("Response from the server", buildingRevenueResponse.data.data);
+
+      //       const buildingRevenueData = buildingRevenueResponse.data.data;
+      //       let hostTotalRevenue = 0;
+
+      //       if (buildingRevenueData === "Motel has no floors") {
+      //         console.log("Motel has no floors");
+      //         hostTotalRevenue = 0;
+      //       } else {
+      //         for (const motel in buildingRevenueData) {
+      //           const totalRevenue = buildingRevenueData[motel].totalRevenue;
+      //           // Tính tổng doanh thu của từng tòa nhà
+      //           hostTotalRevenue += totalRevenue;
+      //         }
+      //       }
+
+      //       // Thêm thuộc tính hostBuildingRevenue vào element
+      //       element.hostBuildingRevenue = hostTotalRevenue;
+      //     } else {
+      //       console.log("No response from the server");
+      //     }
+      //   } catch (error) {
+      //     console.error("Error while fetching building revenue:", error);
+      //   }
+
+      //   // Thêm thông tin người dùng kèm doanh thu vào mảng userDataWithRevenue
+      //   userDataWithRevenue.push(element);
+      // }
+
+      // // Thêm avatar url
+      // for (let i = 0; i < userDataWithRevenue.length; i++) {
+      //   if (userDataWithRevenue[i].avatar) {
+      //     userDataWithRevenue[i].avatar = await helpers.getImageUrl(
+      //       userDataWithRevenue[i].avatar
+      //     );
+      //   }
+
+      //   if (userDataWithRevenue[i].identityCards) {
+      //     userDataWithRevenue[i].identityCards = await helpers.getImageUrl(
+      //       userDataWithRevenue[i].identityCards,
+      //       true
+      //     );
+      //   }
+      // }
+
+      console.log(userData);
+      if(userData) {
+        if(userData.totalRow > 0) {
+          for(let i = 0; i < userData.totalRow; i++) {
+            let motelDatas = await motelRoomModel.find({owner: userData.data[i]._id}).lean().exec();
+            userData.data[i].numberBuilding = motelDatas.length;
+          }
+        }
+      }
+
+      return HttpResponse.returnSuccessResponse(res, userData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async censorNewHostById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init user model`
+      const {
+        user: userModel,
+      } = global.mongoModel;
+      
+      // const id = req.params.id;
+
+      let { body: data } = req;
+
+      console.log({data});
+
+      if(!data) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Không có dữ liệu"
+        )
+      }
+
+      const userData = await userModel.findOne({_id: data.idUser}).lean().exec();
+
+      if(!userData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Người dùng không tồn tại"
+        )
+      }
+
+      if(data.status === true) {
+        const motelDataUpdate = await userModel.findOneAndUpdate(
+          {_id: data.idUser},
+          {
+            isCensorHost: true,
+          },
+          {new: true}
+        );
+        return HttpResponse.returnSuccessResponse(res, motelDataUpdate);
+      } else if(data.status === false) {
+        const motelDataUpdate = await userModel.remove(
+          {_id: data.idUser},
+        );
+        return HttpResponse.returnSuccessResponse(res, motelDataUpdate);
+      }
+      return HttpResponse.returnSuccessResponse(res, 'success');
     } catch (e) {
       next(e);
     }

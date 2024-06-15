@@ -89,6 +89,11 @@ export default class MotelRoomController {
 
       condition = [
         {
+          $match: {
+            isAcceptedByAdmin: true
+          }
+        },
+        {
           $lookup: {
             from: "addresses",
             localField: "address",
@@ -183,6 +188,257 @@ export default class MotelRoomController {
       }
 
       return HttpResponse.returnSuccessResponse(res, resData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  
+
+  static async getMotelRoomPendingCensorList(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init user model`
+      const {
+        motelRoom: motelRoomModel,
+        image: imageModel,
+      } = global.mongoModel;
+      let { sortBy, role, size, page, keyword } = req.query;
+      size === null ? null : size;
+      page === null ? null : page;
+      const sortType = req.query.sortType === "ascending" ? 1 : -1;
+      let condition, sort;
+
+      condition = [
+        {
+          $match: {
+            isAcceptedByAdmin: false,
+            isDeleted: false,
+          }
+        },
+        {
+          $lookup: {
+            from: "addresses",
+            localField: "address",
+            foreignField: "_id",
+            as: "address",
+          },
+        },
+        { $unwind: { path: "$address", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "images",
+            localField: "images",
+            foreignField: "_id",
+            as: "images",
+          },
+        },
+        { $unwind: { path: "$images", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "owner",
+            foreignField: "_id",
+            as: "owner",
+          },
+        },
+        { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            "address.location": "$address.geometry.location",
+          },
+        },
+        {
+          $project: {
+            "owner.token": 0,
+            "owner.password": 0,
+            "owner.role": 0,
+            "owner.active": 0,
+            "owner.isVerified": 0,
+            "owner.signUpCompleted": 0,
+            "owner.isDeleted": 0,
+          },
+        },
+      ];
+
+      if (sortBy && sortType) {
+        switch (sortBy) {
+          case "createdAt": {
+            sort = { createdAt: sortType };
+            break;
+          }
+          case "updatedAt": {
+            sort = { updatedAt: sortType };
+            break;
+          }
+        }
+        condition.push({ $sort: sort });
+      }
+
+      const resData = helpers.changeTimeZone(
+        await motelRoomModel.paginate(size, page, condition)
+      );
+      console.log("getMotelRoomList");
+      if (resData) {
+        const n = resData["data"].length;
+        for (let i = 0; i < n; i++) {
+          if (resData["data"][i].images) {
+            if (Array.isArray(resData["data"][i].images)) {
+              if (resData["data"][i].images.length > 0) {
+                for (let j = 0; j < resData["data"][i].images.length; j++) {
+                  const dataimg = await imageModel.findOne({
+                    _id: resData["data"][i].images[j],
+                  });
+                  if (dataimg) {
+                    resData["data"][i].images[j] = await helpers.getImageUrl(
+                      dataimg
+                    );
+                  }
+                }
+              }
+            }
+            // imag not array
+            else {
+              const dataimg = await imageModel.findOne({
+                _id: resData["data"][i].images,
+              });
+              if (dataimg) {
+                resData["data"][i].images = await helpers.getImageUrl(dataimg);
+              }
+            }
+          }
+          if(resData["data"][i].owner) {
+            if(resData["data"][i].owner.backId) {
+              const backId = await imageModel.findOne({
+                _id: resData["data"][i].owner.backId,
+              });
+              if (backId) {
+                resData["data"][i].owner.backId = await helpers.getImageUrl(
+                  backId
+                );
+              }
+            }
+            if(resData["data"][i].owner.frontId) {
+              const frontId = await imageModel.findOne({
+                _id: resData["data"][i].owner.frontId,
+              });
+              if (frontId) {
+                resData["data"][i].owner.frontId = await helpers.getImageUrl(
+                  frontId
+                );
+              }
+            }
+            if(resData["data"][i].owner.avatar) {
+              const avatar = await imageModel.findOne({
+                _id: resData["data"][i].owner.avatar,
+              });
+              if (avatar) {
+                resData["data"][i].owner.avatar = await helpers.getImageUrl(
+                  avatar
+                );
+              }
+            }
+          }
+        }
+      }
+
+      return HttpResponse.returnSuccessResponse(res, resData);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  static async searchMotels(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const {
+        motelRoom: motelRoomModel
+      } = global.mongoModel;
+      const { body: data } = req;
+      console.log({data});
+      // const motelData = await motelRoomModel.find({ name: { $regex: data.name, $options: 'i' } }).lean().exec();
+      const sanitizedSearchString = data.name.replace(/\s+/g, '');
+      const motelData = await motelRoomModel.find({
+        $expr: {
+          $eq: [
+            { $replaceAll: { input: { $toLower: "$name" }, find: " ", replacement: "" } },
+            sanitizedSearchString.toLowerCase()
+          ]
+        },
+
+      }).lean().exec();
+      console.log({motelData});
+      return HttpResponse.returnSuccessResponse(
+        res,
+        motelData
+      )
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async censorNewMotelById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      // Init user model`
+      const {
+        motelRoom: motelRoomModel,
+      } = global.mongoModel;
+      
+      // const id = req.params.id;
+
+      let { body: data } = req;
+
+      console.log({data});
+
+      if(!data) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Không có dữ liệu"
+        )
+      }
+
+      const motelData = await motelRoomModel.findOne({_id: data.idMotel}).lean().exec();
+
+      if(!motelData) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tòa nhà không tồn tại"
+        )
+      }
+
+      console.log("alsdkjf", typeof(data.status));
+
+      if(data.status === true) {
+        const motelDataUpdate = await motelRoomModel.findOneAndUpdate(
+          {_id: data.idMotel},
+          {
+            isAcceptedByAdmin: true,
+          },
+          {new: true}
+        );
+        return HttpResponse.returnSuccessResponse(res, motelDataUpdate);
+      } else if(data.status === false) {
+        const motelDataUpdate = await motelRoomModel.findOneAndUpdate(
+          {_id: data.idMotel},
+          {
+            isDeleted: true,
+            isAcceptedByAdmin: false,
+          },
+          {new: true}
+        );
+        return HttpResponse.returnSuccessResponse(res, motelDataUpdate);
+      }
+      return HttpResponse.returnSuccessResponse(res, 'hihihi');
     } catch (e) {
       next(e);
     }
@@ -558,6 +814,15 @@ export default class MotelRoomController {
       } = global.mongoModel;
 
       let { body: data } = req;
+
+      const ownerData = await userModel.findOne({_id: req["userId"]}).lean().exec();
+
+      if(!ownerData.isCensorHost) {
+        return HttpResponse.returnBadRequestResponse(
+          res,
+          "Tài khoản chủ trọ chưa được phê duyệt, không thể tạo tòa nhà"
+        )
+      }
 
       const googleMap = new GoogleMapService();
 
