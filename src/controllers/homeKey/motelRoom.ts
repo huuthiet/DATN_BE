@@ -1,4 +1,6 @@
 import { NextFunction, Request, Response } from "express";
+const fetch = require('node-fetch');
+import axios from 'axios';
 import GoogleMapService from "../../services/googleMap";
 import ImageService from "../../services/image";
 import HttpResponse from "../../services/response";
@@ -358,25 +360,198 @@ export default class MotelRoomController {
   ): Promise<any> {
     try {
       const {
-        motelRoom: motelRoomModel
+        motelRoom: motelRoomModel,
+        image: imageModel,
+        address: addressModel,
       } = global.mongoModel;
       const { body: data } = req;
       console.log({data});
+      console.log("akjdjhfka", req.body)
       // const motelData = await motelRoomModel.find({ name: { $regex: data.name, $options: 'i' } }).lean().exec();
-      const sanitizedSearchString = data.name.replace(/\s+/g, '');
-      const motelData = await motelRoomModel.find({
-        $expr: {
-          $eq: [
-            { $replaceAll: { input: { $toLower: "$name" }, find: " ", replacement: "" } },
-            sanitizedSearchString.toLowerCase()
-          ]
-        },
 
-      }).lean().exec();
-      console.log({motelData});
+      //NAME
+      // const sanitizedSearchString = data.name.replace(/\s+/g, '');
+      // const motelData = await motelRoomModel.find({
+      //   $expr: {
+      //     $eq: [
+      //       { $replaceAll: { input: { $toLower: "$name" }, find: " ", replacement: "" } },
+      //       sanitizedSearchString.toLowerCase()
+      //     ]
+      //   },
+
+      // }).lean().exec();
+      // console.log({motelData});
+
+      //PRICE: khoảng giá price1 <= minPirce <= price2
+      // const motelDataPrice = await motelRoomModel.find({
+      //   minPrice: {
+      //     $gte: data.minPrice,
+      //     $lte: data.maxPrice,
+      //   }
+      // }).lean().exec();
+
+
+      //utilities: 
+      // let defaultUtilities = 
+      // ["wifi","bon_cau", "dieu_hoa", "truyen_hinh", "voi_hoa_sen",
+      //   "giat_ui", "giu_xe", "gac_lung", "bon_rua_mat", "don_phong",
+      //   "san_go", "tu_quan_ao", "gio_giac_tu_do", "loi_di_rieng"];
+
+      // if(data.utilities) {
+      //   if(data.utilities.length > 0) {
+      //     defaultUtilities = data.utilities;
+      //   }
+      // }
+      // const queryUtilities = [
+      //   {
+      //     $match: {
+      //       utilities: {
+      //         $elemMatch: { $in: defaultUtilities }
+      //       }
+      //     }
+      //   },
+      //   {
+      //     $addFields: {
+      //       matchedUtilitiesCount: {
+      //         $size: {
+      //           $setIntersection: ["$utilities", defaultUtilities]
+      //         }
+      //       }
+      //     }
+      //   },
+      //   {
+      //     $sort: {
+      //       matchedUtilitiesCount: -1
+      //     }
+      //   },
+      //   {
+      //     $project: {
+      //       matchedUtilitiesCount: 0
+      //     }
+      //   }
+      // ]; 
+      // const motelDataUtilities = await motelRoomModel.aggregate(queryUtilities);
+
+      // const handlePlaceSelect = async (place) => {
+      //   try {
+      //     if (place === '') {
+      //       place = 'Linh Trung, Thủ Đức'
+      //     }
+
+      //     const encodedAddress = encodeURIComponent(place);
+      //     const response = await fetch(
+      //       `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${process.env.GOOGLE_MAP_API_KEY}`
+      //     );
+      //     const data = await response.json();
+      //     console.log({data});
+      //     const { lat, lng } = data.results[0].geometry.location;
+      //     // setCurrentPosition({ lat: lat, lng: lng });
+      //     console.log("VỊ TRÍIIII", data);
+      //     console.log("VỊ TRÍIIII", lat);
+      //     console.log("VỊ TRÍIIII", lng);
+      //     // setCoordinates({ lat, lng });
+      //   } catch (error) {
+      //     console.error('Error fetching coordinates:', error);
+      //     // setCurrentPosition({ lat: 10.856866, lng: 106.763324 });
+      //   }
+      // };
+
+      // handlePlaceSelect(data.address);
+
+      // if (data.address === '') {
+      //   data.address = 'Viet Nam'
+      // }
+
+      // // const encodedAddress = encodeURIComponent(data.address);
+      // const response = await fetch(
+      //   `https://maps.googleapis.com/maps/api/geocode/json?address=${data.address}&key=${process.env.GOOGLE_MAP_API_KEY}`
+      // );
+      // const addressRespone = await response.json();
+      // console.log({addressRespone});
+      // const { lat, lng } = addressRespone.results[0].geometry.location;
+      // // setCurrentPosition({ lat: lat, lng: lng });
+      // console.log("VỊ TRÍIIII", addressRespone);
+      // console.log("VỊ TRÍIIII", lat);
+      // console.log("VỊ TRÍIIII", lng);
+
+      // const address = {
+      //   lat: lat,
+      //   lng: lng,
+      // };
+
+      //TONG
+      let defaultUtilities = 
+      ["wifi","bon_cau", "dieu_hoa", "truyen_hinh", "voi_hoa_sen",
+        "giat_ui", "giu_xe", "gac_lung", "bon_rua_mat", "don_phong",
+        "san_go", "tu_quan_ao", "gio_giac_tu_do", "loi_di_rieng"];
+
+      if(data.utilities) {
+        if(data.utilities.length > 0) {
+          defaultUtilities = data.utilities;
+        }
+      }
+      const query = [
+        {
+          $match: {
+            utilities: {
+              $elemMatch: { $in: defaultUtilities }
+            },
+            minPrice: {
+              $gte: data.minPrice,
+              $lte: data.maxPrice,
+            }
+          }
+        },
+        {
+          $addFields: {
+            matchedUtilitiesCount: {
+              $size: {
+                $setIntersection: ["$utilities", defaultUtilities]
+              }
+            }
+          }
+        },
+        {
+          $sort: {
+            matchedUtilitiesCount: -1
+          }
+        },
+        {
+          $lookup: {
+            from: 'addresses', // Tên của collection chứa địa chỉ
+            localField: 'address', // Trường trong motelRoomModel chứa _id của địa chỉ
+            foreignField: '_id', // Trường _id trong collection addresses
+            as: 'address' // Tên trường mới chứa dữ liệu được populate
+          }
+        },
+        {
+          $unwind: {
+            path: "$address",
+            preserveNullAndEmptyArrays: true // Giữ lại document nếu không có địa chỉ phù hợp
+          }
+        },
+        {
+          $project: {
+            matchedUtilitiesCount: 0
+          }
+        }
+      ]; 
+
+      let motelData = await motelRoomModel.aggregate(query);
+
+      const dataRes = {
+        listMotel: motelData,
+        // address: address,
+      }
+
+      const test = await motelRoomModel.find({_id: "6640d72626fe12180875ab82"}).populate("address").lean().exec();
+      console.log({test});
+      console.log(test[0].address);
+
+
       return HttpResponse.returnSuccessResponse(
         res,
-        motelData
+        dataRes
       )
     } catch (error) {
       next(error);
