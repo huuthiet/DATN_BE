@@ -44,6 +44,7 @@
     "express-session": "1.17.1",
     "faker": "4.1.0",
     "fs": "0.0.1-security",
+    "fs-extra": "^11.2.0",
     "google-distance": "1.0.1",
     "hbs": "4.1.1",
     "http": "0.0.0",
@@ -97,7 +98,7 @@
   },
   "scripts": {
     "dev": "nodemon -x ts-node --project tsconfig.json src/server.ts",
-    "build": "npx tsc",
+    "build": "tsc && node copyFonts.js",
     "start": "node build/server.js"
   }
 }
